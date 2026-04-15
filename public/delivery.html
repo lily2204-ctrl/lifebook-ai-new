@@ -98,6 +98,9 @@
     .prog-track{height:6px;border-radius:8px;background:rgba(200,146,42,0.1);overflow:hidden}
     .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--gold-light),var(--gold));border-radius:8px;transition:width 0.5s ease}
 
+    .nav-lang{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 18px;font-family:'Lato',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+    .nav-lang:hover{border-color:var(--gold-light)}
+    [dir="rtl"] .hero-text strong,[dir="rtl"] .hero-text span,[dir="rtl"] .dl-text strong,[dir="rtl"] .dl-text span,[dir="rtl"] .book-title-sm,[dir="rtl"] .book-sub-sm{text-align:right}
     @media(max-width:860px){.layout{grid-template-columns:1fr}.side-panel{position:static}.book-spread{max-width:380px}.spread-left{border-right:none;border-bottom:1px solid var(--parchment)}.spread-cover-full{grid-column:1/2}}
     @media(max-width:600px){nav{padding:0 4vw}.shell{padding:18px 10px 60px}.hero{flex-direction:column}.flipper-card{padding:14px}.download-card{flex-direction:column}}
   </style>
@@ -105,11 +108,11 @@
 <body>
 
 <nav>
-  <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם">← Back</button>
+  <button class="nav-back" id="dlNavBack" onclick="history.back()">← Back</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
-  <div style="width:80px"></div>
+  <button class="nav-lang" id="dlLangBtn" onclick="dlToggleLang()">🌐 עברית</button>
 </nav>
 
 <main class="shell">
@@ -367,7 +370,7 @@ async function init() {
       }
 
       // Update live progress bar
-      const totalPgs = (book.generatedBook?.pages?.length) || 16;
+      const totalPgs = (book.generatedBook?.pages?.length) || 12;
       const genProg = document.getElementById('genProgress');
       const genText = document.getElementById('genProgressText');
       const genBar  = document.getElementById('genProgressBar');
@@ -693,6 +696,67 @@ async function generatePDF() {
 }
 
 init();
+</script>
+<script>
+var _dlLang = 'en';
+var _dlHE = {
+  langToggle: '🌐 English',
+  navBack: '← חזרה',
+  heroBannerSub: 'קרא את הספר המותאם אישית שלך או הורד PDF פרימיום',
+  dlBtn: '⬇ הורדת PDF',
+  readerBtn: '📖 קורא מלא',
+  genProgressText: '✨ מאייר את הספר שלך...',
+  genComplete: '✅ הספר שלך מוכן!',
+  dlCardTitle: 'הורד את ה-PDF שלך',
+  dlCardSub: 'איכות גבוהה · מוכן להדפסה · שער + כל העמודים',
+  lblChild: 'ילד/ה', lblPages: 'עמודים', lblFormat: 'פורמט', lblStatus: 'סטטוס',
+  statusPaid: '✅ שולם', statusPending: 'ממתין',
+  pageCounter: 'שער',
+  useArrows: 'השתמשו בחצים במקלדת או החליקו להפוך עמודים',
+};
+var _dlEN = {
+  langToggle: '🌐 עברית',
+  navBack: '← Back',
+  heroBannerSub: 'Read your personalized storybook or download a premium PDF',
+  dlBtn: '⬇ Download PDF',
+  readerBtn: '📖 Full Reader',
+  genProgressText: '✨ Illustrating your book...',
+  genComplete: '✅ Your book is complete!',
+  dlCardTitle: 'Download your storybook PDF',
+  dlCardSub: 'High quality · Print-ready · Cover + all pages',
+  lblChild: 'Child', lblPages: 'Pages', lblFormat: 'Format', lblStatus: 'Status',
+  statusPaid: '✅ Paid', statusPending: 'Pending',
+  pageCounter: 'Cover',
+  useArrows: 'Use arrow keys or swipe to flip pages',
+};
+function dlToggleLang() {
+  _dlLang = _dlLang === 'en' ? 'he' : 'en';
+  var t = _dlLang === 'he' ? _dlHE : _dlEN;
+  var isHe = _dlLang === 'he';
+  document.documentElement.setAttribute('dir', isHe ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', isHe ? 'he' : 'en');
+  var set = function(id, val) { var el = document.getElementById(id); if (el && val) el.textContent = val; };
+  set('dlLangBtn', t.langToggle);
+  set('dlNavBack', t.navBack);
+  var heroSub = document.querySelector('.hero-text span'); if (heroSub) heroSub.textContent = t.heroBannerSub;
+  set('dlBtnHero', t.dlBtn);
+  set('readerBtnHero', t.readerBtn);
+  set('dlBtn', t.dlBtn);
+  var genText = document.getElementById('genProgressText');
+  if (genText) genText.textContent = t.genProgressText;
+  var dlStrong = document.querySelector('.dl-text strong'); if (dlStrong) dlStrong.textContent = t.dlCardTitle;
+  var dlSpan = document.querySelector('.dl-text span'); if (dlSpan) dlSpan.textContent = t.dlCardSub;
+  var lbls = document.querySelectorAll('.info-row .lbl');
+  var lKeys = [t.lblChild, t.lblPages, t.lblFormat, t.lblStatus];
+  lbls.forEach(function(l, i) { if (lKeys[i]) l.textContent = lKeys[i]; });
+  var arrowHint = document.querySelector('.flipper-card > div:last-child');
+  var arrowEl = document.querySelector('[style*="Use arrow keys"], [style*="arrow keys"]');
+  // Find the hint text after flipper-nav
+  var hints = document.querySelectorAll('.flipper-card div');
+  hints.forEach(function(d) {
+    if (d.textContent.indexOf('arrow') !== -1 || d.textContent.indexOf('חצים') !== -1) d.textContent = t.useArrows;
+  });
+}
 </script>
 <script src="accessibility.js"></script>
 </body>

@@ -661,7 +661,9 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const book = await getBook(bookId);
       if (!book) { console.error("generate-full: book not found", bookId); return; }
 
-      console.log(`generate-full [${bookId}]: START — child: ${book.childName}, style: ${book.illustrationStyle}`);
+      const _t0 = Date.now();
+      const _elapsed = () => `${((Date.now() - _t0) / 1000).toFixed(1)}s`;
+      console.log(`[TIMER ${bookId}] START — child: ${book.childName}, style: ${book.illustrationStyle}`);
 
       const childName         = book.childName         || "The Child";
       const childAge          = book.childAge          || "5";
@@ -719,11 +721,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       const promptCore       = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
       const characterSummary = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
-      console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready`);
+      console.log(`[TIMER ${bookId}] STEP1_DONE — character ref ready at ${_elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
       if (!book.generatedBook?.pages?.length) {
-        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 16 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
+        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
 - If the child's name contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If the name is in English or Latin characters, write in English`;
 
@@ -740,7 +742,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
           subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
           pages:    Array.isArray(storyData.pages)
-            ? storyData.pages.slice(0, 16).map(p => ({
+            ? storyData.pages.slice(0, 12).map(p => ({
                 text:        sanitizeBrandTerms(String(p.text        || "").trim()),
                 imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
               }))
@@ -751,7 +753,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
       // Running them together cuts the wait from ~2min to ~60s
-      console.log(`generate-full [${bookId}]: STEP 2 done — story written, starting cover + priority images in parallel`);
+      console.log(`[TIMER ${bookId}] STEP2_DONE — story written at ${_elapsed()}, starting cover + priority images in parallel`);
 
       const bookBeforeImgs = await getBook(bookId);
       const pages          = bookBeforeImgs.generatedBook?.pages || [];
@@ -762,21 +764,22 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       while (fullImages.length < pages.length) fullImages.push(null);
 
       // פונקציה ליצירת תמונה אחת
-      async function generatePageImage(pageIndex) {
+      async function generatePageImage(pageIndex, quality = "medium") {
         const page = pages[pageIndex];
         const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity\n- same face structure\n- same hair and skin tone\n- warm magical storybook aesthetic\n- no text\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
-        const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024" });
+        const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024", quality });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
       // Cover prompt
       const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nBOOK TITLE:\n${sanitizeBrandTerms(title)}\n\nBOOK SUBTITLE:\n${sanitizeBrandTerms(subtitle)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero\n- magical, premium, warm\n- no character sheet\n- no multiple poses\n- no text rendered into the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
-      // Run cover + pages 0 and 1 all at once in parallel
+      // Run cover + pages 0 and 1 all at once in parallel (quality:low for speed)
+      console.log(`[TIMER ${bookId}] STEP3_4a_START — launching cover + page0 + page1 in parallel`);
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
-        bookBeforeImgs.coverImage ? Promise.resolve(null) : openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
-        fullImages[0] ? Promise.resolve(null) : generatePageImage(0),
-        fullImages[1] ? Promise.resolve(null) : generatePageImage(1),
+        bookBeforeImgs.coverImage ? Promise.resolve(null) : openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024", quality: "low" }),
+        fullImages[0] ? Promise.resolve(null) : generatePageImage(0, "low"),
+        fullImages[1] ? Promise.resolve(null) : generatePageImage(1, "low"),
       ]);
 
       // Save cover
@@ -795,7 +798,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
 
-      console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved`);
+      console.log(`[TIMER ${bookId}] STEP3_4a_DONE — cover + priority images saved at ${_elapsed()}`);
 
       // שלב 4ב: שאר התמונות (3-16) בbatches של 3
       // שלב 4ב: שאר התמונות — 5 במקביל, כל תמונה נשמרת מיד כשמוכנה
@@ -816,7 +819,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
               fullImages[pageIndex] = `data:image/jpeg;base64,${base64}`;
               await updateBookField(bookId, { fullImages: [...fullImages] });
               const doneCount = fullImages.filter(Boolean).length;
-              console.log(`generate-full [${bookId}]: image ${pageIndex} saved — ${doneCount}/${pages.length} total`);
+              console.log(`[TIMER ${bookId}] IMG_${pageIndex}_DONE — ${doneCount}/${pages.length} total at ${_elapsed()}`);
             }
           } catch (err) {
             console.error(`generate-full [${bookId}]: image ${pageIndex} failed:`, err.message);
@@ -825,7 +828,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       }
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
-      console.log("generate-full: completed for bookId:", bookId);
+      console.log(`[TIMER ${bookId}] COMPLETE — all images done at ${_elapsed()}`);
       try {
         const completedBook = await getBook(bookId);
         // Only send if book was paid (user might not have paid yet — that's ok,
@@ -1175,7 +1178,7 @@ Return ONLY JSON:
 }
 
 Rules:
-- Exactly 16 story pages
+- Exactly 12 story pages
 - Each page text must be 35-70 words
 - The child must clearly be the hero
 - imagePrompt must describe the same child consistently
