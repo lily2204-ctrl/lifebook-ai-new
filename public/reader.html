@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Reader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden}
+
+    /* NAV */
+    nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
+    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-back:hover{border-color:var(--gold-light)}
+
+    /* SHELL */
+    .shell{width:min(1100px,94vw);margin:0 auto;padding:40px 0 80px}
+
+    /* BOOK HEADER */
+    .book-header{background:var(--white);border-radius:24px;padding:28px 32px;margin-bottom:28px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+    .book-header-text{}
+    .step-badge{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fff8ed,#fdf0d5);border:1px solid var(--gold-pale);border-radius:50px;padding:4px 12px;font-size:11px;color:var(--gold);font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px}
+    .book-header h1{font-family:'Playfair Display',serif;font-size:clamp(22px,3.5vw,36px);color:var(--brown);line-height:1.1;margin-bottom:4px}
+    .book-header p{font-size:14px;color:var(--text-muted)}
+    .book-header-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:13px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;font-family:'Lato',sans-serif;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45)}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:11px 22px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s}
+    .btn-secondary:hover{border-color:var(--gold-light)}
+
+    /* VIEW TOGGLE */
+    .view-toggle{display:flex;gap:6px;background:var(--cream-deep);border:1px solid var(--parchment);border-radius:50px;padding:4px}
+    .toggle-btn{padding:7px 16px;border-radius:50px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:'Lato',sans-serif;background:transparent;color:var(--text-muted);transition:all 0.2s}
+    .toggle-btn.active{background:var(--white);color:var(--brown);box-shadow:0 2px 8px rgba(100,60,20,0.1)}
+
+    /* GRID VIEW  all pages at once */
+    .pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+
+    .page-card{background:var(--white);border-radius:22px;overflow:hidden;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;transition:transform 0.2s,box-shadow 0.2s}
+    .page-card:hover{transform:translateY(-4px);box-shadow:0 16px 50px rgba(100,60,20,0.14)}
+    .page-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
+    .page-num-badge{position:absolute;top:12px;left:12px;background:rgba(253,246,236,0.92);backdrop-filter:blur(4px);border:1px solid var(--parchment);border-radius:50px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;z-index:2}
+    .page-img-wrap{width:100%;aspect-ratio:1/1;background:var(--cream-deep);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .page-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+    .page-img-loading{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;padding:20px}
+    .page-img-error{display:flex;align-items:center;justify-content:center;color:#a03020;font-size:13px;padding:20px;text-align:center}
+    .page-body{padding:16px 18px 18px}
+    .page-text{font-family:'Playfair Display',serif;font-size:16px;line-height:1.65;color:var(--brown)}
+
+    /* SPINNER */
+    .spinner{width:32px;height:32px;border-radius:50%;border:3px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.9s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* LOADING STATE */
+    .loading-state{text-align:center;padding:80px 20px;color:var(--text-muted)}
+    .loading-state .spinner{margin:0 auto 16px}
+    .loading-state p{font-size:15px}
+
+    /* SINGLE PAGE VIEW (fallback) */
+    .single-view{display:none}
+    .single-view.active{display:block}
+    .grid-view.hidden{display:none}
+
+    /* DOWNLOAD BANNER */
+    .download-banner{background:linear-gradient(135deg,var(--brown),#3a2010);border-radius:22px;padding:24px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .download-banner-text strong{display:block;font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-pale);margin-bottom:4px}
+    .download-banner-text span{font-size:14px;color:var(--parchment);opacity:0.75}
+    .btn-download{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.4);font-family:'Lato',sans-serif;transition:all 0.25s;display:flex;align-items:center;gap:8px}
+    .btn-download:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.55)}
+
+    @media(max-width:640px){
+      nav{padding:0 4vw}
+      .shell{padding:24px 12px 60px}
+      .book-header{padding:20px}
+      .pages-grid{grid-template-columns:1fr}
+      .download-banner{flex-direction:column}
+      .btn-download,.btn-primary,.btn-secondary{width:100%;justify-content:center}
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <button class="nav-back" id="backToPreviewBtn">Back</button>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:44px;width:auto;display:block"/>
+  </a>
+  <div style="width:80px"></div>
+</nav>
+
+<main class="shell">
+
+  <!-- Download banner -->
+  <div class="download-banner" id="downloadBanner" style="display:none">
+    <div class="download-banner-text">
+      <strong id="bannerTitle">Your Magical Adventure</strong>
+      <span>Your book is ready  download the full PDF below</span>
+    </div>
+    <button class="btn-download" id="downloadPdfBtn">
+      <span></span> Download PDF
+    </button>
+  </div>
+
+  <!-- Book header -->
+  <div class="book-header">
+    <div class="book-header-text">
+      <div class="step-badge">Your Book</div>
+      <h1 id="readerTitle">Your Magical Adventure</h1>
+      <p id="readerSubtitle">A story where you are the hero</p>
+    </div>
+    <div class="book-header-actions">
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="toggleGrid">All pages</button>
+        <button class="toggle-btn" id="toggleSingle">One by one</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRID VIEW: all pages at once -->
+  <div class="grid-view" id="gridView">
+    <div id="pagesGrid" class="pages-grid">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading your book...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SINGLE VIEW: one page at a time -->
+  <div class="single-view" id="singleView">
+    <div class="page-card" style="max-width:600px;margin:0 auto">
+      <div class="page-num-badge" id="singlePageBadge">Page 1</div>
+      <div class="page-img-wrap" id="singleImageWrap">
+        <div class="page-img-loading"><div class="spinner"></div><span>Loading...</span></div>
+      </div>
+      <div class="page-body">
+        <p class="page-text" id="singlePageText"></p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;background:var(--white);border-radius:22px;padding:14px 20px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment)">
+      <span style="font-size:14px;color:var(--text-muted)" id="singleCounter">Page 1 of 10</span>
+      <div style="display:flex;gap:10px">
+        <button class="btn-secondary" id="prevPageBtn">Prev</button>
+        <button class="btn-primary" id="nextPageBtn">Next</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script type="module">
+const API_BASE = window.location.origin;
+
+function getBookId() {
+  return new URLSearchParams(window.location.search).get("bookId");
+}
+
+const bookId = getBookId();
+if (!bookId) { window.location.href = "wizard.html"; }
+
+// DOM
+const readerTitle    = document.getElementById("readerTitle");
+const readerSubtitle = document.getElementById("readerSubtitle");
+const pagesGrid      = document.getElementById("pagesGrid");
+const gridView       = document.getElementById("gridView");
+const singleView     = document.getElementById("singleView");
+const toggleGrid     = document.getElementById("toggleGrid");
+const toggleSingle   = document.getElementById("toggleSingle");
+const downloadBanner = document.getElementById("downloadBanner");
+const bannerTitle    = document.getElementById("bannerTitle");
+const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+const backBtn        = document.getElementById("backToPreviewBtn");
+
+// Single view
+const singleImageWrap = document.getElementById("singleImageWrap");
+const singlePageText  = document.getElementById("singlePageText");
+const singlePageBadge = document.getElementById("singlePageBadge");
+const singleCounter   = document.getElementById("singleCounter");
+const prevBtn         = document.getElementById("prevPageBtn");
+const nextBtn         = document.getElementById("nextPageBtn");
+
+let book = null;
+let pages = [];
+let images = [];
+let currentIndex = 0;
+
+// Toggle view
+toggleGrid.addEventListener("click", function() {
+  toggleGrid.classList.add("active");
+  toggleSingle.classList.remove("active");
+  gridView.classList.remove("hidden");
+  singleView.classList.remove("active");
+});
+
+toggleSingle.addEventListener("click", function() {
+  toggleSingle.classList.add("active");
+  toggleGrid.classList.remove("active");
+  gridView.classList.add("hidden");
+  singleView.classList.add("active");
+  renderSinglePage(currentIndex);
+});
+
+backBtn && backBtn.addEventListener("click", function() {
+  window.location.href = "preview.html?bookId=" + encodeURIComponent(bookId);
+});
+
+// Single page nav
+prevBtn && prevBtn.addEventListener("click", function() {
+  if (currentIndex > 0) { currentIndex--; renderSinglePage(currentIndex); }
+});
+
+nextBtn && nextBtn.addEventListener("click", function() {
+  if (currentIndex < pages.length - 1) { currentIndex++; renderSinglePage(currentIndex); }
+  else { window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId); }
+});
+
+function renderSinglePage(i) {
+  var page = pages[i];
+  if (!page) return;
+  singlePageBadge.textContent = "Page " + (i+1);
+  singleCounter.textContent = "Page " + (i+1) + " of " + pages.length;
+  singlePageText.textContent = page.text || "";
+  prevBtn.disabled = i === 0;
+  prevBtn.style.opacity = i === 0 ? "0.5" : "1";
+  nextBtn.textContent = i === pages.length - 1 ? "Finish" : "Next";
+
+  var src = images[i];
+  if (src) {
+    singleImageWrap.innerHTML = '<img src="' + src + '" alt="Page ' + (i+1) + '"/>';
+  } else {
+    singleImageWrap.innerHTML = '<div class="page-img-loading"><div class="spinner"></div><span>Loading...</span></div>';
+  }
+}
+
+// Build grid
+function buildGrid() {
+  pagesGrid.innerHTML = "";
+  pages.forEach(function(page, i) {
+    var card = document.createElement("div");
+    card.className = "page-card";
+    card.id = "grid-page-" + i;
+
+    var src = images[i];
+    var imgHtml = src
+      ? '<img src="' + src + '" alt="Page ' + (i+1) + '"/>'
+      : '<div class="page-img-loading"><div class="spinner"></div><span>Illustrating...</span></div>';
+
+    card.innerHTML =
+      '<div class="page-num-badge">Page ' + (i+1) + '</div>' +
+      '<div class="page-img-wrap" id="gimg-' + i + '">' + imgHtml + '</div>' +
+      '<div class="page-body"><p class="page-text">' + (page.text || "") + '</p></div>';
+
+    pagesGrid.appendChild(card);
+  });
+}
+
+// Update a single image in grid
+function updateGridImage(i, src) {
+  var wrap = document.getElementById("gimg-" + i);
+  if (wrap && src) {
+    wrap.innerHTML = '<img src="' + src + '" alt="Page ' + (i+1) + '"/>';
+  }
+}
+
+async function loadBook() {
+  var res  = await fetch(API_BASE + "/api/books/" + bookId);
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to load book");
+  return data.book;
+}
+
+// Main
+(async function() {
+  try {
+    book = await loadBook();
+
+    // Check purchase
+    if (!book.purchaseUnlocked && book.paymentStatus !== "paid") {
+      window.location.href = "checkout.html?bookId=" + encodeURIComponent(bookId);
+      return;
+    }
+
+    pages  = (book.generatedBook && book.generatedBook.pages) || [];
+    images = book.fullImages || [];
+
+    // Title
+    var title = (book.generatedBook && book.generatedBook.title) || "Your Magical Adventure";
+    var sub   = (book.generatedBook && book.generatedBook.subtitle) || "";
+    if (readerTitle)    readerTitle.textContent    = title;
+    if (readerSubtitle) readerSubtitle.textContent = sub;
+    if (bannerTitle)    bannerTitle.textContent     = title;
+
+    // Show download banner
+    if (downloadBanner) downloadBanner.style.display = "flex";
+
+    // Build grid immediately with whatever images we have
+    buildGrid();
+
+    // Poll for missing images
+    var totalPages  = pages.length;
+    var readyImages = images.filter(Boolean).length;
+
+    if (readyImages < totalPages) {
+      var pollCount = 0;
+      var interval = setInterval(async function() {
+        pollCount++;
+        if (pollCount > 60) { clearInterval(interval); return; }
+        try {
+          var r = await fetch(API_BASE + "/api/books/" + bookId);
+          var d = await r.json();
+          if (!r.ok || !d.book) return;
+          var newImages = d.book.fullImages || [];
+          newImages.forEach(function(src, i) {
+            if (src && !images[i]) {
+              images[i] = src;
+              updateGridImage(i, src);
+              // Update single view if showing this page
+              if (!gridView.classList.contains("hidden") === false && currentIndex === i) {
+                renderSinglePage(i);
+              }
+            }
+          });
+          if (newImages.filter(Boolean).length >= totalPages) { clearInterval(interval); }
+        } catch(e) {}
+      }, 4000);
+    }
+
+    // Download PDF
+    if (downloadPdfBtn) {
+      downloadPdfBtn.addEventListener("click", function() {
+        window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId);
+      });
+    }
+
+  } catch(err) {
+    pagesGrid.innerHTML = '<div class="loading-state"><p style="color:#a03020">' + (err.message || "Failed to load book.") + '</p></div>';
+  }
+})();
+</script>
+<script src="accessibility.js"></script>
+</body>
+</html>

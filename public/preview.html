@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Your Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;min-height:100vh}
+
+    /* NAV */
+    nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
+    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-back:hover{border-color:var(--gold-light)}
+
+    .shell{width:min(1100px,94vw);margin:0 auto;padding:40px 0 80px}
+
+    /* LOADING SCREEN */
+    .loading-screen{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+    .loading-title{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,32px);color:var(--brown);margin-bottom:6px}
+    .loading-sub{font-size:14px;color:var(--text-muted);margin-bottom:28px}
+    .lb-timer-row{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:360px;margin-bottom:12px}
+    .lb-timer-label{font-size:13px;color:var(--text-muted)}
+    .lb-timer-val{font-size:22px;font-weight:700;color:var(--brown);font-variant-numeric:tabular-nums}
+    .lb-bar-wrap{width:100%;max-width:360px;height:7px;background:rgba(200,146,42,0.12);border-radius:8px;overflow:hidden;margin-bottom:22px}
+    .lb-bar{height:100%;background:linear-gradient(90deg,var(--gold-light),var(--gold));border-radius:8px;transition:width 0.8s ease;width:0%}
+    .lb-steps{display:flex;flex-direction:column;gap:9px;width:100%;max-width:360px;margin-bottom:22px}
+    .lb-step{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;background:var(--white);border:1.5px solid var(--parchment);font-size:14px;color:var(--text-muted);transition:all 0.35s ease}
+    .lb-step.active{border-color:var(--gold-light);background:linear-gradient(135deg,rgba(232,184,75,0.08),var(--white));color:var(--brown)}
+    .lb-step.done{border-color:rgba(200,146,42,0.3);background:linear-gradient(135deg,rgba(200,146,42,0.05),var(--white));color:var(--text-muted)}
+    .lb-icon{width:30px;height:30px;border-radius:50%;background:var(--cream-deep);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:all 0.3s}
+    .lb-step.done .lb-icon{background:var(--gold);font-size:13px}
+    .lb-step.active .lb-icon{background:var(--gold-light);animation:pulse-icon 1.2s ease infinite}
+    @keyframes pulse-icon{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+    .lb-step-text{flex:1;text-align:left}
+    .lb-step-label{font-weight:700;font-size:13px;margin-bottom:1px}
+    .lb-step-desc{font-size:11px;opacity:0.7}
+    .lb-step-time{font-size:11px;color:var(--gold);font-weight:700;min-width:28px;text-align:right}
+    .lb-step.done .lb-step-time{color:var(--text-muted)}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* MAIN LAYOUT */
+    .main-layout{display:none;grid-template-columns:360px 1fr;gap:22px;align-items:start}
+    .main-layout.visible{display:grid}
+
+    /* COVER PANEL */
+    .cover-panel{background:var(--white);border-radius:24px;padding:20px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:sticky;top:80px}
+    .book-stage{position:relative;width:100%;max-width:280px;margin:0 auto}
+    .book-shadow{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);width:84%;height:16px;border-radius:999px;background:rgba(100,60,20,0.13);filter:blur(10px);z-index:0}
+    .book-cover-wrap{position:relative;z-index:1;width:100%;aspect-ratio:0.75/1;border-radius:14px;overflow:hidden;border:2px solid rgba(200,146,42,0.3);box-shadow:0 12px 28px rgba(100,60,20,0.15);background:var(--cream-deep);display:flex;align-items:center;justify-content:center}
+    .cover-placeholder-inner{text-align:center;color:var(--gold);opacity:0.5}
+    .cover-placeholder-inner div{font-size:40px;margin-bottom:8px}
+    .cover-placeholder-inner span{font-size:13px;color:var(--text-muted)}
+    #coverImage{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+
+    /* CONTENT PANEL */
+    .content-panel{background:var(--white);border-radius:24px;padding:28px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
+    .content-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
+    .book-title{font-family:'Playfair Display',serif;font-size:clamp(26px,4vw,42px);line-height:1.05;color:var(--brown);margin-bottom:6px}
+    .book-subtitle{font-size:16px;color:var(--text-muted);margin-bottom:20px}
+
+    /* UNLOCK BANNER */
+    .unlock-banner{background:linear-gradient(135deg,var(--brown),#3a2010);border-radius:18px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .unlock-text strong{display:block;font-family:'Playfair Display',serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
+    .unlock-text span{font-size:13px;color:var(--parchment);opacity:0.75}
+    .unlock-price{font-family:'Playfair Display',serif;font-size:30px;color:var(--gold-light);font-weight:700;flex-shrink:0}
+
+    /* PAGES */
+    .pages-wrap{display:grid;gap:16px;margin-bottom:20px}
+    .page-card{border-radius:18px;background:var(--cream-deep);border:1px solid var(--parchment);overflow:hidden}
+    .page-num{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;padding:12px 14px 6px}
+    .page-img-wrap{width:100%;aspect-ratio:1/1;background:var(--cream-deep);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .page-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+    .page-img-loading{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);font-size:13px;padding:16px}
+    .mini-spinner{width:28px;height:28px;border-radius:50%;border:2.5px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.9s linear infinite}
+    .page-text{font-family:'Playfair Display',serif;font-size:16px;line-height:1.65;color:var(--brown);padding:10px 14px 14px}
+
+    /* LOCKED */
+    .locked-section{border-radius:18px;background:var(--cream-deep);border:2px dashed var(--parchment);padding:20px;text-align:center;color:var(--text-muted);margin-bottom:20px}
+    .locked-section div{font-size:26px;margin-bottom:8px}
+    .locked-section p{margin:0;font-size:14px;line-height:1.6}
+
+    /* PAY BUTTON - matches index.html btn-cta-big */
+    .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Lato',sans-serif;letter-spacing:0.3px;display:block;text-align:center;margin-bottom:12px}
+    .pay-btn:hover{transform:translateY(-2px);box-shadow:0 12px 42px rgba(200,146,42,0.55)}
+    .trust-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+    .trust-item{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+
+    .still-gen{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);margin-top:10px;justify-content:center}
+    .mini-spin2{width:13px;height:13px;border-radius:50%;border:2px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.8s linear infinite}
+
+    @media(max-width:900px){.main-layout{grid-template-columns:1fr}.cover-panel{position:static}}
+    @media(max-width:480px){.shell{padding:20px 12px 60px;width:100%}.content-panel{padding:18px}.unlock-banner{flex-direction:column}}
+  </style>
+</head>
+<body>
+<nav>
+  <button class="nav-back" onclick="history.back()"> Back</button>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
+  </a>
+  <div style="width:80px"></div>
+</nav>
+
+<div class="shell">
+
+  <!-- LOADING SCREEN -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-title">Creating <span id="loadingChildName">your child</span>...</div>
+    <div class="loading-sub">Our AI is crafting a personalized story just for them</div>
+
+    <div class="lb-timer-row">
+      <span class="lb-timer-label">Time elapsed</span>
+      <span class="lb-timer-val" id="lbTimer">0:00</span>
+    </div>
+    <div class="lb-bar-wrap"><div class="lb-bar" id="lbBar"></div></div>
+
+    <div class="lb-steps">
+      <div class="lb-step active" id="lstep1">
+        <div class="lb-icon" id="lbIcon1">📷</div>
+        <div class="lb-step-text">
+          <div class="lb-step-label">Analyzing photo</div>
+          <div class="lb-step-desc">Identifying your child's unique features</div>
+        </div>
+        <div class="lb-step-time" id="lbTime1">~30s</div>
+      </div>
+      <div class="lb-step" id="lstep2">
+        <div class="lb-icon" id="lbIcon2">✍️</div>
+        <div class="lb-step-text">
+          <div class="lb-step-label">Writing the story</div>
+          <div class="lb-step-desc">Creating a personalized adventure</div>
+        </div>
+        <div class="lb-step-time" id="lbTime2">~45s</div>
+      </div>
+      <div class="lb-step" id="lstep3">
+        <div class="lb-icon" id="lbIcon3">🎨</div>
+        <div class="lb-step-text">
+          <div class="lb-step-label" id="lbLabel3">Illustrating first pages</div>
+          <div class="lb-step-desc">Cover + 2 preview illustrations</div>
+        </div>
+        <div class="lb-step-time" id="lbTime3">~60s</div>
+      </div>
+      <div class="lb-step" id="lstep4">
+        <div class="lb-icon" id="lbIcon4">📖</div>
+        <div class="lb-step-text">
+          <div class="lb-step-label">Preview ready!</div>
+          <div class="lb-step-desc">Ready to view and unlock</div>
+        </div>
+        <div class="lb-step-time" id="lbTime4"></div>
+      </div>
+    </div>
+
+    <div role="note" style="padding:11px 16px;background:rgba(200,146,42,0.07);border-radius:12px;border:1px solid rgba(200,146,42,0.18);font-size:12px;color:#7a6048;line-height:1.7;max-width:340px;text-align:center;">
+      📬 <strong style="color:#5c3d1e">You can close this tab</strong> — we'll email you when your book is ready
+    </div>
+  </div>
+
+  <!-- MAIN PREVIEW -->
+  <div class="main-layout" id="mainLayout">
+
+    <div class="cover-panel">
+      <div class="book-stage">
+        <div class="book-shadow"></div>
+        <div class="book-cover-wrap" id="coverWrap">
+          <div class="cover-placeholder-inner" id="coverPlaceholder">
+            <div></div>
+            <span>Cover loading...</span>
+          </div>
+          <img id="coverImage" alt="Book cover" onload="this.style.display='block';document.getElementById('coverPlaceholder').style.display='none'"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-panel">
+      <h1 class="book-title" id="bookTitle">Your Magical Book</h1>
+      <div class="book-subtitle" id="bookSubtitle"></div>
+
+      <div class="unlock-banner">
+        <div class="unlock-text">
+          <strong>Preview  First 2 pages</strong>
+          <span>Unlock the full book (all pages + PDF download)</span>
+        </div>
+        <div class="unlock-price">$39</div>
+      </div>
+
+      <div class="pages-wrap" id="pagesWrap"></div>
+
+      <!-- Live progress counter -->
+      <div id="imgProgress" style="display:none;margin:12px 0;padding:12px 16px;background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1px solid var(--gold-pale);border-radius:12px;text-align:center;">
+        <div style="font-size:14px;font-weight:700;color:var(--brown);" id="imgProgressText">✨ 0/16 pages illustrated</div>
+        <div style="height:5px;background:rgba(200,146,42,0.1);border-radius:4px;margin-top:8px;overflow:hidden;">
+          <div id="imgProgressBar" style="height:100%;background:linear-gradient(90deg,var(--gold-light),var(--gold));border-radius:4px;transition:width 0.6s ease;width:0%;"></div>
+        </div>
+      </div>
+
+      <div class="locked-section">
+        <div></div>
+        <p>The remaining pages are ready after payment.<br>Instant download included.</p>
+      </div>
+
+      <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;">⏳ Preparing your preview...</button>
+
+      <div class="trust-row">
+        <span class="trust-item"> Secure checkout</span>
+        <span class="trust-item"> Instant download</span>
+        <span class="trust-item"> Stripe encrypted</span>
+      </div>
+
+      <div class="still-gen" id="stillGen" style="display:none">
+        <div class="mini-spin2"></div>
+        <span>Full book is still being prepared...</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var API_BASE = window.location.origin;
+var bookId = new URLSearchParams(window.location.search).get("bookId");
+if (!bookId) { window.location.href = "wizard.html"; }
+
+var loadingScreen = document.getElementById("loadingScreen");
+var mainLayout    = document.getElementById("mainLayout");
+var loadingChildName = document.getElementById("loadingChildName");
+var coverImage    = document.getElementById("coverImage");
+var coverPlaceholder = document.getElementById("coverPlaceholder");
+var bookTitleEl   = document.getElementById("bookTitle");
+var bookSubtitleEl= document.getElementById("bookSubtitle");
+var pagesWrap     = document.getElementById("pagesWrap");
+var payBtn        = document.getElementById("payBtn");
+var stillGen      = document.getElementById("stillGen");
+
+var steps = [
+  document.getElementById("lstep1"),
+  document.getElementById("lstep2"),
+  document.getElementById("lstep3"),
+  document.getElementById("lstep4")
+];
+
+// Live timer
+var lbTimerEl = document.getElementById("lbTimer");
+var lbBarEl   = document.getElementById("lbBar");
+var lbStart   = Date.now();
+var lbTimerInterval = setInterval(function() {
+  var elapsed = Math.floor((Date.now() - lbStart) / 1000);
+  var m = Math.floor(elapsed / 60);
+  var s = elapsed % 60;
+  if (lbTimerEl) lbTimerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+}, 1000);
+
+var stepIcons  = ['📷','✍️','🎨','📖'];
+var doneIcons  = ['✅','✅','✅','🎉'];
+var stepTimes  = ['28s','44s','58s',''];
+var barPcts    = [15, 40, 75, 100];
+
+function setStep(n, text, pct) {
+  steps.forEach(function(s, i) {
+    if (!s) return;
+    s.classList.remove("active", "done");
+    if (i + 1 < n) {
+      s.classList.add("done");
+      var ic = document.getElementById("lbIcon" + (i+1));
+      if (ic) ic.textContent = doneIcons[i];
+      var tm = document.getElementById("lbTime" + (i+1));
+      if (tm && stepTimes[i]) tm.textContent = stepTimes[i];
+    } else if (i + 1 === n) {
+      s.classList.add("active");
+    }
+  });
+  if (lbBarEl) lbBarEl.style.width = (barPcts[n-1] || pct) + "%";
+}
+
+function showPreview() {
+  clearInterval(lbTimerInterval);
+  loadingScreen.style.display = "none";
+  mainLayout.style.display = "grid";
+  mainLayout.classList.add("visible");
+}
+
+function createPageCard(page, i, imgSrc) {
+  var card = document.createElement("div");
+  card.className = "page-card";
+  var imgHtml = imgSrc
+    ? '<img src="' + imgSrc + '" alt="Page ' + (i+1) + '"/>'
+    : '<div class="page-img-loading"><div class="mini-spinner"></div><span>Illustrating...</span></div>';
+  card.innerHTML =
+    '<div class="page-num">Page ' + (i+1) + '</div>' +
+    '<div class="page-img-wrap" id="pimg-' + i + '">' + imgHtml + '</div>' +
+    '<div class="page-text">' + (page.text || "") + '</div>';
+  return card;
+}
+
+function updatePageImg(i, src) {
+  var w = document.getElementById("pimg-" + i);
+  if (w && !w.querySelector("img")) {
+    w.innerHTML = '<img src="' + src + '" alt="Page ' + (i+1) + '"/>';
+  }
+}
+
+payBtn && payBtn.addEventListener("click", function() {
+  window.location.href = "checkout.html?bookId=" + encodeURIComponent(bookId);
+});
+
+var previewShown = false;
+
+async function pollBook() {
+  var maxWait = 180, every = 3, elapsed = 0;
+  setStep(1, "Analyzing photo and building character...", 10);
+
+  while (elapsed < maxWait) {
+    await new Promise(function(r){ setTimeout(r, every * 1000); });
+    elapsed += every;
+
+    try {
+      var res  = await fetch(API_BASE + "/api/books/" + bookId);
+      var data = await res.json();
+      if (!res.ok || !data.book) continue;
+      var b = data.book;
+
+      // Update child name
+      if (b.childName && loadingChildName) loadingChildName.textContent = b.childName;
+
+      // Update steps
+      var hasChar   = !!(b.characterReference && b.characterReference.characterPromptCore);
+      var hasStory  = !!(b.generatedBook && b.generatedBook.pages && b.generatedBook.pages.length > 0);
+      var hasImgs   = !!(b.fullImages && b.fullImages.filter(Boolean).length >= 1);
+      var hasCover  = !!b.coverImage;
+      var has2Imgs  = !!(b.fullImages && b.fullImages.filter(Boolean).length >= 2);
+
+      if      (!hasChar)  setStep(1, "Analyzing photo...", 15);
+      else if (!hasStory) setStep(2, "Writing " + (b.childName||"your child") + "'s story...", 35);
+      else if (!hasImgs)  setStep(3, "Illustrating the first pages...", 55);
+      else if (!hasCover) setStep(4, "Creating the cover...", 78);
+      else                setStep(4, "Almost ready...", 92);
+
+      // Show preview AS SOON AS story is ready — no need to wait for images
+      if (!previewShown && hasStory) {
+        previewShown = true;
+        renderPreview(b);
+        showPreview();
+      }
+
+      if (previewShown) updateLiveImages(b);
+
+      // Update progress counter
+      var totalPages = (b.generatedBook && b.generatedBook.pages) ? b.generatedBook.pages.length : 16;
+      var readyCount = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
+      var progressEl = document.getElementById('imgProgress');
+      var progressText = document.getElementById('imgProgressText');
+      var progressBar = document.getElementById('imgProgressBar');
+      if (progressEl && readyCount > 0) {
+        progressEl.style.display = 'block';
+        progressText.textContent = '✨ ' + readyCount + '/' + totalPages + ' pages illustrated';
+        progressBar.style.width = Math.round((readyCount / totalPages) * 100) + '%';
+      }
+
+      // Unlock button — enable as soon as cover + 2 images ready
+      if (hasCover && has2Imgs && payBtn) {
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+        payBtn.style.cursor = 'pointer';
+        payBtn.textContent = 'Unlock Full Book — $39';
+      }
+
+      if (hasCover && has2Imgs) {
+        setStep(4, "Ready!", 100);
+        var total = b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0;
+        var ready = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
+        if (ready < total && stillGen) stillGen.style.display = "flex";
+        break;
+      }
+
+    } catch(e) { console.warn("poll:", e.message); }
+  }
+
+  // Fallback
+  if (!previewShown) {
+    try {
+      var r2 = await fetch(API_BASE + "/api/books/" + bookId);
+      var d2 = await r2.json();
+      if (d2.book) { renderPreview(d2.book); showPreview(); }
+      else if (loadingStatus) loadingStatus.textContent = "Taking longer than expected. Please refresh.";
+    } catch(e) {}
+  }
+}
+
+function renderPreview(b) {
+  var title = (b.generatedBook && b.generatedBook.title) || "Your Magical Adventure";
+  var sub   = (b.generatedBook && b.generatedBook.subtitle) || "";
+  if (bookTitleEl)    bookTitleEl.textContent    = title;
+  if (bookSubtitleEl) bookSubtitleEl.textContent = sub;
+
+  if (b.coverImage && coverImage) coverImage.src = b.coverImage;
+
+  var pages  = (b.generatedBook && b.generatedBook.pages) || [];
+  var imgs   = b.fullImages || [];
+  pagesWrap.innerHTML = "";
+  pages.slice(0,2).forEach(function(page, i) {
+    pagesWrap.appendChild(createPageCard(page, i, imgs[i] || null));
+  });
+}
+
+function updateLiveImages(b) {
+  var imgs = b.fullImages || [];
+  if (b.coverImage && coverImage && !coverImage.src) coverImage.src = b.coverImage;
+  for (var i = 0; i < 2; i++) {
+    if (imgs[i]) updatePageImg(i, imgs[i]);
+  }
+}
+
+pollBook();
+</script>
+<script src="accessibility.js"></script>
+</body>
+</html>

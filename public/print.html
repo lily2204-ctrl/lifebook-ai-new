@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lifebook - Print Layout</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(27, 46, 94, 0.55) 0%, rgba(10, 16, 34, 0.96) 55%, rgba(5, 10, 20, 1) 100%),
+        url("assets/backgrounds/FE0410D4-7381-4ACC-8FB9-D8862D553EC0.PNG");
+      background-size: cover;
+      background-position: center;
+      color: #fff8ec;
+      min-height: 100vh;
+    }
+
+    .print-shell {
+      width: min(1280px, 94vw);
+      margin: 0 auto;
+      padding: 28px 0 80px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .print-topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .print-back-btn {
+      justify-self: start;
+      appearance: none;
+      border: 1px solid rgba(240, 196, 109, 0.24);
+      background: rgba(255, 255, 255, 0.04);
+      color: #fff7ea;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .print-brand {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .print-brand img {
+      height: 44px;
+      width: auto;
+      display: block;
+    }
+
+    .print-brand-text {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 28px;
+      color: #f7ecd7;
+    }
+
+    .print-intro-card,
+    .spread-card,
+    .print-actions-card {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.03)),
+        linear-gradient(180deg, rgba(18,23,41,0.96), rgba(14,18,33,0.98));
+      border: 1px solid rgba(240,196,109,0.14);
+      border-radius: 34px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.34);
+    }
+
+    .print-intro-card {
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .print-step {
+      color: #e9c57c;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .print-title {
+      margin: 0 0 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(40px, 5vw, 66px);
+      line-height: 0.95;
+      color: #fff7e8;
+    }
+
+    .print-copy {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.7;
+      color: #d7c8b3;
+    }
+
+    .spread-list {
+      display: grid;
+      gap: 22px;
+    }
+
+    .spread-card {
+      padding: 22px;
+    }
+
+    .spread-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .spread-badge {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(240,196,109,0.08);
+      border: 1px solid rgba(240,196,109,0.16);
+      color: #efc977;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .spread-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .print-page {
+      border-radius: 26px;
+      overflow: hidden;
+      border: 1px solid rgba(240,196,109,0.12);
+      background: #fffaf2;
+      color: #1b1620;
+      min-height: 580px;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
+    }
+
+    .print-page-image-wrap {
+      background: #f2ecde;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 360px;
+    }
+
+    .print-page-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #f2ecde;
+    }
+
+    .print-page-loading,
+    .print-page-error {
+      min-height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .print-page-loading {
+      color: #5e5767;
+    }
+
+    .print-page-error {
+      color: #9b5140;
+    }
+
+    .print-page-text {
+      padding: 26px 24px 28px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      line-height: 1.45;
+      color: #231b29;
+      white-space: pre-wrap;
+    }
+
+    .print-actions-card {
+      margin-top: 24px;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .print-actions-copy h3 {
+      margin: 0 0 8px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 32px;
+      color: #fff6e4;
+    }
+
+    .print-actions-copy p {
+      margin: 0;
+      color: #d5c4ad;
+      line-height: 1.6;
+      font-size: 17px;
+    }
+
+    .print-actions-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 24px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .primary-btn:hover,
+    .secondary-btn:hover,
+    .print-back-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary-btn {
+      background: linear-gradient(180deg, #f0c46d 0%, #d08e2b 100%);
+      color: #fffaf1;
+      box-shadow: 0 10px 24px rgba(208, 142, 43, 0.28);
+    }
+
+    .secondary-btn {
+      background: rgba(255,255,255,0.05);
+      color: #fff8ec;
+      border: 1px solid rgba(240,196,109,0.16);
+    }
+
+    @media (max-width: 980px) {
+      .spread-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .print-topbar {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .print-back-btn,
+      .print-brand {
+        justify-self: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-shell">
+    <header class="print-topbar">
+      <button id="backToPreviewBtn" class="print-back-btn" type="button">← Back</button>
+
+      <div class="print-brand">
+        <img id="printBrandLogo" src="assets/branding/6C38A8F4-9FC1-434F-BB73-4933001086FB.PNG" alt="Lifebook logo" />
+        <span class="print-brand-text">lifebook</span>
+      </div>
+
+      <div></div>
+    </header>
+
+    <section class="print-intro-card">
+      <div class="print-step">Print layout</div>
+      <h1 id="printTitle" class="print-title">Print-ready preview</h1>
+      <p class="print-copy">
+        This layout groups the story into spreads so you can review how the book feels as a printed keepsake.
+      </p>
+    </section>
+
+    <section id="spreadList" class="spread-list"></section>
+
+    <section class="print-actions-card">
+      <div class="print-actions-copy">
+        <h3>Ready to continue?</h3>
+        <p>Move on to checkout when you are happy with the print layout preview.</p>
+      </div>
+
+      <div class="print-actions-buttons">
+        <button id="goToReaderBtn" class="secondary-btn" type="button">Reader view</button>
+        <button id="goToCheckoutBtn" class="primary-btn" type="button">Continue</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./print.js"></script>
+<script src="accessibility.js"></script>
+</body>
+</html>

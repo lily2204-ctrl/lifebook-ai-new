@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Create Your Book</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream:      #fdf6ec;
+      --cream-deep: #f5e9d4;
+      --parchment:  #ede0c8;
+      --gold:       #c8922a;
+      --gold-light: #e8b84b;
+      --gold-pale:  #f5d98a;
+      --brown:      #5c3d1e;
+      --text:       #3a2810;
+      --text-muted: #7a6048;
+      --white:      #ffffff;
+      --radius:     20px;
+      --shadow:     0 8px 40px rgba(100,60,20,0.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(253,246,236,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--parchment);
+      padding: 0 5vw; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-back {
+      appearance: none; border: 1px solid var(--parchment);
+      background: var(--white); color: var(--brown);
+      border-radius: 50px; padding: 8px 18px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: 'Lato', sans-serif;
+    }
+    .nav-back:hover { background: var(--cream-deep); }
+    .nav-lang {
+      background: var(--white); color: var(--brown);
+      border: 1.5px solid var(--parchment); border-radius: 50px;
+      padding: 9px 18px; font-family: 'Lato', sans-serif;
+      font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .nav-lang:hover { border-color: var(--gold-light); }
+    [dir="rtl"] .wizard-title,[dir="rtl"] .wizard-sub,[dir="rtl"] .card-title,[dir="rtl"] .input-label,[dir="rtl"] .tip-item,[dir="rtl"] .upload-text,[dir="rtl"] .modal-sub { text-align: right; }
+    [dir="rtl"] .input-label input,[dir="rtl"] .input-label select,[dir="rtl"] .input-label textarea { direction: rtl; }
+    [dir="rtl"] .wizard-actions { flex-direction: row-reverse; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-brand img { height: 36px; width: auto; }
+    .nav-brand-name { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--gold); }
+    .wizard-shell { max-width: 980px; margin: 0 auto; padding: 36px 5vw 80px; }
+    .step-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+    .wizard-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 4vw, 42px); color: var(--brown); margin-bottom: 10px; line-height: 1.2; }
+    .wizard-sub { font-size: 16px; color: var(--text-muted); line-height: 1.7; max-width: 600px; margin-bottom: 36px; font-weight: 300; }
+    .wizard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 700px) { .wizard-grid { grid-template-columns: 1fr; } }
+    .card { background: var(--white); border: 1px solid var(--parchment); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+    .card-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--brown); margin-bottom: 20px; }
+    .input-group { display: grid; gap: 16px; }
+    .input-label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 700; color: var(--brown); }
+    .input-label input, .input-label select, .input-label textarea {
+      width: 100%; border: 1px solid var(--parchment); border-radius: 12px;
+      background: var(--cream); color: var(--text);
+      padding: 12px 14px; font-size: 15px; font-family: 'Lato', sans-serif;
+      outline: none; transition: border-color 0.2s;
+    }
+    .input-label input:focus, .input-label select:focus, .input-label textarea:focus { border-color: var(--gold-light); }
+    .input-label input::placeholder, .input-label textarea::placeholder { color: var(--text-muted); opacity: 0.7; }
+    .input-label textarea { min-height: 110px; resize: vertical; line-height: 1.6; }
+    .input-hint { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+    .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .style-card { border: 2px solid var(--parchment); border-radius: 14px; padding: 14px; cursor: pointer; background: var(--cream); transition: border-color 0.2s, background 0.2s; }
+    .style-card:hover { border-color: var(--gold-light); }
+    .style-card.active { border-color: var(--gold); background: #fff8ed; }
+    .style-thumb { height: 120px; overflow: hidden; border-radius: 8px; margin-bottom: 10px; background: var(--cream-deep); }
+    .style-name { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--brown); margin-bottom: 4px; }
+    .style-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .upload-area { border: 2px dashed var(--parchment); border-radius: 16px; background: var(--cream); min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 20px; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 14px; }
+    .upload-area:hover { border-color: var(--gold-light); background: #fff8ed; }
+    .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--brown); margin-bottom: 5px; }
+    .upload-text { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+    .tips-box { background: var(--cream-deep); border: 1px solid var(--parchment); border-radius: 12px; padding: 14px 16px; display: grid; gap: 7px; }
+    .tip-item { font-size: 13px; color: var(--text-muted); line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
+    .tip-item::before { content: "✦"; color: var(--gold); flex-shrink: 0; font-size: 10px; margin-top: 2px; }
+    .wizard-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+    .btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--white); border: none; border-radius: 50px; padding: 14px 32px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(200,146,42,0.3); font-family: 'Lato', sans-serif; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(200,146,42,0.4); }
+    .btn-secondary { background: var(--white); color: var(--brown); border: 1px solid var(--parchment); border-radius: 50px; padding: 14px 28px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Lato', sans-serif; transition: background 0.2s; }
+    .btn-secondary:hover { background: var(--cream-deep); }
+    #wizardError { display: none; margin-top: 14px; padding: 12px 16px; border-radius: 12px; background: rgba(200,60,60,0.08); border: 1px solid rgba(200,60,60,0.25); color: #c03030; font-size: 14px; font-weight: 600; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(50,30,10,0.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; backdrop-filter: blur(4px); }
+    .modal-overlay.hidden { display: none; }
+    .modal-card { background: var(--white); border-radius: 24px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 24px 60px rgba(100,60,20,0.18); position: relative; }
+    .modal-close { position: absolute; top: 14px; right: 16px; background: var(--cream-deep); border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; color: var(--brown); }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--brown); margin-bottom: 8px; }
+    .modal-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 22px; }
+    .modal-actions { display: grid; gap: 10px; }
+    .upload-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Lato', sans-serif; transition: transform 0.15s; border: none; }
+    .upload-btn:hover { transform: translateY(-1px); }
+    .upload-btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--white); box-shadow: 0 4px 16px rgba(200,146,42,0.3); }
+    .upload-btn-secondary { background: var(--cream); color: var(--brown); border: 1px solid var(--parchment) !important; }
+    .modal-tips { margin-top: 18px; padding: 14px 16px; background: var(--cream-deep); border-radius: 12px; display: grid; gap: 6px; }
+    .modal-tips-title { font-size: 13px; font-weight: 700; color: var(--brown); margin-bottom: 4px; }
+    @media (max-width: 500px) {
+      .wizard-shell { padding: 20px 4vw 60px; }
+      .card { padding: 20px; }
+      .wizard-actions { flex-direction: column; }
+      .btn-primary, .btn-secondary { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <button class="nav-back" type="button" onclick="window.location.href='index.html'" id="navBack">← Back</button>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:40px;width:auto;display:block" onerror="this.style.display='none'"/>
+    <span class="nav-brand-name">lifebook</span>
+  </a>
+  <button class="nav-lang" id="langToggle" type="button" onclick="toggleLang()">🌐 עברית</button>
+</nav>
+
+<main class="wizard-shell" id="mainShell">
+
+  <div class="step-label" id="stepLabel">Step 1 of 3</div>
+  <h1 class="wizard-title" id="wizardTitle">Create your personalized book</h1>
+  <p class="wizard-sub" id="wizardSub">Upload a photo, tell us about your child, and our AI creates a fully illustrated storybook — delivered to your email in minutes.</p>
+
+  <div class="wizard-grid">
+
+    <!-- Left: Story Details -->
+    <div class="card">
+      <div class="card-title" id="storyDetailsTitle">Story details</div>
+      <div class="input-group">
+
+        <label class="input-label" id="lblName">
+          Child's name
+          <input id="childName" type="text" placeholder="e.g. Emma, Noah..."/>
+        </label>
+
+        <label class="input-label" id="lblAge">
+          Child's age
+          <select id="childAge">
+            <option value="" id="ageDefault">Select age</option>
+            <option>1</option><option>2</option><option>3</option>
+            <option>4</option><option>5</option><option>6</option>
+            <option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+        </label>
+
+        <label class="input-label" id="lblGender">
+          Child's gender
+          <select id="childGender">
+            <option value="" id="genderDefault">Select</option>
+            <option value="boy" id="genderBoy">Boy</option>
+            <option value="girl" id="genderGirl">Girl</option>
+            <option value="neutral" id="genderNeutral">Prefer neutral</option>
+          </select>
+        </label>
+
+        <label class="input-label" id="lblStory">
+          Story direction
+          <textarea id="storyIdea" placeholder="e.g. a magical forest adventure, a brave explorer, a bedtime journey through the stars..."></textarea>
+        </label>
+
+        <label class="input-label" id="lblEmail">
+          Your email
+          <input id="customerEmail" type="email" placeholder="you@example.com"/>
+          <span class="input-hint" id="emailHint">✨ We'll send the finished book to this address</span>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- Right: Style + Photo -->
+    <div class="card">
+      <div class="card-title" id="styleTitle">Illustration style</div>
+      <div class="style-grid" id="styleGrid">
+
+        <div class="style-card active" data-style="Soft Storybook">
+          <div class="style-thumb"><img src="assets/previews/style-soft-storybook.png" alt="Soft Storybook" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+          <div class="style-name" data-en="Soft Storybook" data-he="ספר רך">Soft Storybook</div>
+          <div class="style-desc" data-en="Warm, emotional, classic." data-he="חמים, רגשי, קלאסי.">Warm, emotional, classic.</div>
+        </div>
+
+        <div class="style-card" data-style="Pixar 3D">
+          <div class="style-thumb"><img src="assets/previews/style-pixar.png" alt="Pixar 3D" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+          <div class="style-name" data-en="Pixar 3D" data-he="פיקסאר 3D">Pixar 3D</div>
+          <div class="style-desc" data-en="Dimensional, cinematic." data-he="תלת-מימד, קולנועי.">Dimensional, cinematic.</div>
+        </div>
+
+        <div class="style-card" data-style="Magical Fantasy">
+          <div class="style-thumb"><img src="assets/previews/style-magical.png" alt="Magical Fantasy" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+          <div class="style-name" data-en="Magical Fantasy" data-he="פנטזיה קסומה">Magical Fantasy</div>
+          <div class="style-desc" data-en="Dreamy, glowing, wonder." data-he="חלומי, זוהר, קסום.">Dreamy, glowing, wonder.</div>
+        </div>
+
+        <div class="style-card" data-style="Minimal Scandinavian">
+          <div class="style-thumb"><img src="assets/previews/style-minimal.png" alt="Minimal Scandinavian" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+          <div class="style-name" data-en="Minimal Scandi" data-he="מינימליסטי">Minimal Scandi</div>
+          <div class="style-desc" data-en="Clean, calm, modern." data-he="נקי, רגוע, מודרני.">Clean, calm, modern.</div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:22px">
+        <div class="card-title" id="photoTitle" style="font-size:18px;margin-bottom:12px;">Child's photo</div>
+        <div class="upload-area" id="openPhotoModal">
+          <div class="upload-icon">📷</div>
+          <div class="upload-title" id="uploadTitle">Add photo</div>
+          <div class="upload-text" id="uploadText">Clear, front-facing photo of your child</div>
+        </div>
+        <div class="tips-box">
+          <div class="tip-item" id="tip1">One child only, face clearly visible</div>
+          <div class="tip-item" id="tip2">Bright natural lighting works best</div>
+          <div class="tip-item" id="tip3">Avoid group photos or dark images</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="wizardError"></div>
+
+  <div class="wizard-actions">
+    <button class="btn-secondary" type="button" onclick="window.location.href='index.html'" id="btnBack">Back Home</button>
+    <button class="btn-primary" id="goToSetupBtn" type="button"><span id="btnContinue">Continue</span> →</button>
+  </div>
+
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="photoModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closePhotoModal" type="button">×</button>
+    <div class="modal-title" id="modalTitle">Choose the best photo</div>
+    <p class="modal-sub" id="modalSub">A clear photo helps the AI create a more beautiful and consistent character throughout the story.</p>
+    <div class="modal-actions">
+      <label class="upload-btn upload-btn-primary">
+        📷 <span id="btnTakePhoto">Take Photo</span>
+        <input type="file" accept="image/*" capture="environment" id="cameraInput" hidden>
+      </label>
+      <label class="upload-btn upload-btn-secondary">
+        🖼 <span id="btnGallery">Choose from Gallery</span>
+        <input type="file" accept="image/*" id="galleryInput" hidden>
+      </label>
+    </div>
+    <div class="modal-tips">
+      <div class="modal-tips-title" id="tipsTitle">Tips for best results:</div>
+      <div class="tip-item" id="mtip1">Front-facing, face clearly visible</div>
+      <div class="tip-item" id="mtip2">Good lighting, no strong shadows</div>
+      <div class="tip-item" id="mtip3">One child only in the photo</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Language Toggle ──────────────────────────────────────────
+const HE = {
+  navBack: '← חזרה',
+  langToggle: '🌐 English',
+  stepLabel: 'שלב 1 מתוך 3',
+  wizardTitle: 'צרו את הספר האישי שלכם',
+  wizardSub: 'העלו תמונה, ספרו לנו על ילדכם, ובינה המלאכותית שלנו תיצור ספר מאויר בצורה מלאה — שיישלח לאימייל שלכם תוך דקות.',
+  storyDetailsTitle: 'פרטי הסיפור',
+  lblName: 'שם הילד/ה',
+  lblAge: 'גיל הילד/ה',
+  ageDefault: 'בחרו גיל',
+  lblGender: 'מין הילד/ה',
+  genderDefault: 'בחרו',
+  genderBoy: 'בן',
+  genderGirl: 'בת',
+  genderNeutral: 'ניטרלי',
+  lblStory: 'כיוון הסיפור',
+  storyPlaceholder: 'למשל: הרפתקה ביער קסום, גיבור אמיץ, מסע שינה בין הכוכבים...',
+  lblEmail: 'האימייל שלך',
+  emailHint: '✨ נשלח את הספר המוכן לכתובת זו',
+  styleTitle: 'סגנון איור',
+  photoTitle: 'תמונת הילד/ה',
+  uploadTitle: 'הוסיפו תמונה',
+  uploadText: 'תמונה ברורה עם פנים גלויות של ילדכם/ן',
+  tip1: 'ילד/ה אחד/ת בלבד, פנים גלויות בבירור',
+  tip2: 'תאורה טבעית בהירה עובדת הכי טוב',
+  tip3: 'הימנעו מצילומים קבוצתיים או תמונות חשוכות',
+  btnBack: 'חזרה לדף הבית',
+  btnContinue: 'המשך',
+  modalTitle: 'בחרו את התמונה המתאימה ביותר',
+  modalSub: 'תמונה ברורה עוזרת לבינה המלאכותית ליצור דמות יפה ועקבית לאורך כל הסיפור.',
+  btnTakePhoto: 'צלמו תמונה',
+  btnGallery: 'בחרו מהגלריה',
+  tipsTitle: 'טיפים לתוצאות הטובות ביותר:',
+  mtip1: 'פנים קדמיות, גלויות בבירור',
+  mtip2: 'תאורה טובה, ללא צלליות חזקות',
+  mtip3: 'ילד/ה אחד/ת בלבד בתמונה',
+};
+const EN = {
+  navBack: '← Back',
+  langToggle: '🌐 עברית',
+  stepLabel: 'Step 1 of 3',
+  wizardTitle: 'Create your personalized book',
+  wizardSub: "Upload a photo, tell us about your child, and our AI creates a fully illustrated storybook — delivered to your email in minutes.",
+  storyDetailsTitle: 'Story details',
+  lblName: "Child's name",
+  lblAge: "Child's age",
+  ageDefault: 'Select age',
+  lblGender: "Child's gender",
+  genderDefault: 'Select',
+  genderBoy: 'Boy',
+  genderGirl: 'Girl',
+  genderNeutral: 'Prefer neutral',
+  lblStory: 'Story direction',
+  storyPlaceholder: 'e.g. a magical forest adventure, a brave explorer, a bedtime journey through the stars...',
+  lblEmail: 'Your email',
+  emailHint: "✨ We'll send the finished book to this address",
+  styleTitle: 'Illustration style',
+  photoTitle: "Child's photo",
+  uploadTitle: 'Add photo',
+  uploadText: 'Clear, front-facing photo of your child',
+  tip1: 'One child only, face clearly visible',
+  tip2: 'Bright natural lighting works best',
+  tip3: 'Avoid group photos or dark images',
+  btnBack: 'Back Home',
+  btnContinue: 'Continue',
+  modalTitle: 'Choose the best photo',
+  modalSub: 'A clear photo helps the AI create a more beautiful and consistent character throughout the story.',
+  btnTakePhoto: 'Take Photo',
+  btnGallery: 'Choose from Gallery',
+  tipsTitle: 'Tips for best results:',
+  mtip1: 'Front-facing, face clearly visible',
+  mtip2: 'Good lighting, no strong shadows',
+  mtip3: 'One child only in the photo',
+};
+
+let currentLang = 'en';
+
+function toggleLang() {
+  currentLang = currentLang === 'en' ? 'he' : 'en';
+  applyLang();
+}
+
+function applyLang() {
+  const t = currentLang === 'he' ? HE : EN;
+  const isHe = currentLang === 'he';
+
+  // RTL direction
+  document.documentElement.setAttribute('dir', isHe ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', isHe ? 'he' : 'en');
+
+  // Update all text nodes
+  const ids = ['navBack','langToggle','stepLabel','wizardTitle','wizardSub','storyDetailsTitle',
+    'styleTitle','photoTitle','uploadTitle','uploadText',
+    'tip1','tip2','tip3','btnBack','btnContinue','modalTitle','modalSub',
+    'btnTakePhoto','btnGallery','tipsTitle','mtip1','mtip2','mtip3','emailHint'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && t[id]) el.textContent = t[id];
+  });
+
+  // Label text nodes (first text node of label)
+  const setLabelText = (id, text) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // First text node
+    for (let n of el.childNodes) {
+      if (n.nodeType === 3) { n.textContent = text + '\n'; return; }
+    }
+  };
+  setLabelText('lblName', t.lblName);
+  setLabelText('lblAge', t.lblAge);
+  setLabelText('lblGender', t.lblGender);
+  setLabelText('lblStory', t.lblStory);
+  setLabelText('lblEmail', t.lblEmail);
+
+  // Select options
+  ['ageDefault','genderDefault','genderBoy','genderGirl','genderNeutral'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = t[id];
+  });
+
+  // Placeholder
+  const storyIdea = document.getElementById('storyIdea');
+  if (storyIdea) storyIdea.placeholder = t.storyPlaceholder;
+
+  const childName = document.getElementById('childName');
+  if (childName) childName.placeholder = isHe ? 'למשל: נועה, אורי...' : 'e.g. Emma, Noah...';
+
+  // Style cards
+  document.querySelectorAll('.style-name, .style-desc').forEach(el => {
+    const val = el.getAttribute(isHe ? 'data-he' : 'data-en');
+    if (val) el.textContent = val;
+  });
+}
+</script>
+
+<script type="module" src="./wizard.js"></script>
+<script src="accessibility.js"></script>
+</body>
+</html>

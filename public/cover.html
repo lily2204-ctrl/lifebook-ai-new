@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Book Cover</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden}
+    nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
+    .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
+    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-back:hover{border-color:var(--gold-light)}
+    .shell{width:min(1020px,94vw);margin:0 auto;padding:40px 0 80px}
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:22px;align-items:start}
+    .card{background:var(--white);border-radius:24px;padding:26px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
+    .book-stage{position:relative;width:100%;max-width:260px;margin:0 auto}
+    .book-shadow{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);width:84%;height:16px;border-radius:999px;background:rgba(100,60,20,0.13);filter:blur(10px);z-index:0}
+    .book-cover{position:relative;z-index:1;width:100%;aspect-ratio:0.72/1;border-radius:14px;overflow:hidden;border:2px solid rgba(200,146,42,0.3);box-shadow:0 12px 28px rgba(100,60,20,0.15);background:var(--cream-deep)}
+    .book-cover-fill{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .cover-frame{position:absolute;inset:10px;border:1.5px solid rgba(200,146,42,0.25);border-radius:9px;pointer-events:none;z-index:2}
+    .cover-sticky{position:sticky;top:80px}
+    .page-title{font-family:'Playfair Display',serif;font-size:clamp(24px,4vw,38px);color:var(--brown);line-height:1.1;margin-bottom:8px}
+    .page-sub{font-size:15px;color:var(--text-muted);line-height:1.65;margin-bottom:4px}
+    .meta-grid{margin:16px 0}
+    .summary-row{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:start;padding:10px 13px;border-radius:13px;background:var(--cream-deep);border:1px solid var(--parchment);margin-bottom:7px}
+    .summary-label{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px}
+    .summary-value{font-size:14px;color:var(--text);line-height:1.5}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;letter-spacing:0.3px;font-family:'Lato',sans-serif}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45)}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s}
+    .btn-secondary:hover{border-color:var(--gold-light)}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+    @media(max-width:820px){.layout{grid-template-columns:1fr}.cover-sticky{position:static}}
+    @media(max-width:640px){nav{padding:0 4vw}.shell{padding:24px 14px 60px}.btn-primary,.btn-secondary{width:100%}.actions{flex-direction:column}}
+  </style>
+</head>
+<body>
+<nav>
+  <button class="nav-back" id="backToGenerateBtn">Back</button>
+  <a class="nav-brand" href="index.html"><img src="assets/branding/logo.svg" alt="Lifebook" style="height:44px;width:auto;display:block"/></a>
+  <div style="width:80px"></div>
+</nav>
+<main class="shell">
+  <div class="layout">
+    <div class="cover-sticky">
+      <div class="card">
+        <div class="book-stage">
+          <div class="book-shadow"></div>
+          <div class="book-cover">
+            <img id="coverFillImage" class="book-cover-fill" alt="Book cover"/>
+            <div class="cover-frame"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h1 class="page-title">Cover is ready</h1>
+      <p class="page-sub">Your personalized storybook cover has been created. Review and continue to your preview.</p>
+      <div class="meta-grid">
+        <div class="summary-row"><span class="summary-label">Child</span><span id="metaChildName" class="summary-value">-</span></div>
+        <div class="summary-row"><span class="summary-label">Age</span><span id="metaAge" class="summary-value">-</span></div>
+        <div class="summary-row"><span class="summary-label">Style</span><span id="metaStyle" class="summary-value">-</span></div>
+        <div class="summary-row"><span class="summary-label">Story</span><span id="metaStory" class="summary-value">-</span></div>
+        <div class="summary-row"><span class="summary-label">Pages</span><span id="metaPages" class="summary-value">-</span></div>
+      </div>
+      <div class="actions">
+        <button class="btn-secondary" id="restartBookBtn">Start over</button>
+        <button class="btn-primary" id="continueToPreviewBtn">Continue to Preview</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="./cover.js"></script>
+<script src="accessibility.js"></script>
+</body>
+</html>

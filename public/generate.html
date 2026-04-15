@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Creating Your Book</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--brown-light:#8a6240;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
+    nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .nav-brand img{height:36px;width:auto;}
+    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold)}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-back:hover{border-color:var(--gold-light)}
+    .shell{width:min(1060px,94vw);margin:0 auto;padding:40px 0 80px}
+    .step-badge{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#fff8ed,#fdf0d5);border:1px solid var(--gold-pale);border-radius:50px;padding:5px 16px;font-size:12px;color:var(--gold);font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:14px;box-shadow:0 2px 12px rgba(200,146,42,0.12)}
+    .gen-layout{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start}
+    .card{background:var(--white);border-radius:24px;padding:32px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
+    .card-title{font-family:'Playfair Display',serif;font-size:clamp(24px,3.5vw,34px);color:var(--brown);margin-bottom:8px;line-height:1.15}
+    .card-sub{font-size:15px;color:var(--text-muted);line-height:1.7;margin-bottom:24px;font-weight:300}
+    .prog-wrap{margin-bottom:22px;padding:16px 18px;background:var(--cream-deep);border-radius:16px;border:1px solid var(--parchment);display:none}
+    .prog-label{display:flex;justify-content:space-between;font-size:12px;color:var(--gold);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
+    .prog-track{height:8px;border-radius:8px;background:rgba(200,146,42,0.12);overflow:hidden}
+    .prog-fill{height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,var(--gold-light),var(--gold));transition:width 1.2s ease}
+    .prog-status{margin-top:8px;font-size:13px;color:var(--text-muted);min-height:18px}
+    .step-list{display:grid;gap:10px;margin-bottom:22px}
+    .step-item{display:flex;align-items:flex-start;gap:14px;padding:15px 18px;border-radius:18px;background:var(--cream-deep);border:1.5px solid var(--parchment);transition:all 0.35s}
+    .step-item.active{background:linear-gradient(135deg,#fff8ed,#fdf3dc);border-color:var(--gold-pale);box-shadow:0 2px 14px rgba(200,146,42,0.12)}
+    .step-item.done{opacity:0.6}
+    .step-dot{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:var(--parchment);color:var(--brown-light);margin-top:1px;transition:all 0.35s}
+    .step-item.active .step-dot{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);box-shadow:0 3px 10px rgba(200,146,42,0.4)}
+    .step-item.done .step-dot{background:#d4edda;color:#2e7d32;font-size:15px}
+    .step-copy strong{display:block;font-size:15px;color:var(--brown);margin-bottom:2px;font-weight:700}
+    .step-copy span{font-size:13px;color:var(--text-muted);line-height:1.5}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    .step-item.active .step-dot{animation:pulse 1.6s ease-in-out infinite}
+    .step-item.done .step-dot{animation:none}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;letter-spacing:0.3px;font-family:'Lato',sans-serif}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45)}
+    .btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s}
+    .btn-secondary:hover{border-color:var(--gold-light)}
+    .gen-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+    .fun-fact{padding:14px 16px;background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1px solid var(--gold-pale);border-radius:14px;font-size:13px;color:var(--text-muted);line-height:1.6;margin-top:20px}
+    .fun-fact strong{color:var(--gold);display:block;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:0.8px}
+    .side{display:grid;gap:18px;position:sticky;top:84px}
+    .side-card{background:var(--white);border-radius:22px;padding:20px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
+    .side-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
+    .side-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--brown);margin-bottom:12px}
+    .photo-frame{width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:var(--cream-deep);border:1px solid var(--parchment);display:flex;align-items:center;justify-content:center}
+    .photo-frame img{width:100%;height:100%;object-fit:cover;display:block}
+    .photo-placeholder{font-size:44px;opacity:0.3}
+    @media(max-width:860px){.gen-layout{grid-template-columns:1fr}.side{position:static}}
+    @media(max-width:560px){.shell{padding:24px 14px 60px}.card{padding:20px}.gen-actions{flex-direction:column}.btn-primary,.btn-secondary{width:100%;text-align:center}}
+  </style>
+</head>
+<body>
+
+<nav>
+  <button class="nav-back" id="backToCropBtn" type="button">← Back</button>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" onerror="this.style.display='none'"/>
+    <span class="nav-brand-name">lifebook</span>
+  </a>
+  <div style="width:80px"></div>
+</nav>
+
+<main class="shell">
+  <div class="gen-layout">
+
+    <div class="card">
+      <div class=\"step-badge\">✨ Step 3 of 3</div>
+      <h2 class=\"card-title\">Creating your magical book</h2>
+      <p class=\"card-sub\">Our AI is writing a personalized story and illustrating every page just for your child. This usually takes <strong>5–10 minutes</strong>.</p>
+
+      <!-- Time indicator -->
+      <div id="timeIndicator" style="display:none;margin-bottom:18px;padding:14px 18px;background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1px solid var(--gold-pale);border-radius:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:13px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;">Time elapsed</span>
+          <span id="liveTimer" style="font-size:18px;font-weight:700;color:var(--brown);font-variant-numeric:tabular-nums;">0:00</span>
+        </div>
+        <!-- Mini timeline -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px;" aria-label="שלבי היצירה">
+          <div class="tl-step" id="tl1" style="text-align:center;">
+            <div style="height:4px;border-radius:4px;background:var(--parchment);margin-bottom:4px;" class="tl-bar"></div>
+            <span style="font-size:10px;color:var(--text-muted);">~30s</span>
+          </div>
+          <div class="tl-step" id="tl2" style="text-align:center;">
+            <div style="height:4px;border-radius:4px;background:var(--parchment);margin-bottom:4px;" class="tl-bar"></div>
+            <span style="font-size:10px;color:var(--text-muted);">~1min</span>
+          </div>
+          <div class="tl-step" id="tl3" style="text-align:center;">
+            <div style="height:4px;border-radius:4px;background:var(--parchment);margin-bottom:4px;" class="tl-bar"></div>
+            <span style="font-size:10px;color:var(--text-muted);">~1min</span>
+          </div>
+          <div class="tl-step" id="tl4" style="text-align:center;">
+            <div style="height:4px;border-radius:4px;background:var(--parchment);margin-bottom:4px;" class="tl-bar"></div>
+            <span style="font-size:10px;color:var(--text-muted);">~5min</span>
+          </div>
+          <div class="tl-step" id="tl5" style="text-align:center;">
+            <div style="height:4px;border-radius:4px;background:var(--parchment);margin-bottom:4px;" class="tl-bar"></div>
+            <span style="font-size:10px;color:var(--text-muted);">~30s</span>
+          </div>
+        </div>
+        <!-- Close tab message -->
+        <div role="note" style="font-size:12px;color:var(--text-muted);text-align:center;padding-top:6px;border-top:1px solid var(--parchment);">
+          📬 You can close this tab — we'll <strong style="color:var(--brown)">email you</strong> when your book is ready
+        </div>
+      </div>
+
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog-label"><span>Progress</span><span id="progPct">0%</span></div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+        <div class="prog-status" id="progStatus">Starting up...</div>
+      </div>
+
+      <div class="step-list">
+        <div class="step-item" id="stepAnalyze">
+          <div class="step-dot">1</div>
+          <div class="step-copy">
+            <strong>Analyzing photo</strong>
+            <span>Identifying your child's unique features for a consistent character.</span>
+          </div>
+        </div>
+        <div class="step-item" id="stepStory">
+          <div class="step-dot">2</div>
+          <div class="step-copy">
+            <strong>Writing the story</strong>
+            <span>Crafting a personalized 16-page adventure with your child as the hero.</span>
+          </div>
+        </div>
+        <div class="step-item" id="stepCover">
+          <div class="step-dot">3</div>
+          <div class="step-copy">
+            <strong>Illustrating the cover</strong>
+            <span>Painting a beautiful full-color cover with your child's character.</span>
+          </div>
+        </div>
+        <div class="step-item" id="stepImages">
+          <div class="step-dot">4</div>
+          <div class="step-copy">
+            <strong>Illustrating 16 pages</strong>
+            <span>Generating unique artwork for every page — the longest step.</span>
+          </div>
+        </div>
+        <div class="step-item" id="stepDone">
+          <div class="step-dot">5</div>
+          <div class="step-copy">
+            <strong>Finishing up</strong>
+            <span>Assembling the book and sending it to your email.</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="generateStatus" style="font-size:14px;color:var(--text-muted);min-height:20px;margin-bottom:16px;"></div>
+
+      <div class="gen-actions">
+        <button class="btn-primary" id="generateBookBtn" type="button">✨ Generate Book</button>
+        <button class="btn-secondary" id="backToSetupBtn" type="button">← Back</button>
+      </div>
+
+      <div class="fun-fact" id="funFact">
+        <strong>✦ Did you know?</strong>
+        Each book is entirely unique — the story, illustrations, and character are generated fresh just for your child.
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="side-card">
+        <div class="side-title">Your child's photo</div>
+        <div class="photo-frame">
+          <img id="uploadedPhotoPreview" alt="Your child's photo" style="display:none"/>
+          <div class="photo-placeholder" id="photoPlaceholder">📷</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module" src="./generate.js"></script>
+<script>
+// Expose progress helpers for generate.js to call
+window.setGenStep = (id, state) => {
+  ['stepAnalyze','stepStory','stepCover','stepImages','stepDone'].forEach(s => {
+    const el = document.getElementById(s);
+    if (!el) return;
+    el.classList.remove('active','done');
+    if (s === id) el.classList.add(state || 'active');
+  });
+};
+window.setGenProgress = (pct, msg) => {
+  const wrap = document.getElementById('progWrap');
+  if (wrap) wrap.style.display = 'block';
+  const fill = document.getElementById('progFill');
+  const pctEl = document.getElementById('progPct');
+  const stat = document.getElementById('progStatus');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (stat && msg) stat.textContent = msg;
+};
+
+const facts = [
+  "Each book is entirely unique — story and illustrations generated fresh for your child.",
+  "Our AI analyzes your child's photo to keep their character consistent across all 16 pages.",
+  "The cover illustration is generated separately for maximum quality.",
+  "You'll receive the book by email — even if you close this tab.",
+  "Lifebook stories are written to be age-appropriate and end with a calming bedtime message.",
+];
+let fi = 0;
+const fe = document.getElementById('funFact');
+setInterval(() => {
+  fi = (fi + 1) % facts.length;
+  fe.innerHTML = `<strong>✦ Did you know?</strong>${facts[fi]}`;
+}, 9000);
+
+// ── Live timer + timeline ─────────────────────────────────────────────────────
+let genStartTime = null;
+
+window.startGenTimer = function() {
+  genStartTime = Date.now();
+  const indicator = document.getElementById('timeIndicator');
+  if (indicator) indicator.style.display = 'block';
+
+  setInterval(function() {
+    if (!genStartTime) return;
+    const elapsed = Math.floor((Date.now() - genStartTime) / 1000);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    const timerEl = document.getElementById('liveTimer');
+    if (timerEl) timerEl.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+  }, 1000);
+};
+
+// Color timeline bars as steps complete
+window.advanceTimeline = function(stepNum) {
+  for (var i = 1; i <= stepNum; i++) {
+    var tl = document.getElementById('tl' + i);
+    if (tl) {
+      var bar = tl.querySelector('.tl-bar');
+      if (bar) bar.style.background = 'linear-gradient(90deg,var(--gold-light),var(--gold))';
+    }
+  }
+};
+
+// Hook into existing setGenStep to drive timeline
+var _origSetGenStep = window.setGenStep;
+window.setGenStep = function(id, state) {
+  if (_origSetGenStep) _origSetGenStep(id, state);
+  var map = {stepAnalyze:1, stepStory:2, stepCover:3, stepImages:4, stepDone:5};
+  if (map[id]) window.advanceTimeline(map[id]);
+};
+</script>
+
+<script src="accessibility.js"></script>
+</body>
+</html>

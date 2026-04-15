@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="he-IL">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook — עמוד לא נמצא</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:center;}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+    .nav-brand img{height:40px;width:auto;display:block;}
+    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);}
+    .card{background:var(--white);border-radius:24px;padding:48px 40px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);max-width:480px;width:100%;text-align:center;position:relative;overflow:hidden;margin-top:68px;}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold));}
+    .error-num{font-family:'Playfair Display',serif;font-size:72px;color:var(--gold-pale);line-height:1;margin-bottom:8px;}
+    .error-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--brown);margin-bottom:12px;}
+    .error-sub{font-size:15px;color:var(--text-muted);line-height:1.7;margin-bottom:32px;}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:15px 36px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;font-family:'Lato',sans-serif;text-decoration:none;display:inline-block;}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45);}
+    .btn-secondary{display:inline-block;margin-top:12px;color:var(--gold);font-size:14px;text-decoration:underline;cursor:pointer;background:none;border:none;font-family:'Lato',sans-serif;}
+  </style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" onerror="this.style.display='none'"/>
+    <span class="nav-brand-name">lifebook</span>
+  </a>
+</nav>
+
+<div class="card" role="main">
+  <div class="error-num" aria-hidden="true">404</div>
+  <h1 class="error-title">עמוד לא נמצא</h1>
+  <p class="error-sub">נראה שהעמוד שחיפשת לא קיים או הוסר.<br/>אבל הרפתקה חדשה מחכה לך! 📖</p>
+  <a href="index.html" class="btn-primary">חזרה לדף הבית</a><br/>
+  <button class="btn-secondary" onclick="history.back()">← חזרה לעמוד הקודם</button>
+</div>
+
+<script src="accessibility.js"></script>
+</body>
+</html>

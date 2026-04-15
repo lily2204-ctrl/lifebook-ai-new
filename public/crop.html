@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook - Adjust Photo</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    *{box-sizing:border-box}
+
+    .crop-shell{
+      width:min(1100px,94vw);
+      margin:0 auto;
+      padding-bottom:60px;
+      position:relative;
+      z-index:2;
+    }
+
+    .crop-card{
+      background:
+        linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.03)),
+        linear-gradient(180deg,rgba(18,23,41,0.96),rgba(14,18,33,0.98));
+      border:1px solid rgba(240,196,109,0.14);
+      border-radius:36px;
+      box-shadow:var(--shadow);
+      padding:28px;
+    }
+
+    .crop-head{margin-bottom:20px}
+
+    .crop-head h1{
+      margin:0 0 10px;
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:clamp(30px,5vw,50px);
+      line-height:.96;
+      color:#f9f1e4;
+    }
+
+    .crop-head p{
+      margin:0;
+      color:#cfc0ab;
+      font-size:17px;
+      line-height:1.65;
+      max-width:700px;
+    }
+
+    .crop-layout{
+      display:grid;
+      grid-template-columns:minmax(300px,600px) 1fr;
+      gap:22px;
+      align-items:start;
+    }
+
+    .crop-stage-card{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:28px;
+      padding:20px;
+    }
+
+    .crop-stage{
+      width:100%;aspect-ratio:1/1;
+      position:relative;border-radius:24px;overflow:hidden;
+      background:radial-gradient(circle at center,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 55%,rgba(0,0,0,0.08) 100%);
+    }
+
+    #cropCanvas{
+      width:100%;height:100%;
+      display:block;touch-action:none;cursor:grab;
+    }
+    #cropCanvas:active{cursor:grabbing}
+
+    .crop-circle-mask{
+      position:absolute;inset:0;pointer-events:none;border-radius:24px;
+      box-shadow:inset 0 0 0 9999px rgba(0,0,0,0.30);
+      -webkit-mask:radial-gradient(circle 42% at 50% 50%,transparent 0 99%,#000 100%);
+      mask:radial-gradient(circle 42% at 50% 50%,transparent 0 99%,#000 100%);
+    }
+
+    .crop-ring{
+      position:absolute;inset:50%;width:84%;height:84%;
+      transform:translate(-50%,-50%);border-radius:50%;
+      border:4px solid #E4AB4B;
+      box-shadow:0 0 0 8px rgba(228,171,75,0.08);
+      pointer-events:none;
+    }
+
+    .crop-controls{
+      margin-top:18px;display:flex;align-items:center;gap:14px;
+    }
+
+    .reset-btn{
+      width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);
+      background:rgba(255,255,255,0.06);color:#f7efdf;font-size:24px;cursor:pointer;
+      flex-shrink:0;
+    }
+
+    .zoom-wrap{flex:1}
+
+    .zoom-label{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:8px;color:#d9ccb8;font-size:14px;font-weight:700;
+    }
+
+    #zoomSlider{width:100%;accent-color:#E4AB4B}
+
+    .crop-side{display:grid;gap:16px}
+
+    .crop-tip-card{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:24px;padding:18px;
+    }
+
+    .crop-tip-card h3{
+      margin:0 0 8px;
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:22px;color:#f7efdf;
+    }
+
+    .crop-tip-card p{margin:0;color:#c7baa8;line-height:1.6;font-size:15px}
+
+    /* NEW: inline status inside crop card */
+    .crop-status-wrap{
+      margin-top:18px;
+      padding:14px 18px;
+      border-radius:18px;
+      background:rgba(240,196,109,0.07);
+      border:1px solid rgba(240,196,109,0.18);
+      display:none;
+    }
+    .crop-status-wrap.visible{display:block}
+    .crop-status-text{
+      font-size:15px;color:#f0c46d;font-weight:700;margin-bottom:8px;
+    }
+    .crop-progress-wrap{
+      height:8px;border-radius:8px;background:rgba(255,255,255,0.06);overflow:hidden;
+    }
+    .crop-progress-bar{
+      height:100%;width:0%;border-radius:8px;
+      background:linear-gradient(90deg,#f0c46d,#d08e2b);
+      transition:width 0.5s ease;
+    }
+
+    .crop-action-row{
+      display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;
+    }
+
+    @media(max-width:980px){
+      .crop-layout{grid-template-columns:1fr}
+    }
+    @media(max-width:640px){
+      .crop-card{padding:18px;border-radius:28px}
+      .crop-action-row{flex-direction:column}
+      .continue-btn,.secondary-btn{width:100%}
+    }
+  </style>
+</head>
+<body class="crop-body">
+
+<header class="wizard-topbar">
+  <div class="wizard-topbar-left">
+    <button class="back-link-button" id="backToWizard" type="button">← Back</button>
+  </div>
+  <div class="wizard-brand">
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
+  </div>
+  <div class="wizard-topbar-right"></div>
+</header>
+
+<main class="crop-shell">
+  <section class="crop-card">
+    <div class="crop-head">
+      <div class="wizard-step-label">Step 2 of 3</div>
+      <h1>Adjust the photo</h1>
+      <p>Center the face inside the circle. When you tap Continue, we'll start creating the book automatically.</p>
+    </div>
+
+    <div class="crop-layout">
+      <div class="crop-stage-card">
+        <div class="crop-stage">
+          <canvas id="cropCanvas" width="900" height="900"></canvas>
+          <div class="crop-circle-mask"></div>
+          <div class="crop-ring"></div>
+        </div>
+
+        <div class="crop-controls">
+          <button class="reset-btn" id="resetCropBtn" type="button">↺</button>
+          <div class="zoom-wrap">
+            <div class="zoom-label">
+              <span>Zoom</span>
+              <span id="zoomValue">100%</span>
+            </div>
+            <input type="range" id="zoomSlider" min="0.8" max="3" step="0.01" value="1"/>
+          </div>
+        </div>
+
+        <!-- Inline status shown during generation start -->
+        <div class="crop-status-wrap" id="cropStatusWrap">
+          <div class="crop-status-text" id="cropStatusText">Starting...</div>
+          <div class="crop-progress-wrap">
+            <div class="crop-progress-bar" id="cropProgressBar"></div>
+          </div>
+        </div>
+
+        <div class="crop-action-row">
+          <button class="secondary-btn" id="chooseNewPhotoBtn" type="button">Choose Another Photo</button>
+          <button class="continue-btn" id="continueAfterCrop" type="button">✨ Create My Book</button>
+        </div>
+      </div>
+
+      <div class="crop-side">
+        <div class="crop-tip-card">
+          <h3>Best result</h3>
+          <p>One child, front-facing, face clearly centered inside the circle, good lighting.</p>
+        </div>
+        <div class="crop-tip-card">
+          <h3>What happens next</h3>
+          <p>After you tap "Create My Book", we start building the story and illustrations automatically. You'll see a preview in about 45 seconds.</p>
+        </div>
+        <div class="crop-tip-card">
+          <h3>Why this matters</h3>
+          <p>A clean, centered face gives the AI the best base to create a premium, consistent character throughout the whole book.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./crop.js"></script>
+<script src="accessibility.js"></script>
+</body>
+</html>
