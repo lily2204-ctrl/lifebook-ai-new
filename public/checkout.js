@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
   }
 
-  async function redirectToStripe() {
+  async function redirectToCheckout() {
     if (!book) throw new Error("Book details are still loading.");
 
     proceedBtn.disabled    = true;
@@ -82,9 +82,9 @@ document.addEventListener("DOMContentLoaded", async function() {
 
   proceedBtn && proceedBtn.addEventListener("click", async function() {
     try {
-      await redirectToStripe();
+      await redirectToCheckout();
     } catch(error) {
-      console.error("Stripe redirect failed:", error);
+      console.error("Checkout redirect failed:", error);
       if (checkoutStatus) {
         checkoutStatus.textContent = error.message || "Failed to open payment page.";
         checkoutStatus.className = "status-note error";
