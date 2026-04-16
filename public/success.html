@@ -80,7 +80,6 @@
 const API = window.location.origin;
 const params = new URLSearchParams(window.location.search);
 const bookId = params.get("bookId");
-const sessionId = params.get("session_id");
 
 const openBtn   = document.getElementById("openBookBtn");
 const homeBtn   = document.getElementById("goHomeBtn");
@@ -131,18 +130,11 @@ async function loadBook() {
   return d.book;
 }
 
-async function unlockBook() {
-  await fetch(API + "/api/books/" + bookId + "/unlock", { method: "POST" });
-}
-
 async function init() {
   try {
     statusEl.textContent = "Confirming your payment...";
 
-    // Try to trigger unlock via Stripe session_id (in case webhook hasn't fired yet)
-    if (sessionId) await unlockBook();
-
-    // Poll up to 30x × 2s = 60 seconds total
+    // Poll up to 30x × 2s = 60 seconds total — waits for LemonSqueezy webhook
     let book = null;
     let unlocked = false;
     for (let i = 0; i < 30; i++) {

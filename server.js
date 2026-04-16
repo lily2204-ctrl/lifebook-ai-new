@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
-import Stripe from "stripe";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
@@ -11,8 +10,8 @@ import { Resend } from "resend";
 const app = express();
 app.use(cors());
 
-// ─── Stripe webhook needs the RAW body for signature verification ─────────────
-app.use("/webhooks/stripe", express.raw({ type: "*/*", limit: "25mb" }));
+// ─── LemonSqueezy webhook needs the RAW body for HMAC signature verification ──
+app.use("/webhooks/lemonsqueezy", express.raw({ type: "*/*", limit: "1mb" }));
 app.use(express.json({ limit: "25mb" }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,8 +28,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -499,10 +496,10 @@ app.patch("/api/books/:bookId", async (req, res) => {
   }
 });
 
-// ─── Stripe: Create Checkout Session ─────────────────────────────────────────
+// ─── LemonSqueezy: Create Checkout URL ───────────────────────────────────────
 app.post("/api/create-checkout-session", async (req, res) => {
   try {
-    const { bookId, format } = req.body;
+    const { bookId } = req.body;
 
     if (!bookId) {
       return res.status(400).json({ status: "error", message: "Missing bookId" });
@@ -513,109 +510,125 @@ app.post("/api/create-checkout-session", async (req, res) => {
       return res.status(404).json({ status: "error", message: "Book not found" });
     }
 
-    const isDigital    = (format || book.selectedFormat) !== "printed";
-    const priceInCents = isDigital ? 3900 : 4900; // $39 / $49
-    const productName  = isDigital
-      ? `Lifebook — Digital Edition (${book.childName})`
-      : `Lifebook — Printed Book (${book.childName})`;
+    const appUrl    = process.env.APP_URL       || "https://lifebooks.online";
+    const apiKey    = process.env.LEMONSQUEEZY_API_KEY;
+    const storeId   = process.env.LEMONSQUEEZY_STORE_ID;
+    const variantId = process.env.LEMONSQUEEZY_VARIANT_ID;
 
-    const appUrl = process.env.APP_URL || "https://lifebooks.online";
+    if (!apiKey || !storeId || !variantId) {
+      return res.status(500).json({ status: "error", message: "Payment provider not configured" });
+    }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: productName,
-              description: `Personalized storybook: "${book.generatedBook?.title || "Your Magical Adventure"}"`,
-              images: book.coverImage ? [] : [] // Stripe requires hosted URLs, not base64
-            },
-            unit_amount: priceInCents
-          },
-          quantity: 1
-        }
-      ],
-      mode: "payment",
-      metadata: {
-        bookId,
-        format: isDigital ? "digital" : "printed"
+    const lsRes = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type":  "application/vnd.api+json",
+        "Accept":        "application/vnd.api+json"
       },
-      success_url: `${appUrl}/success.html?bookId=${bookId}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${appUrl}/checkout.html?bookId=${bookId}`
+      body: JSON.stringify({
+        data: {
+          type: "checkouts",
+          attributes: {
+            checkout_data: {
+              custom: { bookId }
+            },
+            product_options: {
+              redirect_url: `${appUrl}/success.html?bookId=${encodeURIComponent(bookId)}`
+            }
+          },
+          relationships: {
+            store:   { data: { type: "stores",   id: String(storeId)   } },
+            variant: { data: { type: "variants",  id: String(variantId) } }
+          }
+        }
+      })
     });
 
-    // Save session ID to book so we can link it on webhook
-    await updateBook(bookId, { stripeSessionId: session.id });
+    const lsData = await lsRes.json();
 
-    return res.json({ status: "ok", url: session.url });
+    if (!lsRes.ok) {
+      console.error("LemonSqueezy checkout error:", JSON.stringify(lsData));
+      return res.status(500).json({ status: "error", message: lsData?.errors?.[0]?.detail || "Failed to create checkout" });
+    }
+
+    const checkoutUrl = lsData?.data?.attributes?.url;
+    if (!checkoutUrl) {
+      return res.status(500).json({ status: "error", message: "No checkout URL returned" });
+    }
+
+    return res.json({ status: "ok", url: checkoutUrl });
   } catch (err) {
-    console.error("Stripe session error:", err);
+    console.error("LemonSqueezy checkout error:", err);
     return res.status(500).json({ status: "error", message: err?.message || "Failed to create checkout session" });
   }
 });
 
-// ─── Stripe Webhook ───────────────────────────────────────────────────────────
-app.post("/webhooks/stripe", async (req, res) => {
-  const sig           = req.headers["stripe-signature"];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// ─── LemonSqueezy Webhook ─────────────────────────────────────────────────────
+app.post("/webhooks/lemonsqueezy", async (req, res) => {
+  const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+  const sig           = req.headers["x-signature"];
 
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    console.error("Stripe webhook signature failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  // Verify HMAC-SHA256 signature
+  if (!webhookSecret || !sig) {
+    console.warn("LemonSqueezy webhook: missing secret or signature");
+    return res.status(400).send("Missing signature");
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const bookId  = session.metadata?.bookId;
+  const digest = crypto.createHmac("sha256", webhookSecret)
+    .update(req.body)
+    .digest("hex");
 
-    if (!bookId) {
-      console.warn("Stripe webhook: no bookId in metadata");
-      return res.status(200).send("ok");
-    }
+  if (sig !== digest) {
+    console.error("LemonSqueezy webhook: signature mismatch");
+    return res.status(401).send("Invalid signature");
+  }
 
-    // ── Respond to Stripe IMMEDIATELY (must be within 30s) ──
-    res.status(200).send("ok");
+  // Respond immediately — LemonSqueezy requires a fast 200
+  res.status(200).send("ok");
 
-    // ── Do the heavy work in background (non-blocking) ──
-    (async () => {
-      try {
-        await updateBook(bookId, {
-          paymentStatus:    "paid",
-          purchaseUnlocked: true,
-          stripeSessionId:  session.id
-        });
-        console.log(`Book ${bookId} unlocked via Stripe`);
+  // Parse payload and process in background
+  (async () => {
+    try {
+      const payload   = JSON.parse(req.body.toString());
+      const eventName = payload?.meta?.event_name;
+      const bookId    = payload?.meta?.custom_data?.bookId;
 
-        // Send payment confirmation email immediately
-        // Book ready email will be sent later by generate-full when all images are done
-        const paidBook = await getBook(bookId);
-        await sendPaymentConfirmationEmail(paidBook);
-        console.log(`Payment confirmation email sent to: ${paidBook?.customerEmail}`);
+      console.log(`LemonSqueezy webhook: event=${eventName}, bookId=${bookId}`);
 
-        // Edge case: if book was already fully generated before payment
-        // (e.g. user paid after generation completed), send book ready email now too
-        const pages      = paidBook?.generatedBook?.pages || [];
-        const images     = paidBook?.fullImages || [];
-        const allDone    = pages.length > 0 && images.filter(Boolean).length >= pages.length;
-        if (allDone) {
-          console.log(`Book ${bookId} was already complete at payment time — sending book ready email`);
-          await sendBookReadyEmail(paidBook);
-        }
-      } catch (err) {
-        console.error("Stripe post-payment processing failed:", err.message);
+      if (eventName !== "order_created") return; // only care about completed orders
+
+      if (!bookId) {
+        console.warn("LemonSqueezy webhook: no bookId in custom_data");
+        return;
       }
-    })();
 
-    return; // already sent response above
-  }
+      const orderId = String(payload?.data?.id || "");
 
-  return res.status(200).send("ok");
+      await updateBook(bookId, {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  orderId   // reuse this field to store LS order ID
+      });
+      console.log(`Book ${bookId} unlocked via LemonSqueezy order ${orderId}`);
+
+      // Send payment confirmation email immediately
+      const paidBook = await getBook(bookId);
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`Payment confirmation email sent to: ${paidBook?.customerEmail}`);
+
+      // Edge case: book already fully generated before payment — send book ready email too
+      const pages  = paidBook?.generatedBook?.pages || [];
+      const images = paidBook?.fullImages || [];
+      const allDone = pages.length > 0 && images.filter(Boolean).length >= pages.length;
+      if (allDone) {
+        console.log(`Book ${bookId} was already complete at payment time — sending book ready email`);
+        await sendBookReadyEmail(paidBook);
+      }
+    } catch (err) {
+      console.error("LemonSqueezy webhook processing failed:", err.message);
+    }
+  })();
 });
 
 // ─── Unlock endpoint (manual / dev) ──────────────────────────────────────────
@@ -835,7 +848,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       try {
         const completedBook = await getBook(bookId);
         // Only send if book was paid (user might not have paid yet — that's ok,
-        // email will be triggered again by Stripe webhook when they do pay)
+        // email will be triggered again by LemonSqueezy webhook when they do pay)
         if (completedBook?.purchaseUnlocked && completedBook?.customerEmail) {
           await sendBookReadyEmail(completedBook);
           console.log("generate-full: book ready email sent to:", completedBook.customerEmail);
