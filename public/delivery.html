@@ -359,6 +359,7 @@ async function init() {
         return;
       }
       const b2 = await loadBook();
+      if (!b2) return;
       const r2 = (b2.fullImages||[]).filter(Boolean).length;
       if (r2 > ready) {
         ready = r2;
@@ -427,8 +428,7 @@ async function generatePDF() {
         await new Promise(r => setTimeout(r, 3000));
         waited += 3;
         const fresh = await loadBook();
-        images = fresh.fullImages || [];
-        book   = fresh;
+        if (fresh) { images = fresh.fullImages || []; book = fresh; }
         const now = images.filter(Boolean).length;
         p(6, 'Waiting for illustrations (' + now + '/' + pages.length + ')...');
         if (now >= pages.length) break;

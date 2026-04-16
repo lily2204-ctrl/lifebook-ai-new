@@ -88,18 +88,29 @@ const statusEl  = document.getElementById("statusMsg");
 const coverImg  = document.getElementById("coverImg");
 const titleEl   = document.getElementById("bookTitle");
 const metaEl    = document.getElementById("bookMeta");
+const resendBtn  = document.getElementById("resendEmailBtn");
+const resendWrap = document.getElementById("resendWrap");
 
 if (!bookId) { window.location.href = "wizard.html"; }
 
-// Always wire up the button immediately
-openBtn.onclick = () => {
-  window.location.href = "reader.html?bookId=" + encodeURIComponent(bookId);
-};
+// Button starts disabled — only enabled once purchaseUnlocked confirmed
+openBtn.disabled = true;
+openBtn.style.opacity = "0.6";
+openBtn.style.cursor = "not-allowed";
+openBtn.textContent = "⏳ Confirming payment...";
 homeBtn.onclick = () => { window.location.href = "index.html"; };
 
+function enableOpenBtn() {
+  openBtn.disabled = false;
+  openBtn.style.opacity = "1";
+  openBtn.style.cursor = "pointer";
+  openBtn.textContent = "📖 Open My Book";
+  openBtn.onclick = () => {
+    window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId);
+  };
+}
+
 // Resend email button
-const resendBtn  = document.getElementById("resendEmailBtn");
-const resendWrap = document.getElementById("resendWrap");
 if (resendBtn && bookId) {
   resendBtn.addEventListener("click", async function() {
     resendBtn.textContent = "Sending...";
@@ -121,7 +132,6 @@ async function loadBook() {
 }
 
 async function unlockBook() {
-  // Try to unlock via session_id if payment not yet confirmed
   await fetch(API + "/api/books/" + bookId + "/unlock", { method: "POST" });
 }
 
@@ -129,37 +139,47 @@ async function init() {
   try {
     statusEl.textContent = "Confirming your payment...";
 
-    // Try to unlock (in case webhook hasn't fired yet)
+    // Try to trigger unlock via Stripe session_id (in case webhook hasn't fired yet)
     if (sessionId) await unlockBook();
 
-    // Poll up to 10x for purchaseUnlocked
+    // Poll up to 30x × 2s = 60 seconds total
     let book = null;
-    for (let i = 0; i < 10; i++) {
+    let unlocked = false;
+    for (let i = 0; i < 30; i++) {
       book = await loadBook();
-      if (book && book.purchaseUnlocked) break;
+      if (book && book.purchaseUnlocked) { unlocked = true; break; }
       await new Promise(r => setTimeout(r, 2000));
-      statusEl.textContent = "Confirming payment... (" + (i+1) + "/10)";
+      statusEl.textContent = "Confirming payment... (" + (i + 1) + "/30)";
     }
 
-    if (!book) { statusEl.textContent = "Could not load book. Please contact support."; return; }
+    if (!book) {
+      statusEl.textContent = "Could not load book. Please contact support.";
+      enableOpenBtn(); // still let them try to open
+      return;
+    }
 
     // Render book info
-    const title = (book.generatedBook && book.generatedBook.title) || "Your Magical Adventure";
+    const title = book.generatedBook?.title || "Your Magical Adventure";
     titleEl.textContent = title;
     metaEl.textContent  = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
     if (book.coverImage) { coverImg.src = book.coverImage; }
 
-    if (book.purchaseUnlocked) {
+    // Enable the button — always points to delivery.html
+    enableOpenBtn();
+
+    if (unlocked) {
       statusEl.textContent = "✅ Payment confirmed — your book is ready!";
       statusEl.style.color = "#2d7a2d";
       if (resendWrap) resendWrap.style.display = "block";
     } else {
-      statusEl.textContent = "⚠ Still confirming payment. Your book will unlock shortly.";
+      statusEl.textContent = "⚠ Payment is still confirming — your book will unlock in a moment.";
       statusEl.style.color = "#c8922a";
     }
 
   } catch(err) {
+    console.error("success page error:", err);
     statusEl.textContent = "Error: " + err.message;
+    enableOpenBtn(); // always let them try to open on error too
   }
 }
 
