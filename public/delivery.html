@@ -410,11 +410,13 @@ async function generatePDF() {
   try {
     p(5, 'Loading book data...');
     book = await loadBook();
-    const pages  = book.generatedBook?.pages || [];
-    let   images = book.fullImages || [];
-    const title  = book.generatedBook?.title  || 'Your Magical Adventure';
+    if (!book) throw new Error("Book data not available — please refresh the page.");
+    if (!book.generatedBook) throw new Error("Story not ready yet — please wait a moment and try again.");
+    const pages  = book.generatedBook?.pages  || [];
+    let   images = book.fullImages             || [];
+    const title  = book.generatedBook?.title   || 'Your Magical Adventure';
     const sub    = book.generatedBook?.subtitle || 'A Bedtime Journey to Dreamland';
-    const child  = book.childName || 'your child';
+    const child  = book.childName              || 'your child';
 
     // ── Wait for images if not all ready (up to 3 min) ──────────────────────
     const readyCount = images.filter(Boolean).length;

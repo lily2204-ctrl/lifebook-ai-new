@@ -85,18 +85,21 @@ function buildCharacterPromptCore(characterDNA, style) {
   const outfit  = characterDNA.outfit  || "simple timeless child outfit";
 
   return `
-Main character reference:
-- ${ageLook}
-- Hair: ${hair}
-- Skin tone: ${skin}
-- Eyes: ${eyes}
-- Face: ${face}
+LOCKED CHILD CHARACTER — do not change any trait between illustrations:
+- Age appearance: ${ageLook}
+- Exact hair color and style: ${hair}
+- Exact skin tone: ${skin}
+- Exact eye color: ${eyes}
+- Exact face shape: ${face}
 - Outfit style: ${outfit}
 - General vibe: ${vibe}
+- Illustration style: ${style}
 
-Keep this exact same child character consistent across all illustrations.
-Do not change the child's identity, age appearance, hair color, skin tone, or facial structure.
-Illustration style must be: ${style}.
+CONSISTENCY RULES:
+- The child's hair color, skin tone, eye color, and face shape must be IDENTICAL in every single image.
+- Do NOT alter age, proportions, hair length, or facial features between scenes.
+- Do NOT replace this child with a different child or change their ethnicity.
+- This is the SAME child that must appear identically in every illustration.
 `.trim();
 }
 
@@ -766,13 +769,13 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // פונקציה ליצירת תמונה אחת
       async function generatePageImage(pageIndex, quality = "medium") {
         const page = pages[pageIndex];
-        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity\n- same face structure\n- same hair and skin tone\n- warm magical storybook aesthetic\n- no text\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
+        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity as described above — identical hair, skin, eyes, face shape\n- same face structure in every scene — do not alter\n- same exact hair color and skin tone — locked\n- warm magical storybook aesthetic\n- NO text, letters, words, numbers, or writing of any kind rendered on the image\n- NO captions, titles, or labels on the illustration itself\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
         const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024", quality });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
       // Cover prompt
-      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nBOOK TITLE:\n${sanitizeBrandTerms(title)}\n\nBOOK SUBTITLE:\n${sanitizeBrandTerms(subtitle)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero\n- magical, premium, warm\n- no character sheet\n- no multiple poses\n- no text rendered into the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero\n- magical, premium, warm\n- no character sheet\n- no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered on the image\n- NO captions, titles, or labels on the illustration itself\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel (quality:low for speed)
       console.log(`[TIMER ${bookId}] STEP3_4a_START — launching cover + page0 + page1 in parallel`);
