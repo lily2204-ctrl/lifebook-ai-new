@@ -367,7 +367,7 @@ async function init() {
       }
 
       // Update live progress bar
-      const totalPgs = (book.generatedBook?.pages?.length) || 16;
+      const totalPgs = (book.generatedBook?.pages?.length) || 12;
       const genProg = document.getElementById('genProgress');
       const genText = document.getElementById('genProgressText');
       const genBar  = document.getElementById('genProgressBar');
@@ -407,6 +407,14 @@ async function generatePDF() {
   try {
     p(5, 'Loading book data...');
     book = await loadBook();
+    if (!book) {
+      st.textContent = '❌ Book not found. Please try again or contact support.';
+      return;
+    }
+    if (!book.generatedBook) {
+      st.textContent = '❌ Book is still being generated. Please wait and try again in a moment.';
+      return;
+    }
     const pages  = book.generatedBook?.pages || [];
     let   images = book.fullImages || [];
     const title  = book.generatedBook?.title  || 'Your Magical Adventure';
@@ -422,8 +430,7 @@ async function generatePDF() {
         await new Promise(r => setTimeout(r, 3000));
         waited += 3;
         const fresh = await loadBook();
-        images = fresh.fullImages || [];
-        book   = fresh;
+        if (fresh) { images = fresh.fullImages || []; book = fresh; }
         const now = images.filter(Boolean).length;
         p(6, 'Waiting for illustrations (' + now + '/' + pages.length + ')...');
         if (now >= pages.length) break;

@@ -8,6 +8,9 @@ const continueBtn  = document.getElementById("continueAfterCrop");
 const resetBtn     = document.getElementById("resetCropBtn");
 const backBtn      = document.getElementById("backToWizard");
 const chooseNewBtn = document.getElementById("chooseNewPhotoBtn");
+const statusWrap   = document.getElementById("cropStatusWrap");
+const statusText   = document.getElementById("cropStatusText");
+const progressBar  = document.getElementById("cropProgressBar");
 
 const bookData      = getBookData();
 const uploadedPhoto = bookData.originalPhoto;
@@ -58,12 +61,27 @@ cropCanvas.addEventListener("touchstart", function(e) { var r = cropCanvas.getBo
 cropCanvas.addEventListener("touchmove",  function(e) { if (!isDragging) return; e.preventDefault(); var r = cropCanvas.getBoundingClientRect(), t = e.touches[0]; var x = t.clientX - r.left, y = t.clientY - r.top; offsetX += x - startDragX; offsetY += y - startDragY; startDragX = x; startDragY = y; drawCanvas(); }, { passive: false });
 cropCanvas.addEventListener("touchend",   function() { isDragging = false; });
 
+// ── Status helpers ────────────────────────────────────────────────────────────
+function setStatus(msg, pct) {
+  if (statusWrap) statusWrap.classList.add("visible");
+  if (statusText) { statusText.style.color = "#f0c46d"; statusText.textContent = msg; }
+  if (progressBar) progressBar.style.width = (pct || 0) + "%";
+}
+
+function showError(msg) {
+  if (statusWrap) statusWrap.classList.add("visible");
+  if (statusText) { statusText.style.color = "#ff7070"; statusText.textContent = "⚠ " + msg; }
+  if (progressBar) { progressBar.style.background = "#e05555"; progressBar.style.width = "100%"; }
+}
+
 // ── Continue ──────────────────────────────────────────────────────────────────
 continueBtn.addEventListener("click", async function() {
   try {
     continueBtn.disabled = true;
     continueBtn.textContent = "Creating your book...";
+    setStatus("Preparing photo...", 15);
 
+    // Export the cropped circle to a 768×768 JPEG
     var exportCanvas = document.createElement("canvas");
     exportCanvas.width = exportCanvas.height = 768;
     var ec  = exportCanvas.getContext("2d");
@@ -77,6 +95,8 @@ continueBtn.addEventListener("click", async function() {
 
     var croppedPhoto = exportCanvas.toDataURL("image/jpeg", 0.9);
     updateBookData({ croppedPhoto });
+
+    setStatus("Saving to server...", 40);
 
     var data = getBookData();
     var createRes = await fetch(window.location.origin + "/api/books/create", {
@@ -93,28 +113,41 @@ continueBtn.addEventListener("click", async function() {
         customerEmail:      data.customerEmail      || ""
       })
     });
+
+    if (!createRes.ok) {
+      var errText = "";
+      try { var errData = await createRes.json(); errText = errData.message || ""; } catch(e) {}
+      throw new Error("Server error " + createRes.status + (errText ? ": " + errText : ""));
+    }
+
     var createData = await createRes.json();
     var bookId = createData.bookId || "";
     updateBookData({ bookId });
 
     if (!bookId) {
-      throw new Error("Failed to create book — server returned no bookId. Details: " + JSON.stringify(createData));
+      throw new Error("No bookId returned from server. Please try again.");
     }
 
-    if (bookId) {
-      fetch(window.location.origin + "/api/books/" + bookId + "/generate-full", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      }).catch(function(e) { console.warn("generate-full kick:", e.message); });
-    }
+    setStatus("Starting generation...", 75);
+
+    // Fire generate-full in background — don't await
+    fetch(window.location.origin + "/api/books/" + bookId + "/generate-full", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }).catch(function(e) { console.warn("generate-full kick:", e.message); });
+
+    setStatus("Redirecting...", 95);
+
+    // Small delay so the status is visible before navigation
+    await new Promise(function(r) { setTimeout(r, 300); });
 
     window.location.href = "preview.html?bookId=" + encodeURIComponent(bookId);
 
   } catch(err) {
     console.error("crop continue failed:", err);
     continueBtn.disabled = false;
-    continueBtn.textContent = "✓ Create My Book";
-    alert("Something went wrong. Please try again.");
+    continueBtn.textContent = "✨ Create My Book";
+    showError(err.message || "Something went wrong. Please try again.");
   }
 });
 

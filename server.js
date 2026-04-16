@@ -82,18 +82,25 @@ function buildCharacterPromptCore(characterDNA, style) {
   const outfit  = characterDNA.outfit  || "simple timeless child outfit";
 
   return `
-Main character reference:
-- ${ageLook}
-- Hair: ${hair}
-- Skin tone: ${skin}
-- Eyes: ${eyes}
-- Face: ${face}
+LOCKED CHILD CHARACTER — must be identical in every single illustration:
+- Age appearance: ${ageLook}
+- HAIR (exact): ${hair}
+- SKIN TONE (exact): ${skin}
+- EYES (exact): ${eyes}
+- FACE SHAPE (exact): ${face}
 - Outfit style: ${outfit}
-- General vibe: ${vibe}
+- Overall vibe: ${vibe}
 
-Keep this exact same child character consistent across all illustrations.
-Do not change the child's identity, age appearance, hair color, skin tone, or facial structure.
-Illustration style must be: ${style}.
+CONSISTENCY RULES — strictly enforce:
+1. Same child face in EVERY illustration — do not alter facial features, bone structure, or proportions
+2. Same hair color and style — do not change length, color, or texture
+3. Same skin tone — do not lighten or darken between scenes
+4. Same eye color and shape — no variation allowed
+5. If the child changes clothes between scenes, ALL other features stay identical
+6. Do NOT introduce a different child or a generic child
+
+Illustration style: ${style}.
+This is the SAME child that must appear identically in every illustration.
 `.trim();
 }
 
@@ -342,7 +349,7 @@ async function sendBookReadyEmail(book) {
   const bookTitle = book.generatedBook?.title    || "Your Magical Storybook";
   const bookSub   = book.generatedBook?.subtitle || "A personalized adventure";
   const childName = book.childName || "your child";
-  const pageCount = book.generatedBook?.pages?.length || 16;
+  const pageCount = book.generatedBook?.pages?.length || 12;
   const downloadUrl = `${appUrl}/delivery.html?bookId=${book.bookId}`;
 
   try {
@@ -728,7 +735,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
       if (!book.generatedBook?.pages?.length) {
-        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 16 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
+        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
 - If the child's name contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If the name is in English or Latin characters, write in English`;
 
@@ -745,7 +752,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
           subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
           pages:    Array.isArray(storyData.pages)
-            ? storyData.pages.slice(0, 16).map(p => ({
+            ? storyData.pages.slice(0, 12).map(p => ({
                 text:        sanitizeBrandTerms(String(p.text        || "").trim()),
                 imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
               }))
@@ -769,13 +776,13 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // פונקציה ליצירת תמונה אחת
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
-        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity\n- same face structure\n- same hair and skin tone\n- warm magical storybook aesthetic\n- no text\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
+        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
         const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
       // Cover prompt
-      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nBOOK TITLE:\n${sanitizeBrandTerms(title)}\n\nBOOK SUBTITLE:\n${sanitizeBrandTerms(subtitle)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero\n- magical, premium, warm\n- no character sheet\n- no multiple poses\n- no text rendered into the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
@@ -1180,7 +1187,7 @@ Return ONLY JSON:
 }
 
 Rules:
-- Exactly 16 story pages
+- Exactly 12 story pages
 - Each page text must be 35-70 words
 - The child must clearly be the hero
 - imagePrompt must describe the same child consistently
@@ -1202,7 +1209,7 @@ Rules:
 
     const title    = sanitizeBrandTerms(book.title    || `The Magical Adventure of ${cleanChildName}`);
     const subtitle = sanitizeBrandTerms(book.subtitle || "A story where you are the hero");
-    const pages    = Array.isArray(book.pages) ? book.pages.slice(0, 16) : [];
+    const pages    = Array.isArray(book.pages) ? book.pages.slice(0, 12) : [];
 
     return res.json({
       status: "ok",
