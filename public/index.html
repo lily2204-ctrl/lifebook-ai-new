@@ -97,15 +97,6 @@ nav {
   transform: translateY(-1px);
   box-shadow: 0 6px 28px rgba(200,146,42,0.35);
 }
-.nav-lang-idx {
-  background: transparent; color: var(--gold);
-  border: 1.5px solid rgba(200,146,42,0.35); border-radius: 50px;
-  padding: 8px 16px; font-family: 'Lato', sans-serif;
-  font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
-  white-space: nowrap;
-}
-.nav-lang-idx:hover { border-color: var(--gold-light); background: rgba(200,146,42,0.07);
-}
 
 /* ─── HERO ─── */
 .hero {
@@ -900,11 +891,10 @@ footer {
 <!-- NAV -->
 
 <nav>
-  <button class="nav-lang-idx" id="idxLangBtn" onclick="idxToggleLang()">🌐 עברית</button>
   <a class="nav-brand" href="#">
     <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
-  <button class="nav-cta" id="idxNavCta" onclick="document.getElementById('cta').scrollIntoView({behavior:'smooth'})">
+  <button class="nav-cta" onclick="document.getElementById('cta').scrollIntoView({behavior:'smooth'})">
     Create Your Book ✨
   </button>
 </nav>
@@ -913,16 +903,16 @@ footer {
 
 <section class="hero">
   <div class="hero-text">
-    <div class="hero-badge" id="idxHeroBadge">✨ AI-Powered · Personalized · Magical</div>
-    <h1 class="hero-title" id="idxHeroTitle">
+    <div class="hero-badge">✨ AI-Powered · Personalized · Magical</div>
+    <h1 class="hero-title">
       Your child becomes the<br>
-      <em id="idxHeroTitleEm">hero of their own story</em>
+      <em>hero of their own story</em>
     </h1>
-    <p class="hero-subtitle" id="idxHeroSub">
+    <p class="hero-subtitle">
       Upload a photo, tell us about your child, and our AI creates a fully personalized storybook — ready to download in minutes.
     </p>
     <div class="hero-actions">
-      <a class="btn-primary" id="idxHeroCta" href="#cta">Create Our Book →</a>
+      <a class="btn-primary" href="#cta">Create Our Book →</a>
       <div class="hero-proof">
         <span class="stars-row">★★★★★</span>
         <span>Loved by 2,000+ families</span>
@@ -1137,7 +1127,7 @@ footer {
 
 <footer>
   <div class="footer-brand"><img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/></div>
-  <div class="footer-copy">© 2026 Lifebook. All rights reserved. · <a href="contact.html" style="color:var(--gold-light);text-decoration:none;font-weight:700;">Contact Us</a> · <a href="terms.html" style="color:var(--gold-light);text-decoration:none;font-weight:700;">Terms &amp; Privacy</a></div>
+  <div class="footer-copy">© 2026 Lifebook. All rights reserved. · <a href="contact.html" style="color:var(--gold-light);text-decoration:none;font-weight:700;">Contact Us</a></div>
 </footer>
 
 <script>
@@ -1195,47 +1185,6 @@ footer {
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 </script>
 
-<script>
-var _idxLang = 'en';
-var _idxHE = {
-  langToggle: '🌐 English',
-  navCta: '✨ צרו את הספר שלכם',
-  heroBadge: '✨ מונע בינה מלאכותית · מותאם אישית · קסום',
-  heroTitlePrefix: 'ילדכם הופך ל',
-  heroTitleEm: 'גיבור/ת הסיפור שלו',
-  heroSub: 'העלו תמונה, ספרו לנו על ילדכם, והבינה המלאכותית שלנו יוצרת ספר מאויר לגמרי — מוכן להורדה תוך דקות.',
-  heroCta: 'צרו את ספרכם ←',
-};
-var _idxEN = {
-  langToggle: '🌐 עברית',
-  navCta: 'Create Your Book ✨',
-  heroBadge: '✨ AI-Powered · Personalized · Magical',
-  heroTitlePrefix: 'Your child becomes the\n      ',
-  heroTitleEm: 'hero of their own story',
-  heroSub: 'Upload a photo, tell us about your child, and our AI creates a fully personalized storybook — ready to download in minutes.',
-  heroCta: 'Create Our Book →',
-};
-function idxToggleLang() {
-  _idxLang = _idxLang === 'en' ? 'he' : 'en';
-  var t = _idxLang === 'he' ? _idxHE : _idxEN;
-  var isHe = _idxLang === 'he';
-  document.documentElement.setAttribute('dir', isHe ? 'rtl' : 'ltr');
-  document.documentElement.setAttribute('lang', isHe ? 'he' : 'en');
-  var set = function(id, val) { var el = document.getElementById(id); if (el && val) el.textContent = val; };
-  set('idxLangBtn', t.langToggle);
-  set('idxNavCta', t.navCta);
-  set('idxHeroBadge', t.heroBadge);
-  set('idxHeroTitleEm', t.heroTitleEm);
-  set('idxHeroSub', t.heroSub);
-  set('idxHeroCta', t.heroCta);
-  // Hero title prefix (text node before <em>)
-  var titleEl = document.getElementById('idxHeroTitle');
-  if (titleEl) {
-    var firstText = titleEl.firstChild;
-    if (firstText && firstText.nodeType === 3) firstText.textContent = isHe ? 'ילדכם הופך ל\n      ' : 'Your child becomes the\n      ';
-  }
-}
-</script>
 <script src="accessibility.js"></script>
 </body>
 </html>

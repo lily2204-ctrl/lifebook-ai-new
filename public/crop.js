@@ -97,6 +97,10 @@ continueBtn.addEventListener("click", async function() {
     var bookId = createData.bookId || "";
     updateBookData({ bookId });
 
+    if (!bookId) {
+      throw new Error("Failed to create book — server returned no bookId. Details: " + JSON.stringify(createData));
+    }
+
     if (bookId) {
       fetch(window.location.origin + "/api/books/" + bookId + "/generate-full", {
         method: "POST",
