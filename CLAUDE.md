@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 18, 2026 (session 4)*
+*Last updated: April 18, 2026 (session 5 — full e2e test)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -155,6 +155,38 @@ These cannot be fixed in code — need dashboard access:
    - No file size limit needed (images are ~200KB each)
 3. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active. Also check your domain registrar DNS points to Railway's IP.
 4. **LemonSqueezy webhook** — after deploy, go to LemonSqueezy → Settings → Webhooks and check delivery logs to confirm webhook fires and our endpoint returns 200.
+
+## End-to-End Test Results — April 18, 2026
+*Tested on Railway URL (lifebooks.online DNS is down — needs manual fix in Railway/registrar)*
+
+| Step | Status | Notes |
+|------|--------|-------|
+| index.html loads | ✅ | Logo, hero image, CTA button all correct |
+| wizard.html | ✅ | All form fields work, style selector works, Hebrew toggle present |
+| crop.html | ✅ | Photo renders in circle, zoom slider, progress bar on submit, "Redirecting..." status |
+| /api/books/create | ✅ | Book created, photos uploaded to Supabase Storage (not base64 in DB) |
+| /api/books/:id/generate-full | ✅ | Returns 200 immediately, background pipeline starts |
+| preview.html — step tracker | ✅ | "Creating Maya...", timer counts up, steps animate: photo→story→illustrations→ready |
+| preview.html — story generated | ✅ | Title "Maya's Magical Forest Adventure", subtitle correct, ~45s |
+| preview.html — images | ✅ | Cover + pages loaded from Supabase Storage URLs (confirmed NOT base64), ~60-90s |
+| preview.html — page count | ✅ | "2/12 pages illustrated" (correct — not 16) |
+| preview.html — trust badges | ✅ | "Secure checkout · Instant download · Secure payment" (no Stripe) |
+| checkout.html | ✅ | Cover from Storage, order summary correct: Maya · 5 · 12 pages · $39 |
+| /api/create-checkout-session | ✅ | LemonSqueezy checkout URL created and redirect fired correctly |
+| LemonSqueezy redirect | ✅ | Tab navigated to lifebooks.lemonsqueezy.com/checkout correctly |
+| /api/books/:id/unlock | ✅ | Dev unlock works: purchaseUnlocked=true, paymentStatus=paid |
+| success.html | ✅ | Detected purchaseUnlocked=true, cover thumbnail from Storage, "📖 Open My Book" enabled |
+| success.html → delivery.html | ✅ | "Open My Book" navigated correctly to delivery.html (not reader.html) |
+| delivery.html loads | ✅ | Cover, title, child name, 12 pages, Paid status all correct |
+| delivery.html — carousel | ✅ | Page images load from Storage URLs, navigation arrows/dots work |
+| delivery.html — PDF | ✅ | PDF generated, progress bar shown, completed with no errors, file downloaded |
+| Supabase Storage | ✅ | All 12 page images + cover served from jjhrynetritjbxotggqz.supabase.co/storage/v1/object/public/book-images/{bookId}/ |
+| Console errors | ✅ | Zero JS errors across entire flow |
+| Image quality | ✅ | No text rendered in images, consistent child character across pages |
+
+### ⚠️ Infrastructure Issues Found
+1. **lifebooks.online DNS is DOWN** — domain unreachable, Railway URL works fine. Fix: go to Railway → Settings → Domains, verify custom domain mapping. Check DNS registrar points to Railway IP.
+2. **LemonSqueezy actual payment not tested** — cannot complete real payment in browser tool. Webhook flow (signature → unlock → email) should be verified via LemonSqueezy dashboard delivery logs after first real purchase.
 
 ## Known Bugs — Open
 ### 🟢 Nice to have
