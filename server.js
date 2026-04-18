@@ -991,7 +991,7 @@ Rules:
           let batchHadNew = false;
           for (const result of results) {
             if (result.status === "fulfilled" && result.value?.base64) {
-              fullImages[result.value.pageIndex] = `data:image/png;base64,${result.value.base64}`;
+              fullImages[result.value.pageIndex] = `data:image/jpeg;base64,${result.value.base64}`;
               savedCount++;
               batchHadNew = true;
             }

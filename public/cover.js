@@ -3,7 +3,7 @@ import { clearBookData, getBookData } from "./js/state.js";
 const data = getBookData();
 
 if (!data.generatedBook || !Array.isArray(data.generatedBook.pages) || data.generatedBook.pages.length === 0) {
-  window.location.href = "generate.html";
+  window.location.href = "wizard.html";
 }
 
 const generatedBook = data.generatedBook;
@@ -78,7 +78,7 @@ if (metaPages) {
 }
 
 backToGenerateBtn?.addEventListener("click", () => {
-  window.location.href = "generate.html";
+  window.location.href = "wizard.html";
 });
 
 continueToPreviewBtn?.addEventListener("click", () => {

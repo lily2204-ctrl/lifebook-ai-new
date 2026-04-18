@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 18, 2026*
+*Last updated: April 18, 2026 (session 3)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -114,10 +114,16 @@ STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 
 ---
 
+## ⚠️ INFRASTRUCTURE — Requires Manual Action
+These cannot be fixed in code — need dashboard access:
+1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume". Supabase pauses free-tier projects after inactivity. Consider upgrading to Pro.
+2. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active. Also check your domain registrar DNS points to Railway's IP.
+3. **LemonSqueezy webhook** — after deploy, go to LemonSqueezy → Settings → Webhooks and check delivery logs to confirm webhook fires and our endpoint returns 200.
+
 ## Known Bugs — Open
 ### 🟢 Nice to have
 1. Hebrew on all pages (currently only wizard.html has full toggle)
-2. Terms & Refund policy page (terms.html exists but not linked from all pages)
+2. Terms & Refund policy page — create terms.html (it does NOT currently exist)
 
 ---
 
@@ -172,3 +178,9 @@ public/
 29. ✅ success.html: openBtn wired to reader.html → fixed to delivery.html
 30. ✅ success.html: poll 10×2s (20s) → 30×2s (60s)
 31. ✅ success.html: after 60s timeout → show "Payment confirmed — opening your book..." then redirect to delivery.html after 2.5s (never goes to checkout)
+32. ✅ package.json: removed stripe dependency (was still installed despite full Stripe removal)
+33. ✅ contact.html: removed mix-blend-mode:multiply from logo (was making logo invisible), fixed height 36px → 54px
+34. ✅ wizard.html, cover.html, reader.html, setup.html, open-book.html: logo height 40px/44px → 54px (matches spec)
+35. ✅ success.js: orphaned legacy file with Shopify references + reader.html redirect — gutted, now empty stub
+36. ✅ cover.js: redirected to generate.html (legacy) → wizard.html
+37. ✅ server.js generate-images endpoint: MIME type data:image/png → data:image/jpeg
