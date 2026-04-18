@@ -164,5 +164,11 @@ public/
 21. ✅ success.html: polled 10×2s (20s) → 30×2s (60s)
 22. ✅ success.html: after 60s timeout → redirect to delivery.html (not checkout)
 23. ✅ success.html: removed session_id param + unlockBook() auto-fire (Stripe leftover)
-24. ✅ server.js webhook: added detailed console.log at every step for debugging
-25. ✅ server.js checkout: added logging of bookId + checkout URL
+24. ✅ server.js webhook: CRITICAL — was using updateBook() (has .select() → Supabase timeout) → fixed to updateBookField()
+25. ✅ server.js webhook: accept both x-signature AND x-lemonsqueezy-signature headers
+26. ✅ server.js webhook: added 20 detailed console.log lines at every step for Railway log debugging
+27. ✅ server.js checkout: added [Checkout] logging — bookId, env vars, redirect URL, LS response
+28. ✅ success.html: removed session_id param + unlockBook() auto-fire (Stripe leftover, was calling /unlock without payment verification)
+29. ✅ success.html: openBtn wired to reader.html → fixed to delivery.html
+30. ✅ success.html: poll 10×2s (20s) → 30×2s (60s)
+31. ✅ success.html: after 60s timeout → show "Payment confirmed — opening your book..." then redirect to delivery.html after 2.5s (never goes to checkout)
