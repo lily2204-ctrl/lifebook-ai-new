@@ -505,6 +505,7 @@ app.patch("/api/books/:bookId", async (req, res) => {
 app.post("/api/create-checkout-session", async (req, res) => {
   try {
     const { bookId } = req.body;
+    console.log(`[Checkout] create-checkout-session called with bookId: ${bookId}`);
 
     if (!bookId) {
       return res.status(400).json({ status: "error", message: "Missing bookId" });
@@ -515,114 +516,161 @@ app.post("/api/create-checkout-session", async (req, res) => {
       return res.status(404).json({ status: "error", message: "Book not found" });
     }
 
-    const apiKey   = process.env.LEMONSQUEEZY_API_KEY;
-    const storeId  = process.env.LEMONSQUEEZY_STORE_ID  || "347433";
-    const variantId= process.env.LEMONSQUEEZY_VARIANT_ID;
-    const appUrl   = process.env.APP_URL || "https://lifebooks.online";
+    const apiKey    = process.env.LEMONSQUEEZY_API_KEY;
+    const storeId   = process.env.LEMONSQUEEZY_STORE_ID  || "347433";
+    const variantId = process.env.LEMONSQUEEZY_VARIANT_ID;
+    const appUrl    = process.env.APP_URL || "https://lifebooks.online";
+
+    console.log(`[Checkout] storeId=${storeId} variantId=${variantId} apiKey=${apiKey ? "set" : "MISSING"}`);
 
     if (!apiKey || !variantId) {
-      return res.status(500).json({ status: "error", message: "Payment not configured" });
+      console.error("[Checkout] Missing LEMONSQUEEZY_API_KEY or LEMONSQUEEZY_VARIANT_ID");
+      return res.status(500).json({ status: "error", message: "Payment not configured — missing API key or variant ID" });
     }
+
+    const redirectUrl = `${appUrl}/success.html?bookId=${encodeURIComponent(bookId)}`;
+    console.log(`[Checkout] redirect_url: ${redirectUrl}`);
+
+    const requestBody = {
+      data: {
+        type: "checkouts",
+        attributes: {
+          checkout_data: { custom: { bookId } },
+          product_options: { redirect_url: redirectUrl }
+        },
+        relationships: {
+          store:   { data: { type: "stores",   id: String(storeId)   } },
+          variant: { data: { type: "variants",  id: String(variantId) } }
+        }
+      }
+    };
+
+    console.log(`[Checkout] sending to LS API: ${JSON.stringify(requestBody)}`);
 
     const lsRes = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
       method: "POST",
       headers: {
-        "Authorization":  `Bearer ${apiKey}`,
-        "Content-Type":   "application/vnd.api+json",
-        "Accept":         "application/vnd.api+json"
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type":  "application/vnd.api+json",
+        "Accept":        "application/vnd.api+json"
       },
-      body: JSON.stringify({
-        data: {
-          type: "checkouts",
-          attributes: {
-            checkout_data: { custom: { bookId } },
-            product_options: {
-              redirect_url: `${appUrl}/success.html?bookId=${encodeURIComponent(bookId)}`
-            }
-          },
-          relationships: {
-            store:   { data: { type: "stores",   id: String(storeId)   } },
-            variant: { data: { type: "variants",  id: String(variantId) } }
-          }
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const lsData = await lsRes.json();
 
     if (!lsRes.ok) {
-      console.error("LemonSqueezy checkout error:", JSON.stringify(lsData));
-      return res.status(500).json({ status: "error", message: "Failed to create checkout" });
+      console.error("[Checkout] LemonSqueezy API error:", JSON.stringify(lsData));
+      return res.status(500).json({ status: "error", message: "Failed to create checkout — LS error: " + JSON.stringify(lsData?.errors || lsData) });
     }
 
     const checkoutUrl = lsData?.data?.attributes?.url;
+    console.log(`[Checkout] checkout URL created: ${checkoutUrl}`);
+
     if (!checkoutUrl) {
-      return res.status(500).json({ status: "error", message: "No checkout URL returned" });
+      console.error("[Checkout] No URL in LS response:", JSON.stringify(lsData));
+      return res.status(500).json({ status: "error", message: "No checkout URL returned from LemonSqueezy" });
     }
 
     return res.json({ status: "ok", url: checkoutUrl });
   } catch (err) {
-    console.error("Checkout session error:", err);
+    console.error("[Checkout] Unexpected error:", err.message, err.stack);
     return res.status(500).json({ status: "error", message: err?.message || "Failed to create checkout session" });
   }
 });
 
 // ─── LemonSqueezy Webhook ─────────────────────────────────────────────────────
 app.post("/webhooks/lemonsqueezy", async (req, res) => {
-  const sig           = req.headers["x-signature"];
+  console.log("[LS Webhook] received — headers:", JSON.stringify({
+    "x-signature":             req.headers["x-signature"],
+    "x-lemonsqueezy-signature": req.headers["x-lemonsqueezy-signature"],
+    "content-type":            req.headers["content-type"],
+  }));
+
+  // LemonSqueezy sends the signature as X-Signature header
+  const sig           = req.headers["x-signature"] || req.headers["x-lemonsqueezy-signature"] || "";
   const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
 
+  console.log(`[LS Webhook] sig present: ${!!sig}, secret present: ${!!webhookSecret}`);
+
   if (!webhookSecret) {
-    console.error("LEMONSQUEEZY_WEBHOOK_SECRET not set");
+    console.error("[LS Webhook] LEMONSQUEEZY_WEBHOOK_SECRET not set — returning 500");
     return res.status(500).send("Webhook secret not configured");
   }
 
+  // Verify HMAC-SHA256 signature
   const digest = crypto.createHmac("sha256", webhookSecret).update(req.body).digest("hex");
+  console.log(`[LS Webhook] expected digest: ${digest}, received sig: ${sig}`);
+
   if (sig !== digest) {
-    console.error("LemonSqueezy webhook signature mismatch");
+    console.error(`[LS Webhook] signature MISMATCH — rejecting. Got: ${sig} Expected: ${digest}`);
     return res.status(401).send("Invalid signature");
   }
 
-  // ── Respond immediately (must be fast) ──
+  console.log("[LS Webhook] signature verified ✅ — responding 200 immediately");
+
+  // ── Respond to LemonSqueezy IMMEDIATELY (must be within 5s) ──
   res.status(200).send("ok");
 
   // ── Process in background ──
   (async () => {
     try {
-      const payload   = JSON.parse(req.body.toString());
+      const rawBody   = req.body.toString();
+      console.log(`[LS Webhook] raw body (first 500 chars): ${rawBody.substring(0, 500)}`);
+
+      const payload   = JSON.parse(rawBody);
       const eventName = payload?.meta?.event_name;
+      console.log(`[LS Webhook] event_name: ${eventName}`);
 
-      if (eventName !== "order_created") return;
-
-      const bookId  = payload?.meta?.custom_data?.bookId;
-      const orderId = String(payload?.data?.id || "");
-
-      if (!bookId) {
-        console.warn("LemonSqueezy webhook: no bookId in custom_data");
+      if (eventName !== "order_created") {
+        console.log(`[LS Webhook] ignoring event: ${eventName}`);
         return;
       }
 
-      await updateBook(bookId, {
+      const customData = payload?.meta?.custom_data;
+      const bookId     = customData?.bookId || customData?.book_id;
+      const orderId    = String(payload?.data?.id || "");
+
+      console.log(`[LS Webhook] custom_data: ${JSON.stringify(customData)}`);
+      console.log(`[LS Webhook] bookId: ${bookId}, orderId: ${orderId}`);
+
+      if (!bookId) {
+        console.error("[LS Webhook] no bookId found in custom_data — cannot unlock book");
+        console.error("[LS Webhook] full meta:", JSON.stringify(payload?.meta));
+        return;
+      }
+
+      console.log(`[LS Webhook] unlocking book ${bookId}...`);
+
+      // Use updateBookField (no .select()) — safe for large image data
+      await updateBookField(bookId, {
         paymentStatus:    "paid",
         purchaseUnlocked: true,
         stripeSessionId:  orderId   // reusing existing DB column for LS order ID
       });
-      console.log(`Book ${bookId} unlocked via LemonSqueezy order ${orderId}`);
+      console.log(`[LS Webhook] ✅ book ${bookId} unlocked via LemonSqueezy order ${orderId}`);
 
       const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[LS Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
       await sendPaymentConfirmationEmail(paidBook);
-      console.log(`Payment confirmation email sent to: ${paidBook?.customerEmail}`);
+      console.log(`[LS Webhook] payment confirmation email sent to: ${paidBook.customerEmail}`);
 
       // Edge case: book was fully generated before payment — send book ready email now too
-      const pages   = paidBook?.generatedBook?.pages || [];
-      const images  = paidBook?.fullImages || [];
+      const pages   = paidBook.generatedBook?.pages || [];
+      const images  = paidBook.fullImages || [];
       const allDone = pages.length > 0 && images.filter(Boolean).length >= pages.length;
       if (allDone) {
-        console.log(`Book ${bookId} was already complete at payment time — sending book ready email`);
+        console.log(`[LS Webhook] book ${bookId} was already complete at payment time — sending book ready email`);
         await sendBookReadyEmail(paidBook);
+      } else {
+        console.log(`[LS Webhook] book ${bookId} generation still in progress (${images.filter(Boolean).length}/${pages.length} images) — book ready email will follow`);
       }
     } catch (err) {
-      console.error("LemonSqueezy post-payment processing failed:", err.message);
+      console.error("[LS Webhook] processing failed:", err.message, err.stack);
     }
   })();
 });
