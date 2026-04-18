@@ -11,8 +11,13 @@ const app = express();
 app.use(cors());
 
 // ─── LemonSqueezy webhook needs the RAW body for signature verification ───────
+// express.raw MUST run before express.json for the webhook route
 app.use("/webhooks/lemonsqueezy", express.raw({ type: "*/*", limit: "25mb" }));
-app.use(express.json({ limit: "25mb" }));
+// JSON body parser — explicitly skip webhook routes so raw buffer is preserved
+app.use((req, res, next) => {
+  if (req.path.startsWith("/webhooks/")) return next();
+  express.json({ limit: "25mb" })(req, res, next);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -115,6 +120,34 @@ async function normalizeImageToBase64(imageItem) {
   return null;
 }
 
+// ─── Supabase Storage helper ──────────────────────────────────────────────────
+// Uploads a base64 image to Supabase Storage bucket "book-images".
+// Returns the public URL, or throws on error.
+// Path structure: {bookId}/cover.jpg, {bookId}/page-0.jpg, etc.
+async function uploadImageToStorage(bookId, imageName, base64data) {
+  if (!base64data) return null;
+
+  // Strip data URL prefix (data:image/jpeg;base64,...)
+  const base64Clean = base64data.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(base64Clean, "base64");
+  const filePath = `${bookId}/${imageName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("book-images")
+    .upload(filePath, buffer, {
+      contentType: "image/jpeg",
+      upsert: true   // overwrite if re-generating
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: urlData } = supabase.storage
+    .from("book-images")
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
+}
+
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 function dbRowToBook(row) {
   if (!row) return null;
@@ -205,6 +238,26 @@ async function getBook(bookId) {
   return dbRowToBook(data);
 }
 
+// Lightweight fetch — excludes large image columns.
+// Use for polling endpoints where image data is not needed.
+// Full image columns are now URLs in Storage (small), but legacy rows may have base64 blobs.
+async function getBookLight(bookId) {
+  const { data, error } = await supabase
+    .from("books")
+    .select([
+      "book_id", "child_name", "child_age", "child_gender",
+      "story_idea", "illustration_style", "customer_email",
+      "character_reference", "generated_book",
+      "selected_format", "selected_price",
+      "payment_status", "purchase_unlocked",
+      "stripe_session_id", "created_at", "updated_at"
+    ].join(", "))
+    .eq("book_id", bookId)
+    .maybeSingle();
+  if (error) throw error;
+  return dbRowToBook(data);
+}
+
 async function updateBook(bookId, patch) {
   const dbPatch = patchToDbFields(patch);
   const { data, error } = await supabase
@@ -232,6 +285,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Main book fetch — returns full book including image URLs from Supabase Storage.
+// Used by delivery.html, reader.html, preview.html, success.html polling, etc.
+// Image columns now contain Storage URLs (small strings), not base64 — safe to fetch.
 app.get("/api/books/:bookId", async (req, res) => {
   try {
     const book = await getBook(req.params.bookId);
@@ -462,6 +518,30 @@ app.post("/api/books/create", async (req, res) => {
     const rawInput   = req.body || {};
     const bookId     = crypto.randomUUID();
 
+    // ── Upload user photos to Supabase Storage (fall back to base64 if upload fails) ──
+    let croppedPhotoVal  = cleanInput.croppedPhoto  || "";
+    let originalPhotoVal = cleanInput.originalPhoto || "";
+
+    if (croppedPhotoVal.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(bookId, "cropped-photo.jpg", croppedPhotoVal);
+        if (url) croppedPhotoVal = url;
+        console.log(`[Create] cropped photo uploaded to Storage: ${url}`);
+      } catch (err) {
+        console.warn(`[Create] Failed to upload cropped photo to Storage (using base64 fallback): ${err.message}`);
+      }
+    }
+
+    if (originalPhotoVal.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(bookId, "original-photo.jpg", originalPhotoVal);
+        if (url) originalPhotoVal = url;
+        console.log(`[Create] original photo uploaded to Storage: ${url}`);
+      } catch (err) {
+        console.warn(`[Create] Failed to upload original photo to Storage (using base64 fallback): ${err.message}`);
+      }
+    }
+
     const book = {
       bookId,
       childName:         cleanInput.childName        || "",
@@ -469,8 +549,8 @@ app.post("/api/books/create", async (req, res) => {
       childGender:       rawInput.childGender         || "",
       storyIdea:         cleanInput.storyIdea         || "",
       illustrationStyle: cleanInput.illustrationStyle || "Soft Storybook",
-      croppedPhoto:      cleanInput.croppedPhoto      || "",
-      originalPhoto:     cleanInput.originalPhoto     || "",
+      croppedPhoto:      croppedPhotoVal,
+      originalPhoto:     originalPhotoVal,
       customerEmail:     rawInput.customerEmail       || "",
       characterReference:null,
       generatedBook:     null,
@@ -650,6 +730,7 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
       });
       console.log(`[LS Webhook] ✅ book ${bookId} unlocked via LemonSqueezy order ${orderId}`);
 
+      // Use getBook — need fullImages to check if generation was already complete
       const paidBook = await getBook(bookId);
       if (!paidBook) {
         console.error(`[LS Webhook] could not fetch book after unlock: ${bookId}`);
@@ -839,19 +920,45 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         fullImages[1] ? Promise.resolve(null) : generatePageImage(1),
       ]);
 
-      // Save cover
+      // Save cover — upload to Storage, fall back to base64
       if (coverResult?.status === "fulfilled" && coverResult.value) {
         const coverBase64 = await normalizeImageToBase64(coverResult.value?.data?.[0]);
-        if (coverBase64) await updateBookField(bookId, { coverImage: `data:image/jpeg;base64,${coverBase64}` });
+        if (coverBase64) {
+          let coverValue = `data:image/jpeg;base64,${coverBase64}`;
+          try {
+            const coverUrl = await uploadImageToStorage(bookId, "cover.jpg", coverValue);
+            if (coverUrl) {
+              coverValue = coverUrl;
+              console.log(`generate-full [${bookId}]: cover uploaded to Storage`);
+            }
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: cover Storage upload failed, using base64: ${err.message}`);
+          }
+          await updateBookField(bookId, { coverImage: coverValue });
+        }
       }
 
-      // Save priority pages
+      // Save priority pages — upload to Storage, fall back to base64
       if (page0Result?.status === "fulfilled" && page0Result.value) {
-        fullImages[0] = `data:image/jpeg;base64,${page0Result.value}`;
+        let p0value = `data:image/jpeg;base64,${page0Result.value}`;
+        try {
+          const url = await uploadImageToStorage(bookId, "page-0.jpg", p0value);
+          if (url) { p0value = url; console.log(`generate-full [${bookId}]: page-0 uploaded to Storage`); }
+        } catch (err) {
+          console.warn(`generate-full [${bookId}]: page-0 Storage upload failed: ${err.message}`);
+        }
+        fullImages[0] = p0value;
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
       if (page1Result?.status === "fulfilled" && page1Result.value) {
-        fullImages[1] = `data:image/jpeg;base64,${page1Result.value}`;
+        let p1value = `data:image/jpeg;base64,${page1Result.value}`;
+        try {
+          const url = await uploadImageToStorage(bookId, "page-1.jpg", p1value);
+          if (url) { p1value = url; console.log(`generate-full [${bookId}]: page-1 uploaded to Storage`); }
+        } catch (err) {
+          console.warn(`generate-full [${bookId}]: page-1 Storage upload failed: ${err.message}`);
+        }
+        fullImages[1] = p1value;
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
 
@@ -873,7 +980,14 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           try {
             const base64 = await generatePageImage(pageIndex);
             if (base64) {
-              fullImages[pageIndex] = `data:image/jpeg;base64,${base64}`;
+              let imgValue = `data:image/jpeg;base64,${base64}`;
+              try {
+                const url = await uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue);
+                if (url) imgValue = url;
+              } catch (err) {
+                console.warn(`generate-full [${bookId}]: page-${pageIndex} Storage upload failed: ${err.message}`);
+              }
+              fullImages[pageIndex] = imgValue;
               await updateBookField(bookId, { fullImages: [...fullImages] });
               const doneCount = fullImages.filter(Boolean).length;
               console.log(`generate-full [${bookId}]: image ${pageIndex} saved — ${doneCount}/${pages.length} total`);
@@ -887,7 +1001,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
       console.log("generate-full: completed for bookId:", bookId);
       try {
-        const completedBook = await getBook(bookId);
+        // getBookLight sufficient — only need purchaseUnlocked + customerEmail for the email decision
+        const completedBook = await getBookLight(bookId);
         // Only send if book was paid (user might not have paid yet — that's ok,
         // email will be triggered again by LemonSqueezy webhook when they do pay)
         if (completedBook?.purchaseUnlocked && completedBook?.customerEmail) {
@@ -1022,8 +1137,22 @@ Rules:
 // ─── Update cropped photo (after early generation started) ───────────────────
 app.post("/api/books/:bookId/update-photo", async (req, res) => {
   try {
-    const { croppedPhoto } = req.body;
+    let { croppedPhoto } = req.body;
     if (!croppedPhoto) return res.status(400).json({ ok: false });
+
+    // Upload to Storage if it's a base64 data URL
+    if (croppedPhoto.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(req.params.bookId, "cropped-photo.jpg", croppedPhoto);
+        if (url) {
+          console.log(`[UpdatePhoto] uploaded to Storage: ${url}`);
+          croppedPhoto = url;
+        }
+      } catch (err) {
+        console.warn(`[UpdatePhoto] Storage upload failed (using base64 fallback): ${err.message}`);
+      }
+    }
+
     await updateBookField(req.params.bookId, { croppedPhoto });
     return res.json({ ok: true });
   } catch (err) {

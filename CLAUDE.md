@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 18, 2026 (session 3)*
+*Last updated: April 18, 2026 (session 4)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -10,6 +10,8 @@
 - `server.js` `updateBookField()` — NO `.select()` — safe for large images — DO NOT CHANGE
 - `server.js` `insertBook()` — NO `.select()` — safe for large photos — DO NOT CHANGE
 - `public/preview.html` — step tracker loading screen, all English, DO NOT REVERT
+- `server.js` `uploadImageToStorage()` — uploads to Supabase Storage bucket "book-images" — DO NOT CHANGE
+- `server.js` LemonSqueezy webhook middleware — `express.raw()` runs BEFORE `express.json()` is explicitly skipped for `/webhooks/` — DO NOT REORDER
 
 ## ⚠️ CRITICAL DB RULES
 ```javascript
@@ -36,7 +38,7 @@ AI personalized children's storybook. Wizard → photo → crop → AI generates
 - GitHub: lily2204-ctrl/lifebook-ai (connected to Railway auto-deploy)
 
 ## Stack
-Node.js/Express · Supabase Pro · OpenAI gpt-4o-mini + gpt-image-1 · LemonSqueezy (payments) · Resend · Railway
+Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image-1 · LemonSqueezy (payments) · Resend · Railway
 
 ---
 
@@ -71,6 +73,7 @@ LEMONSQUEEZY_VARIANT_ID
 ```
 NO STRIPE vars — Stripe is gone completely.
 Note: must be SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_ANON_KEY).
+Note: SUPABASE_SERVICE_ROLE_KEY is required to write to Supabase Storage (anon key has no write permission).
 
 ---
 
@@ -90,17 +93,45 @@ STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 
 ---
 
+## Image Storage Architecture
+All images are stored in **Supabase Storage** bucket `book-images`, NOT as base64 in the DB.
+
+- Bucket: `book-images` (must be PUBLIC — create in Supabase dashboard if not exists)
+- Path structure: `{bookId}/cover.jpg`, `{bookId}/page-0.jpg`, `{bookId}/page-1.jpg` ... `{bookId}/page-11.jpg`
+- User photos: `{bookId}/cropped-photo.jpg`, `{bookId}/original-photo.jpg`
+- DB columns (`cover_image`, `full_images`, `cropped_photo`, `original_photo`) now store **public URLs**, not base64
+- Old books (pre-migration) may still have base64 in those columns — backward compat maintained
+
+```javascript
+// New helper — DO NOT CHANGE
+async function uploadImageToStorage(bookId, imageName, base64data) {
+  // Strips data:image/jpeg;base64, prefix → Buffer → uploads to "book-images" bucket
+  // Returns public URL. Throws on error.
+}
+```
+
+### getBookLight vs getBook
+- `getBook(bookId)` — `SELECT *` — returns all fields including image URLs — use for delivery/reader
+- `getBookLight(bookId)` — excludes `cover_image, full_images, cropped_photo, original_photo, preview_images` — use for metadata-only reads (email decisions, auth checks)
+- Main GET `/api/books/:id` uses `getBook()` so frontend sees image URLs (no frontend changes needed)
+
+### Fallback behavior
+- If Storage upload fails, `uploadImageToStorage` throws and the catch block falls back to saving base64 in DB
+- This ensures book generation never fails due to a Storage error
+
+---
+
 ## Key Endpoints
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/books/create` | POST | Creates book record — NO .select() on insert |
+| `/api/books/create` | POST | Creates book, uploads user photos to Storage |
 | `/api/books/:id/generate-full` | POST | Full pipeline — background IIFE, returns 200 immediately |
-| `/api/books/:id` | GET | Fetch book (polling every 2s) |
+| `/api/books/:id` | GET | Fetch full book including image URLs — used by all pages |
 | `/api/books/:id/unlock` | POST | Manual unlock (dev only) |
 | `/api/books/:id/resend-email` | POST | Resend book ready link |
-| `/api/books/:id/update-photo` | POST | Update cropped photo |
+| `/api/books/:id/update-photo` | POST | Update cropped photo — uploads to Storage |
 | `/api/create-checkout-session` | POST | LemonSqueezy checkout → returns { url } |
-| `/webhooks/lemonsqueezy` | POST | Verify sig → unlock book → send emails |
+| `/webhooks/lemonsqueezy` | POST | Verify sig (raw body HMAC) → unlock book → send emails |
 | `/api/contact` | POST | Contact form |
 
 ---
@@ -117,8 +148,13 @@ STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 ## ⚠️ INFRASTRUCTURE — Requires Manual Action
 These cannot be fixed in code — need dashboard access:
 1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume". Supabase pauses free-tier projects after inactivity. Consider upgrading to Pro.
-2. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active. Also check your domain registrar DNS points to Railway's IP.
-3. **LemonSqueezy webhook** — after deploy, go to LemonSqueezy → Settings → Webhooks and check delivery logs to confirm webhook fires and our endpoint returns 200.
+2. **Supabase Storage bucket** — must create `book-images` bucket manually:
+   - Go to Supabase dashboard → Storage → New bucket
+   - Name: `book-images`
+   - Set to **Public** (so image URLs work without auth tokens)
+   - No file size limit needed (images are ~200KB each)
+3. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active. Also check your domain registrar DNS points to Railway's IP.
+4. **LemonSqueezy webhook** — after deploy, go to LemonSqueezy → Settings → Webhooks and check delivery logs to confirm webhook fires and our endpoint returns 200.
 
 ## Known Bugs — Open
 ### 🟢 Nice to have
@@ -147,7 +183,7 @@ public/
 ---
 
 ## Bugs Fixed History
-1. ✅ Supabase timeout → updateBookField + JPEG
+1. ✅ Supabase NANO crash (20MB+ DB rows) → images moved to Supabase Storage bucket "book-images"
 2. ✅ setup.js legacy flow
 3. ✅ Stripe webhook 21% errors
 4. ✅ PDF emoji garbage → geometric shapes
@@ -184,3 +220,8 @@ public/
 35. ✅ success.js: orphaned legacy file with Shopify references + reader.html redirect — gutted, now empty stub
 36. ✅ cover.js: redirected to generate.html (legacy) → wizard.html
 37. ✅ server.js generate-images endpoint: MIME type data:image/png → data:image/jpeg
+38. ✅ CRITICAL ARCHITECTURE: images moved from Supabase DB (base64, 20MB+ rows) to Supabase Storage (URLs) — added uploadImageToStorage() helper, all generate-full image saves now upload to Storage with base64 fallback
+39. ✅ /api/books/create: croppedPhoto + originalPhoto uploaded to Storage before DB insert (reduces row size immediately)
+40. ✅ /api/books/:id/update-photo: photo uploaded to Storage before DB save
+41. ✅ server.js getBookLight(): lightweight DB fetch excluding image columns — used for email-only reads in generate-full STEP 5 and available for metadata-only reads elsewhere
+42. ✅ LemonSqueezy webhook 400 fix: express.json() now explicitly skips all /webhooks/ routes so raw buffer is guaranteed intact for HMAC-SHA256 signature verification
