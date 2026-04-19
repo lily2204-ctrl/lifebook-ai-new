@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 18, 2026 (session 5 — full e2e test)*
+*Last updated: April 19, 2026 (session 6 — image retry + email safety net + success title fix)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -257,3 +257,6 @@ public/
 40. ✅ /api/books/:id/update-photo: photo uploaded to Storage before DB save
 41. ✅ server.js getBookLight(): lightweight DB fetch excluding image columns — used for email-only reads in generate-full STEP 5 and available for metadata-only reads elsewhere
 42. ✅ LemonSqueezy webhook 400 fix: express.json() now explicitly skips all /webhooks/ routes so raw buffer is guaranteed intact for HMAC-SHA256 signature verification
+43. ✅ generate-full image hang: added `generatePageImageWithRetry()` — 2 retries + 90s timeout per attempt for all page images (pages 0-11); cover also wrapped with 90s timeout; pipeline always reaches STEP 5 even if individual pages fail
+44. ✅ generate-full STEP 5 email: improved console.log at every sub-step (before/after sendBookReadyEmail, purchaseUnlocked state, image count); always runs after all batches regardless of page failures
+45. ✅ success.html title: polling loop now updates title/cover/meta on every poll iteration — real book title shown as soon as generatedBook arrives, not just after purchaseUnlocked

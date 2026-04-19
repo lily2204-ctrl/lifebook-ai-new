@@ -138,6 +138,19 @@ async function init() {
     let unlocked = false;
     for (let i = 0; i < 30; i++) {
       book = await loadBook();
+
+      // Update UI with whatever data has arrived on this poll — title/cover may arrive
+      // before purchaseUnlocked (story is written during generation, not after payment)
+      if (book?.generatedBook?.title) {
+        titleEl.textContent = book.generatedBook.title;
+      }
+      if (book?.coverImage) {
+        coverImg.src = book.coverImage;
+      }
+      if (book?.childName !== undefined) {
+        metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+      }
+
       if (book && book.purchaseUnlocked) { unlocked = true; break; }
       await new Promise(r => setTimeout(r, 2000));
       statusEl.textContent = "Confirming payment... (" + (i + 1) + "/30)";
@@ -149,11 +162,10 @@ async function init() {
       return;
     }
 
-    // Render book info
-    const title = book.generatedBook?.title || "Your Magical Adventure";
-    titleEl.textContent = title;
-    metaEl.textContent  = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+    // Final render pass — ensures UI reflects last fetched state
+    if (book.generatedBook?.title) { titleEl.textContent = book.generatedBook.title; }
     if (book.coverImage) { coverImg.src = book.coverImage; }
+    metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
 
     // Enable the button — always delivery.html
     enableOpenBtn();

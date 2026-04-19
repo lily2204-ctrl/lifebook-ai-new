@@ -910,14 +910,43 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
+      // Retry wrapper: up to 2 retries, 90s timeout per attempt.
+      // If all attempts fail, returns null and logs — pipeline continues regardless.
+      async function generatePageImageWithRetry(pageIndex) {
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS  = 90000;
+        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+          try {
+            const result = await Promise.race([
+              generatePageImage(pageIndex),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 90s`)), TIMEOUT_MS)
+              )
+            ]);
+            return result;
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} failed: ${err.message}`);
+            if (attempt <= MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+        }
+        console.error(`generate-full [${bookId}]: page-${pageIndex} — all ${MAX_RETRIES + 1} attempts failed, skipping (null)`);
+        return null;
+      }
+
       // Cover prompt
       const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel
+      // Cover gets a 90s timeout; pages use generatePageImageWithRetry (2 retries + 90s each)
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
-        bookBeforeImgs.coverImage ? Promise.resolve(null) : openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
-        fullImages[0] ? Promise.resolve(null) : generatePageImage(0),
-        fullImages[1] ? Promise.resolve(null) : generatePageImage(1),
+        bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
+          openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 90s")), 90000))
+        ]),
+        fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
+        fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
       ]);
 
       // Save cover — upload to Storage, fall back to base64
@@ -978,7 +1007,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         // כל תמונה שומרת מיד לDB ברגע שמוכנה — לא מחכה לסוף הbatch
         await Promise.allSettled(batch.map(async (pageIndex) => {
           try {
-            const base64 = await generatePageImage(pageIndex);
+            const base64 = await generatePageImageWithRetry(pageIndex);
             if (base64) {
               let imgValue = `data:image/jpeg;base64,${base64}`;
               try {
@@ -999,20 +1028,23 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       }
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
-      console.log("generate-full: completed for bookId:", bookId);
+      // This block ALWAYS runs — even if some pages were skipped due to image failures.
+      console.log(`generate-full [${bookId}]: STEP 5 — all batches complete (${fullImages.filter(Boolean).length}/${pages.length} images), checking purchaseUnlocked`);
       try {
         // getBookLight sufficient — only need purchaseUnlocked + customerEmail for the email decision
         const completedBook = await getBookLight(bookId);
+        console.log(`generate-full [${bookId}]: STEP 5 — purchaseUnlocked=${completedBook?.purchaseUnlocked}, email=${completedBook?.customerEmail || "none"}`);
         // Only send if book was paid (user might not have paid yet — that's ok,
         // email will be triggered again by LemonSqueezy webhook when they do pay)
         if (completedBook?.purchaseUnlocked && completedBook?.customerEmail) {
+          console.log(`generate-full [${bookId}]: STEP 5 — calling sendBookReadyEmail...`);
           await sendBookReadyEmail(completedBook);
-          console.log("generate-full: book ready email sent to:", completedBook.customerEmail);
+          console.log(`generate-full [${bookId}]: STEP 5 — sendBookReadyEmail sent ✅`);
         } else {
-          console.log("generate-full: book not yet paid, skipping book ready email for now");
+          console.log(`generate-full [${bookId}]: STEP 5 — book not yet paid, skipping book ready email (LemonSqueezy webhook will trigger it on payment)`);
         }
       } catch (emailErr) {
-        console.error("generate-full: failed to send book ready email:", emailErr.message);
+        console.error(`generate-full [${bookId}]: STEP 5 — sendBookReadyEmail failed: ${emailErr.message}`);
       }
 
     } catch (err) {
