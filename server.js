@@ -707,12 +707,15 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
         return;
       }
 
-      const customData = payload?.meta?.custom_data;
-      const bookId     = customData?.bookId || customData?.book_id;
-      const orderId    = String(payload?.data?.id || "");
+      const customData  = payload?.meta?.custom_data;
+      const bookId      = customData?.bookId || customData?.book_id;
+      const orderId     = String(payload?.data?.id || "");
+      // BUG FIX: extract verified customer email from LemonSqueezy order payload
+      // This is the email the customer used at checkout — more reliable than wizard input
+      const lsUserEmail = (payload?.data?.attributes?.user_email || "").trim();
 
       console.log(`[LS Webhook] custom_data: ${JSON.stringify(customData)}`);
-      console.log(`[LS Webhook] bookId: ${bookId}, orderId: ${orderId}`);
+      console.log(`[LS Webhook] bookId: ${bookId}, orderId: ${orderId}, lsUserEmail: ${lsUserEmail || "(none)"}`);
 
       if (!bookId) {
         console.error("[LS Webhook] no bookId found in custom_data — cannot unlock book");
@@ -722,13 +725,16 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
 
       console.log(`[LS Webhook] unlocking book ${bookId}...`);
 
-      // Use updateBookField (no .select()) — safe for large image data
-      await updateBookField(bookId, {
+      // Unlock book + update customerEmail with verified LS email (if present)
+      // This fixes the case where the wizard email was blank or wrong
+      const unlockPatch = {
         paymentStatus:    "paid",
         purchaseUnlocked: true,
         stripeSessionId:  orderId   // reusing existing DB column for LS order ID
-      });
-      console.log(`[LS Webhook] ✅ book ${bookId} unlocked via LemonSqueezy order ${orderId}`);
+      };
+      if (lsUserEmail) unlockPatch.customerEmail = lsUserEmail;
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[LS Webhook] ✅ book ${bookId} unlocked via LemonSqueezy order ${orderId}${lsUserEmail ? ` — customerEmail updated to: ${lsUserEmail}` : ""}`);
 
       // Use getBook — need fullImages to check if generation was already complete
       const paidBook = await getBook(bookId);
@@ -738,17 +744,24 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
       }
 
       await sendPaymentConfirmationEmail(paidBook);
-      console.log(`[LS Webhook] payment confirmation email sent to: ${paidBook.customerEmail}`);
+      console.log(`[LS Webhook] payment confirmation email sent to: ${paidBook.customerEmail || "(no email)"}`);
 
-      // Edge case: book was fully generated before payment — send book ready email now too
-      const pages   = paidBook.generatedBook?.pages || [];
-      const images  = paidBook.fullImages || [];
-      const allDone = pages.length > 0 && images.filter(Boolean).length >= pages.length;
+      // BUG FIX: allDone was too strict — required ALL images, so if even 1 page image
+      // failed all retries (returning null), allDone=false and email was never sent even
+      // though generation was complete. Now allow up to 2 image failures (10/12 pages).
+      // STEP 5 (generate-full) handles the case where payment arrives before generation.
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2); // allow up to 2 failures
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[LS Webhook] book ${bookId} — readyCount=${readyCount}/${pages.length}, threshold=${threshold}, allDone=${allDone}`);
       if (allDone) {
-        console.log(`[LS Webhook] book ${bookId} was already complete at payment time — sending book ready email`);
+        console.log(`[LS Webhook] book ${bookId} was complete at payment time — sending book ready email`);
         await sendBookReadyEmail(paidBook);
+        console.log(`[LS Webhook] book ready email sent ✅`);
       } else {
-        console.log(`[LS Webhook] book ${bookId} generation still in progress (${images.filter(Boolean).length}/${pages.length} images) — book ready email will follow`);
+        console.log(`[LS Webhook] book ${bookId} generation still in progress (${readyCount}/${pages.length} images ready, need ${threshold}) — book ready email will be sent by generate-full STEP 5`);
       }
     } catch (err) {
       console.error("[LS Webhook] processing failed:", err.message, err.stack);
