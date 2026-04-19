@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 19, 2026 (session 6 — image retry + email safety net + success title fix)*
+*Last updated: April 19, 2026 (session 7 — terms.html + index.html footer link)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -191,7 +191,6 @@ These cannot be fixed in code — need dashboard access:
 ## Known Bugs — Open
 ### 🟢 Nice to have
 1. Hebrew on all pages (currently only wizard.html has full toggle)
-2. Terms & Refund policy page — create terms.html (it does NOT currently exist)
 
 ---
 
@@ -207,7 +206,8 @@ public/
   checkout.html/js ← LemonSqueezy flow, "Secure payment" trust badge
   success.html     ← polls 30×2s, always → delivery.html, no session_id/unlockBook
   delivery.html    ← null safety on book/book.generatedBook, || 12 fallbacks
-  reader.html/js · cover.html/js · contact.html · terms.html
+  reader.html/js · cover.html/js · contact.html
+  terms.html       ← Refund policy + Privacy policy + General terms
   404.html · accessibility.js · styles.css
   js/state.js · assets/branding/logo.svg
 ```
@@ -260,3 +260,5 @@ public/
 43. ✅ generate-full image hang: added `generatePageImageWithRetry()` — 2 retries + 90s timeout per attempt for all page images (pages 0-11); cover also wrapped with 90s timeout; pipeline always reaches STEP 5 even if individual pages fail
 44. ✅ generate-full STEP 5 email: improved console.log at every sub-step (before/after sendBookReadyEmail, purchaseUnlocked state, image count); always runs after all batches regardless of page failures
 45. ✅ success.html title: polling loop now updates title/cover/meta on every poll iteration — real book title shown as soon as generatedBook arrives, not just after purchaseUnlocked
+46. ✅ terms.html created: Refund policy (no refunds after generation begins), Privacy policy (photos deleted after creation), General terms, contact strip — matches design system (cream/gold/Playfair/Lato)
+47. ✅ index.html footer: added "Terms &amp; Privacy" link to terms.html alongside existing "Contact Us"
