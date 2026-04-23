@@ -2,167 +2,110 @@
 *Last updated: April 16, 2026*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
-- `public/assets/branding/logo.svg` — new logo, viewBox `430 466 639 514`, transparent bg
-- All HTML pages: `<img src="assets/branding/logo.svg" style="height:48px;width:auto;display:block"/>` — NO mix-blend-mode, NO logo.png
-- `public/accessibility.js` — widget on ALL pages via `<script src="accessibility.js"></script>` before `</body>`
+- `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
+- All HTML: `<img src="assets/branding/logo.svg" style="height:48px;width:auto;display:block"/>` — NO mix-blend-mode, NO logo.png
+- `public/accessibility.js` — on ALL pages via `<script src="accessibility.js"></script>` before `</body>`
 - `public/404.html` — Hebrew error page
 - `server.js` two-email system — `sendPaymentConfirmationEmail` + `sendBookReadyEmail`
-- `server.js` `updateBookField()` — DO NOT replace with `updateBook()` for image saves
-- `server.js` `insertBook()` — NO `.select()` — already fixed
-- `public/preview.html` — new loading screen with step tracker + live timer (DO NOT revert to spinner)
-- Book title/subtitle appears as HTML overlay and in PDF — NOT rendered inside AI images
+- `server.js` `updateBookField()` — NO `.select()` — safe for large images
+- `server.js` `insertBook()` — NO `.select()` — safe for large photos
+- `public/preview.html` — step tracker loading screen, all English
+
+## ⚠️ CRITICAL DB RULES
+```javascript
+// ✅ CORRECT — no .select()
+await updateBookField(bookId, { fullImages: [...fullImages] });
+await updateBookField(bookId, { characterReference });
+await updateBookField(bookId, { generatedBook });
+// ✅ insertBook also has no .select()
+
+// ❌ WRONG — causes Supabase timeout
+await updateBook(bookId, { fullImages });
+await updateBook(bookId, { characterReference });
+await updateBook(bookId, { generatedBook });
+```
 
 ---
 
-## Project Overview
-AI-powered personalized children's storybook generator.
-Wizard → photo upload → crop → AI generates illustrated book → payment → PDF + email.
+## Project
+AI personalized children's storybook. Wizard → photo → crop → AI generates → payment → PDF + email.
 
 ## URLs
-- **Live:** https://lifebooks.online
-- **Railway:** https://romantic-patience-production.up.railway.app
-- **GitHub:** connected to Railway (auto-deploy on push)
+- Live: https://lifebooks.online
+- Railway: https://romantic-patience-production.up.railway.app
+- GitHub: lily2204-ctrl/lifebook-ai (connected to Railway auto-deploy)
 
 ## Stack
-Node.js/Express (`server.js`, ES modules) · Supabase (PostgreSQL Pro) · OpenAI gpt-4o-mini + gpt-image-1 · Stripe (sandbox only) · Resend (`books@lifebooks.online` ✅) · Railway
+Node.js/Express · Supabase Pro · OpenAI gpt-4o-mini + gpt-image-1 · LemonSqueezy (payments) · Resend · Railway
 
 ---
 
-## User Flow
+## Payment System — LemonSqueezy (NOT Stripe)
+- Stripe completely removed from server.js and package.json
+- LemonSqueezy store: lifebooks.lemonsqueezy.com (Store ID: 347433)
+- Webhook: POST /webhooks/lemonsqueezy → verify signature → unlock book → send emails
+- Checkout: /api/create-checkout-session returns LemonSqueezy checkout URL
+- success.html polls for purchaseUnlocked, then redirects to delivery.html
+
+## Railway Env Vars
 ```
-wizard.html → crop.html → preview.html → checkout.html → success.html → delivery.html → reader.html
+OPENAI_API_KEY
+SUPABASE_URL
+SUPABASE_ANON_KEY
+RESEND_API_KEY
+APP_URL=https://lifebooks.online
+ADMIN_EMAIL=books@lifebooks.online
+LEMONSQUEEZY_API_KEY
+LEMONSQUEEZY_WEBHOOK_SECRET
+LEMONSQUEEZY_STORE_ID=347433
+LEMONSQUEEZY_VARIANT_ID
 ```
-Both `crop.js` and `setup.js`: `/api/books/create` → `/api/books/:id/generate-full` (background) → `preview.html?bookId=...`
-
----
-
-## Design System
-```css
---cream:#fdf6ec; --gold:#c8922a; --gold-light:#e8b84b; --brown:#5c3d1e;
---text:#3a2810; --text-muted:#7a6048; --parchment:#ede0c8;
-```
-Fonts: Playfair Display + Lato
-
----
-
-## Key Endpoints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/books/create` | POST | Creates book record — NO .select() on insert |
-| `/api/books/:id/generate-full` | POST | Full pipeline — background IIFE |
-| `/api/books/:id` | GET | Fetch book (polling every 2.5s) |
-| `/api/books/:id/unlock` | POST | Manual unlock (dev) |
-| `/api/books/:id/resend-email` | POST | Resend book link |
-| `/api/books/:id/update-photo` | POST | Update cropped photo |
-| `/api/create-checkout-session` | POST | Stripe checkout |
-| `/webhooks/stripe` | POST | Unlock + send confirmation email |
-| `/api/contact` | POST | Contact form |
+NO STRIPE vars — Stripe is gone completely.
 
 ---
 
 ## generate-full Pipeline
 ```
-STEP 1: Analyze photo → characterReference (~30s)
-STEP 2: Write story (12 pages) → generatedBook (~45s)
-STEP 3+4a: Cover + pages 0,1 IN PARALLEL → saved individually (~60s)
-STEP 4b: Remaining pages, batches of 5, each saved immediately (~5min)
-STEP 5: Send book-ready email ONLY if purchaseUnlocked === true
-```
-
-## ⚠️ Critical DB Rules
-```javascript
-// ✅ CORRECT — no .select()
-await updateBookField(bookId, { fullImages: [...fullImages] });
-await insertBook(book); // also no .select()
-
-// ❌ WRONG — causes Supabase timeout
-await updateBook(bookId, { fullImages });
+STEP 1: Analyze photo → updateBookField(characterReference) (~30s)
+STEP 2: Write story 12 pages → updateBookField(generatedBook) (~45s)
+STEP 3+4a: Cover + pages 0,1 IN PARALLEL → updateBookField each individually (~60s)
+STEP 4b: Remaining pages batches of 5, each saved immediately with updateBookField
+STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 ```
 
 ---
 
-## Image Generation (gpt-image-1)
+## Known Bugs (fix these)
 
-### Cover image
-- Generated by AI — full illustration
-- **Title/subtitle are added as HTML overlay and in PDF — NOT by the AI**
-- Prompt must include: "NO text, letters, words, numbers, or writing of any kind rendered inside the image"
-
-### Page images
-- Same rule: no text inside images
-- Character consistency enforced via detailed `characterPromptCore`
-- `characterPromptCore` must include: exact hair color/style, eye color, skin tone, face shape
-- End every character description with: "This is the SAME child that must appear identically in every illustration"
-
-### Known limitations
-- gpt-image-1 character consistency is imperfect — this is an API limitation
-- Text sometimes appears on images despite prompt rules — add strong negative rules
-- Currently keeping gpt-image-1 (not switching to Flux/Stable Diffusion yet)
-
----
-
-## Email System
-- **Mail 1:** "Payment confirmed" → Stripe webhook → immediately
-- **Mail 2:** "Book ready" → end of generate-full → ONLY if `purchaseUnlocked === true`
-- From: `books@lifebooks.online`
-
----
-
-## preview.html — Loading Screen
-Step tracker (DO NOT revert):
-- Live timer (0:00...)
-- 4 steps: 📷 Analyzing → ✍️ Writing → 🎨 Illustrating → 📖 Ready
-- Each step marks ✅ when done
-- All text in ENGLISH
-
-## preview.html — After Loading
-- Unlock button enabled only after cover + 2 page images exist
-- Progress counter: "✨ X/12 pages illustrated"
-
-## delivery.html
-- Live progress bar: "X/12 pages ready — ~N min remaining"
-- ETA = remaining × 25s
-- PDF download via jsPDF — title/subtitle added by code, not AI
-
----
-
-## Known Bugs (to fix)
-- [ ] PDF error: `undefined is not an object (evaluating 'book.generatedBook')` — add null safety
-- [ ] Text sometimes rendered inside cover image by AI — strengthen prompt rules
-- [ ] Character inconsistency across pages — improve characterPromptCore
-
----
-
-## Payments
-- **Stripe:** sandbox only — US account, no live mode possible from Israel
-- **Payoneer:** ✅ Approved — needed for LemonSqueezy payouts
-- **TODO:** Integrate LemonSqueezy (~1 day, ~5% fee) — recommended for launch
-
----
-
-## TODO Before Launch
 ### 🔴 Critical
-- [ ] LemonSqueezy payment integration
-- [ ] Fix PDF error (null safety)
-- [ ] Fix text on cover image (prompt fix)
-- [ ] End-to-end test with real payment
+1. **crop.html mobile** — "Create My Book" button stuck, does not proceed to preview
+   - Check crop.js button click handler
+   - Check /api/books/create endpoint works
+   - Check sessionStorage has childName, storyIdea etc from wizard
+   - May be a mobile-specific JS issue
+
+2. **success.html** — "Open My Book" must go to delivery.html NOT checkout/reader
+   - openBtn.onclick → `delivery.html?bookId=...`
+   - Only after purchaseUnlocked === true
+
+3. **delivery.html PDF error** — `undefined is not an object (evaluating 'book.generatedBook')`
+   - Add null safety: `book?.generatedBook?.title`, `book?.generatedBook?.pages`
+   - Check book is loaded before generatePDF() runs
 
 ### 🟡 Important
-- [ ] Terms & Refund policy page
-- [ ] Hebrew on all pages (currently only wizard.html)
+4. **Cover image** — AI renders text inside image
+   - Add to coverPrompt: "NO text, letters, words, numbers, or writing of any kind rendered inside the image"
+   - Same for generatePageImage() prompt
+
+5. **Character consistency** — varies across pages
+   - Improve characterPromptCore to be more specific
+   - End with: "This is the SAME child that must appear identically in every illustration"
+
+6. **index.html** — still shows "16 pages" in some places → change to "12 pages"
 
 ### 🟢 Nice to have
-- [ ] Analytics
-- [ ] OpenAI fallback
-
----
-
-## Railway Env Vars
-```
-OPENAI_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-SUPABASE_URL, SUPABASE_ANON_KEY, RESEND_API_KEY,
-APP_URL=https://lifebooks.online, ADMIN_EMAIL=books@lifebooks.online
-```
+7. Hebrew on all pages (currently only wizard.html)
+8. Terms & Refund policy page
 
 ---
 
@@ -171,98 +114,28 @@ APP_URL=https://lifebooks.online, ADMIN_EMAIL=books@lifebooks.online
 server.js · CLAUDE.md · package.json
 public/
   index.html · wizard.html/js · crop.html/js · setup.html/js
-  preview.html     ← new step tracker, all English, DO NOT revert
-  checkout.html/js · success.html/js · delivery.html
+  preview.html     ← step tracker loading screen
+  checkout.html/js ← uses LemonSqueezy NOT Stripe
+  success.html/js  ← openBtn → delivery.html after purchaseUnlocked
+  delivery.html    ← null safety on book.generatedBook
   reader.html/js · cover.html/js · contact.html
-  404.html         ← DO NOT REMOVE
-  accessibility.js ← DO NOT REMOVE, already on all pages
-  generate.html/js ← legacy, not used
-  styles.css · js/state.js
-  assets/branding/logo.svg ← DO NOT REPLACE
+  404.html · accessibility.js · styles.css
+  js/state.js · assets/branding/logo.svg
 ```
 
 ---
 
 ## Bugs Fixed History
-1. ✅ Supabase timeout → `updateBookField()` + JPEG compression
-2. ✅ setup.js went to legacy generate.html
-3. ✅ Stripe webhook 21% errors → returns 200 immediately
-4. ✅ PDF emoji garbage → geometric shapes
-5. ✅ Logo invisible → SVG viewBox fixed
+1. ✅ Supabase timeout → updateBookField + JPEG
+2. ✅ setup.js legacy flow
+3. ✅ Stripe webhook 21% errors
+4. ✅ PDF emoji garbage
+5. ✅ Logo SVG viewBox
 6. ✅ SyntaxError crashes
-7. ✅ Cover + pages 0,1 parallel → saves ~60s
+7. ✅ Cover + pages 0,1 parallel
 8. ✅ Each image saves immediately
-9. ✅ `updateBookField` was called but never defined
-10. ✅ `insertBook` had `.select()` causing timeout on large photos
-11. ✅ Hebrew text in preview.html loading screen → replaced with English
-
----
-
-## ⚠️ CRITICAL — Bugs Fixed in Latest Session (April 16)
-
-### success.html
-- `openBtn.onclick` must go to `delivery.html?bookId=...` NOT reader.html or checkout.html
-- Poll for `purchaseUnlocked === true` every 2s up to 30 times before showing warning
-- "Open My Book" button shows spinner while waiting for webhook confirmation
-- Only redirect to delivery.html AFTER `purchaseUnlocked === true`
-
-### delivery.html
-- ALL book.generatedBook access must use null safety:
-  `book?.generatedBook?.title` NOT `book.generatedBook.title`
-  `book?.generatedBook?.pages` NOT `book.generatedBook.pages`
-- generatePDF() must check book and book.generatedBook exist before running
-
-### server.js image prompts
-- coverPrompt MUST include: "NO text, letters, words, numbers, or writing of any kind rendered inside the image"
-- generatePageImage() prompt MUST include same rule
-- characterPromptCore MUST end with: "This is the SAME child that must appear identically in every illustration"
-
-### DO NOT
-- Do NOT change openBtn to go anywhere except delivery.html
-- Do NOT remove null safety checks once added
-- Do NOT add .select() back to insertBook or updateBookField
-
----
-
-## ⚠️ PAYMENT MIGRATION — Stripe → LemonSqueezy
-
-### Status
-- Stripe: REMOVED from Railway env vars → server crashes on startup (line 33)
-- LemonSqueezy: account created, store ready
-
-### What needs to change in server.js
-1. Remove Stripe initialization (line ~33: `new Stripe(...)`)
-2. Remove all Stripe routes: `/api/create-checkout-session`, `/webhooks/stripe`
-3. Add LemonSqueezy checkout: create checkout URL via LemonSqueezy API
-4. Add LemonSqueezy webhook: `/webhooks/lemonsqueezy` — verify signature + unlock book
-5. Keep all existing email logic (sendPaymentConfirmationEmail, sendBookReadyEmail)
-
-### LemonSqueezy Details
-- Store ID: `347433`
-- Store URL: `lifebooks.lemonsqueezy.com`
-- Webhook endpoint to create: `https://lifebooks.online/webhooks/lemonsqueezy`
-- Webhook event to listen: `order_created`
-
-### Railway Env Vars needed
-```
-LEMONSQUEEZY_API_KEY=...        (from LS Settings → API)
-LEMONSQUEEZY_WEBHOOK_SECRET=... (from LS Settings → Webhooks)
-LEMONSQUEEZY_STORE_ID=347433
-LEMONSQUEEZY_VARIANT_ID=...     (from LS Product → Variant ID)
-```
-
-### DO NOT add back STRIPE_SECRET_KEY
-### DO NOT keep any Stripe code in server.js
-
-### Checkout flow
-1. Client calls `/api/create-checkout-session` with bookId
-2. Server creates LemonSqueezy checkout URL with bookId in custom data
-3. Client redirects to LemonSqueezy checkout page
-4. After payment, LemonSqueezy redirects to `https://lifebooks.online/success.html?bookId=...`
-5. LemonSqueezy fires webhook to `/webhooks/lemonsqueezy`
-6. Server verifies signature, unlocks book, sends confirmation email
-
-### success.html changes needed
-- Remove Stripe session_id from URL params
-- Poll for purchaseUnlocked every 2s (already partially done)
-- openBtn → delivery.html?bookId=... (not reader.html or checkout.html)
+9. ✅ updateBookField not defined
+10. ✅ insertBook had .select()
+11. ✅ characterReference/generatedBook used updateBook → fixed to updateBookField
+12. ✅ Stripe removed, LemonSqueezy integrated
+13. ✅ preview.html Hebrew text → English
