@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 19, 2026 (session 8 — book-ready email fix)*
+*Last updated: April 24, 2026 (session 9 — preview.html cover image + payBtn fix)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -264,3 +264,5 @@ public/
 47. ✅ index.html footer: added "Terms &amp; Privacy" link to terms.html alongside existing "Contact Us"
 48. ✅ book-ready email never sent — BUG FIX 1: webhook `allDone` check was too strict (required ALL images, so 1 failed page = email never sent); now allows up to 2 image failures (threshold = pages.length - 2, min 1)
 49. ✅ book-ready email never sent — BUG FIX 2: webhook never extracted `payload.data.attributes.user_email` from LemonSqueezy; now saves verified LS email to `customerEmail` on the book — fixes silent failure when wizard email was blank/wrong
+50. ✅ preview.html cover image never shown (all platforms): `updateLiveImages` used `!coverImage.src` (IDL property) which returns current page URL in mobile Safari when no src attr set — always false; fixed to `coverImage.getAttribute('src') !== b.coverImage`
+51. ✅ preview.html payBtn never enabled: required `hasCover && has2Imgs` — if page images were slow/failed, payBtn stayed disabled forever even with cover ready; fixed to enable on `hasCover` alone; safety net added in timeout fallback

@@ -360,14 +360,17 @@ async function pollBook() {
         progressBar.style.width = Math.round((readyCount / totalPages) * 100) + '%';
       }
 
-      // Unlock button — enable as soon as cover + 2 images ready
-      if (hasCover && has2Imgs && payBtn) {
+      // FIX: enable payBtn as soon as cover is ready — don't require has2Imgs.
+      // Previously required hasCover && has2Imgs, so if page images were slow or failed,
+      // payBtn stayed disabled forever even though the cover was available.
+      if (hasCover && payBtn && payBtn.disabled) {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
         payBtn.textContent = 'Unlock Full Book — $39';
       }
 
+      // Break when cover + 2 page images all ready (keeps polling so page images update)
       if (hasCover && has2Imgs) {
         setStep(4, "Ready!", 100);
         var total = b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0;
@@ -379,13 +382,32 @@ async function pollBook() {
     } catch(e) { console.warn("poll:", e.message); }
   }
 
-  // Fallback
+  // Fallback: if loop timed out without breaking, show whatever we have
   if (!previewShown) {
     try {
       var r2 = await fetch(API_BASE + "/api/books/" + bookId);
       var d2 = await r2.json();
       if (d2.book) { renderPreview(d2.book); showPreview(); }
-      else if (loadingStatus) loadingStatus.textContent = "Taking longer than expected. Please refresh.";
+    } catch(e) {}
+  }
+  // Safety net: enable payBtn if cover exists (handles timeout case where
+  // page images never arrived so the has2Imgs break condition never fired)
+  if (payBtn && payBtn.disabled) {
+    try {
+      var r3 = await fetch(API_BASE + "/api/books/" + bookId);
+      var d3 = await r3.json();
+      if (d3.book && d3.book.coverImage) {
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+        payBtn.style.cursor = 'pointer';
+        payBtn.textContent = 'Unlock Full Book — $39';
+      } else if (d3.book && d3.book.generatedBook) {
+        // Story exists but no cover yet — still let them proceed
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+        payBtn.style.cursor = 'pointer';
+        payBtn.textContent = 'Unlock Full Book — $39';
+      }
     } catch(e) {}
   }
 }
@@ -408,7 +430,15 @@ function renderPreview(b) {
 
 function updateLiveImages(b) {
   var imgs = b.fullImages || [];
-  if (b.coverImage && coverImage && !coverImage.src) coverImage.src = b.coverImage;
+  // FIX: use getAttribute('src') instead of !coverImage.src
+  // img.src (IDL property) returns the current page URL in mobile Safari when no src is set,
+  // making !coverImage.src always false. getAttribute returns null when src is absent.
+  if (b.coverImage && coverImage) {
+    var existingSrc = coverImage.getAttribute('src');
+    if (!existingSrc || existingSrc !== b.coverImage) {
+      coverImage.src = b.coverImage;
+    }
+  }
   for (var i = 0; i < 2; i++) {
     if (imgs[i]) updatePageImg(i, imgs[i]);
   }
