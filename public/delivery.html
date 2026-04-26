@@ -401,301 +401,303 @@ async function generatePDF() {
   const st   = $('pdfSt');
   const fill = $('progFill');
   prog.classList.add('show');
-
-  const p = (pct, msg) => { fill.style.width=pct+'%'; st.textContent=msg; };
+  const p = (pct, msg) => { fill.style.width = pct + '%'; st.textContent = msg; };
 
   try {
     p(5, 'Loading book data...');
     book = await loadBook();
-    if (!book) {
-      st.textContent = '❌ Book not found. Please try again or contact support.';
-      return;
-    }
-    if (!book.generatedBook) {
-      st.textContent = '❌ Book is still being generated. Please wait and try again in a moment.';
-      return;
-    }
+    if (!book) { st.textContent = '❌ Book not found. Please try again.'; return; }
+    if (!book.generatedBook) { st.textContent = '❌ Book still generating. Please wait and try again.'; return; }
+
     const pages  = book.generatedBook?.pages || [];
     let   images = book.fullImages || [];
-    const title  = book.generatedBook?.title  || 'Your Magical Adventure';
-    const sub    = book.generatedBook?.subtitle || 'A Bedtime Journey to Dreamland';
+    const title  = book.generatedBook?.title    || 'Your Magical Adventure';
+    const sub    = book.generatedBook?.subtitle || '';
     const child  = book.childName || 'your child';
 
-    // ── Wait for images if not all ready (up to 3 min) ──────────────────────
-    const readyCount = images.filter(Boolean).length;
-    if (readyCount < pages.length) {
-      p(6, 'Waiting for illustrations (' + readyCount + '/' + pages.length + ')...');
+    // Wait up to 3 min for all images
+    if (images.filter(Boolean).length < pages.length) {
+      p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
       let waited = 0;
       while (waited < 180) {
-        await new Promise(r => setTimeout(r, 3000));
-        waited += 3;
+        await new Promise(r => setTimeout(r, 3000)); waited += 3;
         const fresh = await loadBook();
         if (fresh) { images = fresh.fullImages || []; book = fresh; }
-        const now = images.filter(Boolean).length;
-        p(6, 'Waiting for illustrations (' + now + '/' + pages.length + ')...');
-        if (now >= pages.length) break;
+        p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
+        if (images.filter(Boolean).length >= pages.length) break;
       }
     }
 
     p(12, 'Loading PDF engine...');
     if (!window.jspdf) {
-      await new Promise((res,rej) => {
+      await new Promise((res, rej) => {
         const s = document.createElement('script');
-        s.src   = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         s.onload = res; s.onerror = rej;
         document.head.appendChild(s);
       });
     }
 
-    const {jsPDF} = window.jspdf;
-    const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=210, H=297, M=14;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, H = 297;
 
-    // ── Image loader (works for base64 data URLs and https URLs) ──
+    // ── Palette ──────────────────────────────────────────────────────────────
+    const GOLD  = [200, 146,  42];
+    const CREAM = [253, 246, 236];
+    const BROWN = [ 58,  40,  16];
+    const DARK  = [ 26,  10,   0];
+    const PALE  = [245, 217, 138];
+    const MUTED = [122,  96,  72];
+
+    // ── Image loader: Supabase Storage URLs + base64 data URLs ───────────────
     const loadB64 = src => new Promise(res => {
       if (!src) { res(null); return; }
-      // Already base64
       if (src.startsWith('data:')) { res(src); return; }
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const c = document.createElement('canvas');
         c.width = img.naturalWidth; c.height = img.naturalHeight;
-        c.getContext('2d').drawImage(img,0,0);
-        res(c.toDataURL('image/jpeg',0.88));
+        c.getContext('2d').drawImage(img, 0, 0);
+        res(c.toDataURL('image/jpeg', 0.90));
       };
       img.onerror = () => res(null);
       img.src = src;
     });
 
-    // ── Cream page background with gold bar top/bottom ──
-    const drawPageBg = () => {
-      pdf.setFillColor(253,246,236);
-      pdf.rect(0,0,W,H,'F');
-      // Gold top bar
-      pdf.setFillColor(200,146,42);
-      pdf.rect(0,0,W,3,'F');
-      // Gold bottom bar
-      pdf.rect(0,H-3,W,3,'F');
-    };
+    // ── Drawing helpers ───────────────────────────────────────────────────────
+    const fill_  = ([r, g, b]) => pdf.setFillColor(r, g, b);
+    const text_  = ([r, g, b]) => pdf.setTextColor(r, g, b);
 
-    // ── Draw a centered gold rule ──
-    const goldRule = (y, leftPad=30) => {
-      pdf.setFillColor(200,146,42);
-      pdf.rect(leftPad, y, W-leftPad*2, 0.6,'F');
+    const goldBar = (y, h, lp, rp) => {
+      fill_(GOLD);
+      pdf.rect(lp || 0, y, W - (lp || 0) - (rp || 0), h || 1.2, 'F');
     };
+    const goldRule = (y, lp, rp) => goldBar(y, 0.7, lp || 14, rp || 14);
 
-    // ── Centered multi-line text helper ──
-    const centeredText = (text, x, y, maxW, opts={}) => {
-      const lines = pdf.splitTextToSize(text, maxW);
-      pdf.text(lines, x, y, {align:'center', ...opts});
-      return lines.length;
-    };
-
-    // Draw open-book symbol using lines (no emoji)
-    const drawBookSymbol = (cx, cy, size) => {
-      const s = size * 0.5;
-      pdf.setDrawColor(200,146,42);
-      pdf.setLineWidth(1.2);
-      // Left page
-      pdf.line(cx-s, cy+s*0.3, cx-s, cy-s*0.6);
-      pdf.line(cx-s, cy-s*0.6, cx, cy-s*0.2);
-      pdf.line(cx, cy-s*0.2, cx, cy+s*0.5);
-      pdf.line(cx, cy+s*0.5, cx-s, cy+s*0.3);
-      // Right page
-      pdf.line(cx+s, cy+s*0.3, cx+s, cy-s*0.6);
-      pdf.line(cx+s, cy-s*0.6, cx, cy-s*0.2);
-      // Spine curve hint
-      pdf.setLineWidth(0.4);
-      pdf.line(cx-s*0.3, cy-s*0.5, cx+s*0.3, cy-s*0.5);
-    };
-
-    // Draw a small diamond ornament instead of ✦
     const drawDiamond = (cx, cy, r) => {
-      pdf.setFillColor(200,146,42);
-      pdf.triangle(cx, cy-r, cx+r, cy, cx, cy+r, 'F');
-      pdf.triangle(cx, cy-r, cx-r, cy, cx, cy+r, 'F');
+      fill_(GOLD);
+      pdf.triangle(cx, cy - r, cx + r, cy, cx, cy + r, 'F');
+      pdf.triangle(cx, cy - r, cx - r, cy, cx, cy + r, 'F');
     };
 
-    // ══════════════════════════════════════════════
-    // COVER PAGE
-    // ══════════════════════════════════════════════
-    p(16, 'Building cover page...');
+    // Cream scallop circles eat into bottom of image — creates wave transition
+    const drawWave = (waveY) => {
+      const R = 7, num = Math.ceil(W / (R * 2)) + 2;
+      fill_(CREAM);
+      for (let b = 0; b <= num; b++) pdf.circle(b * R * 2 - R, waveY, R, 'F');
+      pdf.rect(0, waveY, W, H - waveY, 'F');
+    };
 
+    // Corner L-ornament: dx/dy = ±1 controls direction
+    const corner = (x, y, dx, dy) => {
+      fill_(GOLD);
+      pdf.rect(x, y, dx * 12, 0.8, 'F');
+      pdf.rect(x, y, 0.8, dy * 12, 'F');
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // COVER PAGE
+    // Dark brown bg · gold frame image · title · corner ornaments
+    // ═══════════════════════════════════════════════════════════════════
+    p(16, 'Building cover page...');
     const coverB64 = await loadB64(book.coverImage);
 
+    fill_(DARK); pdf.rect(0, 0, W, H, 'F');
+
+    // Subtle starfield
+    fill_(GOLD);
+    [[W*.12,H*.06],[W*.88,H*.05],[W*.5,H*.03],[W*.25,H*.09],
+     [W*.72,H*.08],[W*.38,H*.05],[W*.62,H*.04],
+     [W*.15,H*.76],[W*.85,H*.79],[W*.5,H*.82]]
+    .forEach(function(pt) { pdf.circle(pt[0], pt[1], 0.5, 'F'); });
+
+    goldBar(0, 4.5); goldBar(H - 4.5, 4.5);
+
+    // Illustration — top 65% with gold frame border
+    const imgH65 = H * 0.65;
+    const iPad   = 13;
     if (coverB64) {
-      // Full-bleed cover image top 62% of page
-      pdf.addImage(coverB64,'JPEG',0,0,W,H*0.62);
-      // Cream fade at bottom of image
-      pdf.setFillColor(253,246,236);
-      pdf.rect(0,H*0.58,W,H*0.42,'F');
+      fill_(GOLD);
+      pdf.rect(iPad - 2.5, 6.5, W - iPad * 2 + 5, imgH65 - 4.5, 'F');
+      pdf.addImage(coverB64, 'JPEG', iPad, 8.5, W - iPad * 2, imgH65 - 8.5);
     } else {
-      // Dark cover fallback with geometric design
-      pdf.setFillColor(50,28,10);
-      pdf.rect(0,0,W,H*0.62,'F');
-      // Gold circle dots as stars
-      pdf.setFillColor(200,146,42);
-      [[W*0.25,H*0.12],[W*0.75,H*0.08],[W*0.5,H*0.22],[W*0.15,H*0.3],[W*0.82,H*0.25],
-       [W*0.35,H*0.18],[W*0.65,H*0.28]].forEach(([sx,sy])=>{
-        pdf.circle(sx,sy,1.0,'F');
-      });
-      // Book symbol
-      drawBookSymbol(W/2, H*0.33, 22);
+      pdf.setDrawColor(200, 146, 42); pdf.setLineWidth(2);
+      pdf.rect(iPad, 8, W - iPad * 2, imgH65 - 12, 'S');
+      drawDiamond(W / 2, 8 + (imgH65 - 12) / 2, 14);
     }
 
-    // Gold bar at top of cover
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,0,W,3,'F');
+    // Corner ornaments around image
+    var oX1 = iPad - 10, oX2 = W - iPad + 3;
+    var oY1 = 6.5, oY2 = imgH65;
+    corner(oX1,       oY1,        1,  1);
+    corner(oX2 - 0.8, oY1,       -1,  1);
+    corner(oX1,       oY2 - 0.8,  1, -1);
+    corner(oX2 - 0.8, oY2 - 0.8, -1, -1);
 
-    // Cream panel at bottom
-    pdf.setFillColor(253,246,236);
-    pdf.rect(0,H*0.60,W,H*0.40,'F');
+    // Text area (bottom ~33%)
+    var tAreaY = H * 0.67;
+    goldRule(tAreaY, 14, 14);
 
-    // Gold separator rule
-    goldRule(H*0.635, 16);
+    var cY = tAreaY + 11;
+    pdf.setFont('times', 'bold'); pdf.setFontSize(24); text_(PALE);
+    var tLines = pdf.splitTextToSize(title, W - 40);
+    pdf.text(tLines, W / 2, cY, { align: 'center' });
+    cY += tLines.length * 10;
 
-    // Title
-    pdf.setFont('helvetica','bold');
-    pdf.setFontSize(26);
-    pdf.setTextColor(92,61,30);
-    let coverY = H*0.672;
-    const titleLines = pdf.splitTextToSize(title, W-M*2);
-    pdf.text(titleLines, W/2, coverY, {align:'center'});
-    coverY += titleLines.length * 10;
-
-    // Subtitle
     if (sub) {
-      pdf.setFont('helvetica','italic');
-      pdf.setFontSize(12);
-      pdf.setTextColor(122,96,72);
-      coverY += 3;
-      pdf.text(sub, W/2, coverY, {align:'center'});
-      coverY += 9;
+      cY += 4;
+      pdf.setFont('times', 'italic'); pdf.setFontSize(12); text_(MUTED);
+      pdf.text(sub, W / 2, cY, { align: 'center' });
+      cY += 8;
     }
 
-    // "A personalized story for NAME"
-    coverY += 4;
-    pdf.setFont('helvetica','normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(160,130,100);
-    pdf.text('A personalized story for ' + child, W/2, coverY, {align:'center'});
+    cY += 5; goldRule(cY, 42, 42); cY += 10;
+    pdf.setFont('times', 'normal'); pdf.setFontSize(10); pdf.setTextColor(160, 130, 100);
+    pdf.text('A personalized story for ' + child, W / 2, cY, { align: 'center' });
 
-    // Branding at very bottom
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(180,155,120);
-    pdf.text('Created with Lifebook AI', W/2, H-6, {align:'center'});
+    pdf.setFontSize(8); pdf.setTextColor(130, 105, 78);
+    pdf.text('LIFEBOOK AI  \u00B7  lifebooks.online', W / 2, H - 9, { align: 'center' });
 
-    // Gold bottom bar
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,H-3,W,3,'F');
-
-    // ══════════════════════════════════════════════
-    // STORY PAGES — one page per story beat
-    // ══════════════════════════════════════════════
-    for (let i=0; i<pages.length; i++) {
-      const pct = 16 + Math.round(((i+1)/pages.length)*76);
-      p(pct, 'Page ' + (i+1) + ' of ' + pages.length + '...');
+    // ═══════════════════════════════════════════════════════════════════
+    // STORY PAGES
+    // Layout A (odd pages)  — full-bleed 70% · cream bar · justified text
+    // Layout B (even pages) — full-bleed 58% · wave · centered text
+    // ═══════════════════════════════════════════════════════════════════
+    for (var i = 0; i < pages.length; i++) {
+      var pct     = 16 + Math.round(((i + 1) / pages.length) * 76);
+      var pageNum = i + 1;
+      var isOdd   = pageNum % 2 === 1;
+      p(pct, 'Page ' + pageNum + ' of ' + pages.length + '...');
 
       pdf.addPage();
-      drawPageBg();
+      var imgB64   = await loadB64(images[i]);
+      var pageText = (pages[i] && pages[i].text) ? pages[i].text : '';
 
-      const iTop = 8;      // image top margin
-      const iH   = H*0.55; // image height — 55% of page
-      const iW   = W-M*2;  // image width
+      if (isOdd) {
+        // ── LAYOUT A ──────────────────────────────────────────────────────────
+        // Subtle gold header bar with title · full-bleed image 70% ·
+        // cream bar 30% with gold border · "— N —" · justified Times 12pt
+        var hdrH  = 9;
+        var imgBH = H * 0.70;
+        var crmY  = imgBH;
+        var tM    = 16;
+        var lH12  = 12 * 1.72 * 0.3528; // 12pt line height in mm
 
-      // ── Illustration ──
-      const imgB64 = await loadB64(images[i]);
-      if (imgB64) {
-        // Thin parchment border behind image
-        pdf.setFillColor(237,224,200);
-        pdf.rect(M-0.8, iTop+0.5, iW+1.6, iH+0.2,'F');
-        pdf.addImage(imgB64,'JPEG', M, iTop+0.8, iW, iH-0.8);
+        // Gold header bar
+        goldBar(0, hdrH);
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5);
+        pdf.setTextColor(253, 246, 236);
+        var hTitle = title.length > 58 ? title.substring(0, 55) + '\u2026' : title;
+        pdf.text(hTitle, W / 2, hdrH - 2.6, { align: 'center' });
+
+        // Full-bleed illustration
+        if (imgB64) {
+          pdf.addImage(imgB64, 'JPEG', 0, hdrH, W, imgBH - hdrH);
+        } else {
+          fill_([237, 224, 200]); pdf.rect(0, hdrH, W, imgBH - hdrH, 'F');
+          drawDiamond(W / 2, (hdrH + imgBH) / 2, 8);
+        }
+
+        // Cream bar
+        fill_(CREAM); pdf.rect(0, crmY, W, H - crmY, 'F');
+        // Gold border line at top of cream
+        goldBar(crmY, 1.2);
+        // Page number centred on gold line: — N —
+        pdf.setFont('times', 'normal'); pdf.setFontSize(9); text_(BROWN);
+        pdf.text('\u2014 ' + pageNum + ' \u2014', W / 2, crmY + 5.8, { align: 'center' });
+
+        // Body text — justified (all lines except last)
+        var tY = crmY + 13;
+        var tW = W - tM * 2;
+        pdf.setFont('times', 'normal'); pdf.setFontSize(12); text_(BROWN);
+        var bLines = pdf.splitTextToSize(pageText, tW);
+        for (var li = 0; li < bLines.length; li++) {
+          var isLast = li === bLines.length - 1;
+          pdf.text(bLines[li], tM, tY + li * lH12, {
+            align: isLast ? 'left' : 'justify',
+            maxWidth: tW
+          });
+        }
+
       } else {
-        // Placeholder with small diamond
-        pdf.setFillColor(237,224,200);
-        pdf.rect(M, iTop, iW, iH,'F');
-        drawDiamond(W/2, iTop+iH/2, 4);
+        // ── LAYOUT B ──────────────────────────────────────────────────────────
+        // Full-bleed image 58% · scallop wave · ✦ ornament · centered 13pt · · N ·
+        var imgBH2 = H * 0.58;
+        var waveY  = imgBH2 - 6;
+        var tM2    = 18;
+
+        // Full-bleed illustration
+        if (imgB64) {
+          pdf.addImage(imgB64, 'JPEG', 0, 0, W, imgBH2);
+        } else {
+          fill_([237, 224, 200]); pdf.rect(0, 0, W, imgBH2, 'F');
+          drawDiamond(W / 2, imgBH2 / 2, 8);
+        }
+
+        // Scallop wave transition (cream bumps eat into image bottom)
+        drawWave(waveY);
+
+        // Gold diamond ornament group
+        var ornY = waveY + 15;
+        drawDiamond(W / 2,      ornY, 4.5);
+        drawDiamond(W / 2 - 16, ornY, 2.2);
+        drawDiamond(W / 2 + 16, ornY, 2.2);
+
+        // Centered story text 13pt
+        var tY2 = ornY + 13;
+        var tW2 = W - tM2 * 2;
+        pdf.setFont('times', 'normal'); pdf.setFontSize(13); text_(BROWN);
+        var cLines = pdf.splitTextToSize(pageText, tW2);
+        pdf.text(cLines, W / 2, tY2, { align: 'center', lineHeightFactor: 1.65 });
+
+        // Page number at very bottom: · N ·
+        pdf.setFont('times', 'normal'); pdf.setFontSize(9); text_(MUTED);
+        pdf.text('\u00B7 ' + pageNum + ' \u00B7', W / 2, H - 7, { align: 'center' });
       }
-
-      // Gold rule below image
-      goldRule(iTop+iH+5, M+10);
-
-      // Page number (small, centered, above rule)
-      pdf.setFont('helvetica','normal');
-      pdf.setFontSize(7.5);
-      pdf.setTextColor(180,155,120);
-      pdf.text(String(i+1), W/2, iTop+iH+3.2, {align:'center'});
-
-      // ── Story text ──
-      const text = pages[i].text || '';
-      pdf.setFont('helvetica','normal');
-      pdf.setFontSize(13);
-      pdf.setTextColor(58,40,16);
-      const textY = iTop + iH + 14;
-      const textLines = pdf.splitTextToSize(text, iW-6);
-      pdf.text(textLines, W/2, textY, {align:'center', lineHeightFactor: 1.72});
-
-      // Small diamond footer ornament
-      drawDiamond(W/2, H-6, 2.5);
     }
 
-    // ══════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     // BACK COVER
-    // ══════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     p(94, 'Adding back cover...');
     pdf.addPage();
+    fill_([40, 22, 7]); pdf.rect(0, 0, W, H, 'F');
 
-    // Dark warm background
-    pdf.setFillColor(40,22,7);
-    pdf.rect(0,0,W,H,'F');
+    fill_(GOLD);
+    [[W*.18,H*.22],[W*.82,H*.18],[W*.55,H*.12],[W*.3,H*.78],
+     [W*.72,H*.75],[W*.1,H*.5],[W*.9,H*.55],[W*.5,H*.88],
+     [W*.42,H*.32],[W*.65,H*.42],[W*.2,H*.6],[W*.78,H*.38]]
+    .forEach(function(pt) { pdf.circle(pt[0], pt[1], 0.7, 'F'); });
 
-    // Starfield — gold circles
-    pdf.setFillColor(200,146,42);
-    const stars = [
-      [W*0.18,H*0.22],[W*0.82,H*0.18],[W*0.55,H*0.12],[W*0.3,H*0.78],
-      [W*0.72,H*0.75],[W*0.1,H*0.5],[W*0.9,H*0.55],[W*0.5,H*0.88],
-      [W*0.42,H*0.32],[W*0.65,H*0.42],[W*0.2,H*0.6],[W*0.78,H*0.38]
-    ];
-    stars.forEach(([sx,sy])=>{ pdf.circle(sx,sy,0.7,'F'); });
+    goldBar(0, 4); goldBar(H - 4, 4);
 
-    // Gold top/bottom bars
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,0,W,3.5,'F');
-    pdf.rect(0,H-3.5,W,3.5,'F');
+    var bY = H * 0.48;
+    pdf.setFont('times', 'bold'); pdf.setFontSize(32); text_(PALE);
+    pdf.text('lifebook', W / 2, bY, { align: 'center' });
 
-    // Center book symbol
-    const bY = H/2;
-    drawBookSymbol(W/2, bY-24, 20);
+    pdf.setFont('times', 'italic'); pdf.setFontSize(12); text_(MUTED);
+    pdf.text('AI-powered personalized storybooks', W / 2, bY + 14, { align: 'center' });
 
-    pdf.setFont('helvetica','bold');
-    pdf.setFontSize(28);
-    pdf.setTextColor(245,217,138);
-    pdf.text('lifebook', W/2, bY, {align:'center'});
+    goldRule(bY + 25, 40, 40);
 
-    pdf.setFont('helvetica','italic');
-    pdf.setFontSize(12);
-    pdf.setTextColor(180,150,110);
-    pdf.text('AI-powered personalized storybooks', W/2, bY+13, {align:'center'});
+    pdf.setFont('times', 'normal'); pdf.setFontSize(10); pdf.setTextColor(160, 130, 100);
+    pdf.text('A magical story created just for ' + child, W / 2, bY + 36, { align: 'center' });
 
-    goldRule(bY+23, 40);
+    pdf.setFontSize(8); pdf.setTextColor(140, 115, 88);
+    pdf.text('lifebooks.online', W / 2, bY + 50, { align: 'center' });
 
-    pdf.setFont('helvetica','normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(160,130,100);
-    pdf.text('A magical story created just for ' + child, W/2, bY+35, {align:'center'});
+    // ── SAVE ──────────────────────────────────────────────────────────────────
+    p(98, 'Saving PDF...');
+    var safe = child.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    pdf.save(safe + '_lifebook.pdf');
+    p(100, '✅ PDF downloaded!');
+    setTimeout(function() { prog.classList.remove('show'); }, 4000);
 
-    // ── SAVE ──
-    p(98,'Saving PDF...');
-    const safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase();
-    pdf.save(`${safe}_lifebook.pdf`);
-
-    p(100,'✅ PDF downloaded!');
-    setTimeout(()=>prog.classList.remove('show'), 4000);
-
-  } catch(err) {
-    st.textContent = '❌ Error: '+err.message;
-    console.error('PDF error:',err);
+  } catch (err) {
+    st.textContent = '❌ Error: ' + err.message;
+    console.error('PDF error:', err);
   }
 }
 
