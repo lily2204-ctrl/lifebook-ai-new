@@ -48,9 +48,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
   }
 
-  async function redirectToCheckout() {
-    if (!book) throw new Error("Book details are still loading.");
-
+  function redirectToCheckout() {
     proceedBtn.disabled    = true;
     proceedBtn.textContent = "Opening secure checkout...";
 
@@ -59,17 +57,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       checkoutStatus.className = "status-note";
     }
 
-    var res  = await fetch(API_BASE + "/api/create-checkout-session", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ bookId: bookId })
-    });
-
-    var data = await res.json();
-
-    if (!res.ok || !data.url) throw new Error(data.message || "Failed to open payment page.");
-
-    window.location.href = data.url;
+    window.location.href = "https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true";
   }
 
   backToPreviewBtn && backToPreviewBtn.addEventListener("click", function() {
@@ -80,18 +68,8 @@ document.addEventListener("DOMContentLoaded", async function() {
     window.location.href = "cover.html?bookId=" + encodeURIComponent(bookId);
   });
 
-  proceedBtn && proceedBtn.addEventListener("click", async function() {
-    try {
-      await redirectToCheckout();
-    } catch(error) {
-      console.error("Checkout redirect failed:", error);
-      if (checkoutStatus) {
-        checkoutStatus.textContent = error.message || "Failed to open payment page.";
-        checkoutStatus.className = "status-note error";
-      }
-      proceedBtn.disabled    = false;
-      proceedBtn.textContent = "Pay Securely - $39";
-    }
+  proceedBtn && proceedBtn.addEventListener("click", function() {
+    redirectToCheckout();
   });
 
   try {

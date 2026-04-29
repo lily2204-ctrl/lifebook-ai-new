@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 26, 2026 (session 9 — PDF redesign: professional children's book layout)*
+*Last updated: April 26, 2026 (session 10 — Gumroad payment integration)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -267,3 +267,4 @@ public/
 50. ✅ preview.html cover image never shown (all platforms): `updateLiveImages` used `!coverImage.src` (IDL property) which returns current page URL in mobile Safari when no src attr set — always false; fixed to `coverImage.getAttribute('src') !== b.coverImage`
 51. ✅ preview.html payBtn never enabled: required `hasCover && has2Imgs` — if page images were slow/failed, payBtn stayed disabled forever even with cover ready; fixed to enable on `hasCover` alone; safety net added in timeout fallback
 52. ✅ delivery.html PDF redesign: professional children's picture book layout — alternating Layout A (odd: gold 9mm header bar, full-bleed image 70%, cream bottom 30%, justified Times 12pt body) + Layout B (even: full-bleed image 58%, scallop wave transition, triple diamond ornament, centered Times 13pt); cover page: dark bg, starfield, gold 4.5mm bars, gold-framed illustration, corner L-ornaments, Times bold title; back cover: dark bg, starfield, gold branding; loadB64 helper for Supabase Storage URLs → canvas → data: for jsPDF embedding
+53. ✅ checkout.js: replaced LemonSqueezy `/api/create-checkout-session` fetch with direct Gumroad redirect to https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true; checkout.html: added "📬 After purchase, email your child's photo and details to: books@lifebooks.online" note below pay button in muted text
