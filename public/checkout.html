@@ -45,6 +45,10 @@
     .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Lato',sans-serif;letter-spacing:0.3px;margin-bottom:12px;display:block;text-align:center}
     .pay-btn:hover{transform:translateY(-2px);box-shadow:0 12px 42px rgba(200,146,42,0.55)}
     .pay-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+    /* Override Gumroad's default button styles */
+    a.gumroad-button.pay-btn{background:linear-gradient(135deg,var(--gold-light),var(--gold)) !important;background-image:none !important;color:var(--white) !important;border-radius:50px !important;padding:18px 36px !important;font-size:18px !important;font-weight:700 !important;font-family:'Lato',sans-serif !important;letter-spacing:0.3px !important;box-shadow:0 8px 32px rgba(200,146,42,0.4) !important;border:none !important;display:block !important;width:100% !important;text-align:center !important;text-decoration:none !important;margin-bottom:12px !important;cursor:pointer !important;transition:all 0.25s !important}
+    a.gumroad-button.pay-btn:hover{transform:translateY(-2px) !important;box-shadow:0 12px 42px rgba(200,146,42,0.55) !important}
+    a.gumroad-button.pay-btn .logo-full{display:none !important}
     .trust-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
     .trust-item{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
     .status-note{margin-top:12px;font-size:14px;color:var(--text-muted);text-align:center;min-height:20px}
@@ -94,7 +98,7 @@
         </div>
         <div class="price-amount">$39</div>
       </div>
-      <button class="pay-btn" id="proceedToPaymentBtn">🔒 Pay Securely — $39</button>
+      <a class="gumroad-button pay-btn" id="gumroadBtn" href="https://lilypad583.gumroad.com/l/personalized-storybook">🔒 Pay Securely — $39</a>
       <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:14px;line-height:1.6;">📬 After purchase, email your child's photo and details to:<br><a href="mailto:books@lifebooks.online" style="color:var(--gold);font-weight:700;text-decoration:none;">books@lifebooks.online</a></p>
       <div class="trust-row">
         <span class="trust-item">🔒 Secure checkout</span>
@@ -105,6 +109,7 @@
     </div>
   </div>
 </main>
+<script src="https://gumroad.com/js/gumroad.js"></script>
 <script type="module" src="./checkout.js"></script>
 <script src="accessibility.js"></script>
 </body>

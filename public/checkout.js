@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   var ageEl            = document.getElementById("age");
   var styleEl          = document.getElementById("style");
   var pagesEl          = document.getElementById("pages");
-  var proceedBtn       = document.getElementById("proceedToPaymentBtn");
+  var gumroadBtn       = document.getElementById("gumroadBtn");
   var backToPreviewBtn = document.getElementById("backToPreviewBtn");
   var backToCoverBtn   = document.getElementById("backToCoverBtn");
   var checkoutStatus   = document.getElementById("checkoutStatus");
@@ -23,6 +23,18 @@ document.addEventListener("DOMContentLoaded", async function() {
     window.location.href = "wizard.html";
     return;
   }
+
+  // Set bookId as referral parameter so we know which book was purchased
+  if (gumroadBtn) {
+    gumroadBtn.href = "https://lilypad583.gumroad.com/l/personalized-storybook?referral=" + encodeURIComponent(bookId);
+  }
+
+  // Listen for Gumroad overlay purchase success → redirect to success.html
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.post_message_name === "purchase") {
+      window.location.href = "success.html?bookId=" + encodeURIComponent(bookId) + "&source=gumroad";
+    }
+  });
 
   var book = null;
 
@@ -48,28 +60,12 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
   }
 
-  function redirectToCheckout() {
-    proceedBtn.disabled    = true;
-    proceedBtn.textContent = "Opening secure checkout...";
-
-    if (checkoutStatus) {
-      checkoutStatus.textContent = "Redirecting to secure payment...";
-      checkoutStatus.className = "status-note";
-    }
-
-    window.location.href = "https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true";
-  }
-
   backToPreviewBtn && backToPreviewBtn.addEventListener("click", function() {
     window.location.href = "preview.html?bookId=" + encodeURIComponent(bookId);
   });
 
   backToCoverBtn && backToCoverBtn.addEventListener("click", function() {
     window.location.href = "cover.html?bookId=" + encodeURIComponent(bookId);
-  });
-
-  proceedBtn && proceedBtn.addEventListener("click", function() {
-    redirectToCheckout();
   });
 
   try {

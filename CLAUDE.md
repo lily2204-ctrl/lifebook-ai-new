@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: April 26, 2026 (session 10 — Gumroad payment integration)*
+*Last updated: May 3, 2026 (session 11 — Gumroad overlay checkout)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -268,3 +268,4 @@ public/
 51. ✅ preview.html payBtn never enabled: required `hasCover && has2Imgs` — if page images were slow/failed, payBtn stayed disabled forever even with cover ready; fixed to enable on `hasCover` alone; safety net added in timeout fallback
 52. ✅ delivery.html PDF redesign: professional children's picture book layout — alternating Layout A (odd: gold 9mm header bar, full-bleed image 70%, cream bottom 30%, justified Times 12pt body) + Layout B (even: full-bleed image 58%, scallop wave transition, triple diamond ornament, centered Times 13pt); cover page: dark bg, starfield, gold 4.5mm bars, gold-framed illustration, corner L-ornaments, Times bold title; back cover: dark bg, starfield, gold branding; loadB64 helper for Supabase Storage URLs → canvas → data: for jsPDF embedding
 53. ✅ checkout.js: replaced LemonSqueezy `/api/create-checkout-session` fetch with direct Gumroad redirect to https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true; checkout.html: added "📬 After purchase, email your child's photo and details to: books@lifebooks.online" note below pay button in muted text
+54. ✅ checkout.html/js: Gumroad overlay checkout — `<script src="https://gumroad.com/js/gumroad.js">`, button replaced with `<a class="gumroad-button pay-btn" id="gumroadBtn">`, Gumroad default styles overridden with `!important` to match design system; checkout.js sets `?referral=BOOKID` on href after book loads; `window.message` listener for `post_message_name === 'purchase'` → redirects to `success.html?bookId=BOOKID&source=gumroad`
