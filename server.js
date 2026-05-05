@@ -769,6 +769,70 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
   })();
 });
 
+// ─── Gumroad Webhook ──────────────────────────────────────────────────────────
+// Gumroad sends application/x-www-form-urlencoded pings (not JSON, no HMAC).
+// The bookId is stored in the `referrer` field (set via ?referral=BOOKID in checkout URL).
+app.post("/webhooks/gumroad", express.urlencoded({ extended: false, limit: "25mb" }), async (req, res) => {
+  console.log("[Gumroad Webhook] received — body keys:", Object.keys(req.body || {}));
+
+  // Respond immediately so Gumroad doesn't retry
+  res.status(200).send("ok");
+
+  (async () => {
+    try {
+      const body        = req.body || {};
+      const bookId      = (body.referrer || "").trim();
+      const email       = (body.email    || "").trim();
+      const saleId      = (body.sale_id  || body.order_id || "").trim();
+
+      console.log(`[Gumroad Webhook] bookId (referrer): ${bookId || "(none)"}, email: ${email || "(none)"}, saleId: ${saleId || "(none)"}`);
+
+      if (!bookId) {
+        console.error("[Gumroad Webhook] no bookId in referrer field — cannot unlock book");
+        return;
+      }
+
+      console.log(`[Gumroad Webhook] unlocking book ${bookId}...`);
+
+      const unlockPatch = {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  saleId  // reusing existing column for Gumroad sale ID
+      };
+      if (email) unlockPatch.customerEmail = email;
+
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[Gumroad Webhook] ✅ book ${bookId} unlocked${email ? ` — customerEmail: ${email}` : ""}`);
+
+      const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[Gumroad Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`[Gumroad Webhook] payment confirmation email sent to: ${paidBook.customerEmail || "(no email)"}`);
+
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2);
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[Gumroad Webhook] book ${bookId} — readyCount=${readyCount}/${pages.length}, threshold=${threshold}, allDone=${allDone}`);
+
+      if (allDone) {
+        console.log(`[Gumroad Webhook] book ${bookId} was complete at payment time — sending book ready email`);
+        await sendBookReadyEmail(paidBook);
+        console.log(`[Gumroad Webhook] book ready email sent ✅`);
+      } else {
+        console.log(`[Gumroad Webhook] book ${bookId} generation still in progress — book ready email will be sent by generate-full STEP 5`);
+      }
+    } catch (err) {
+      console.error("[Gumroad Webhook] processing failed:", err.message, err.stack);
+    }
+  })();
+});
+
 // ─── Unlock endpoint (manual / dev) ──────────────────────────────────────────
 app.post("/api/books/:bookId/unlock", async (req, res) => {
   try {

@@ -133,7 +133,18 @@ async function init() {
   try {
     statusEl.textContent = "Confirming your payment...";
 
-    // Poll up to 30×2s = 60 seconds for purchaseUnlocked (waits for LemonSqueezy webhook)
+    // If redirected from Gumroad, call /unlock immediately (webhook may not have fired yet)
+    const source = new URLSearchParams(window.location.search).get("source");
+    if (source === "gumroad" && bookId) {
+      try {
+        console.log("[success] source=gumroad — calling /unlock for bookId:", bookId);
+        await fetch(API + "/api/books/" + bookId + "/unlock", { method: "POST" });
+      } catch (unlockErr) {
+        console.warn("[success] /unlock call failed:", unlockErr.message);
+      }
+    }
+
+    // Poll up to 30×2s = 60 seconds for purchaseUnlocked (waits for webhook)
     let book     = null;
     let unlocked = false;
     for (let i = 0; i < 30; i++) {

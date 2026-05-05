@@ -24,17 +24,15 @@ document.addEventListener("DOMContentLoaded", async function() {
     return;
   }
 
-  // Set bookId as referral parameter so we know which book was purchased
+  // Set bookId as referral parameter and wire up direct redirect on click
   if (gumroadBtn) {
-    gumroadBtn.href = "https://lilypad583.gumroad.com/l/personalized-storybook?referral=" + encodeURIComponent(bookId);
+    var gumroadUrl = "https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true&referral=" + encodeURIComponent(bookId);
+    gumroadBtn.href = gumroadUrl;
+    gumroadBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      window.location.href = gumroadUrl;
+    });
   }
-
-  // Listen for Gumroad overlay purchase success → redirect to success.html
-  window.addEventListener("message", function(e) {
-    if (e.data && e.data.post_message_name === "purchase") {
-      window.location.href = "success.html?bookId=" + encodeURIComponent(bookId) + "&source=gumroad";
-    }
-  });
 
   var book = null;
 
