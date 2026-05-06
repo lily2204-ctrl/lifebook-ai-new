@@ -77,6 +77,17 @@ function sanitizeImagePrompt(text = "") {
     .replaceAll(/\btrademark\b/gi, "graphic detail");
 }
 
+// Races a promise against a timeout — rejects with clear message if exceeded.
+// Used to prevent OpenAI API calls and Supabase uploads from hanging indefinitely.
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error(`Timeout: ${label || 'operation'} exceeded ${Math.round(ms/1000)}s`)), ms)
+    )
+  ]);
+}
+
 function buildCharacterPromptCore(characterDNA, style) {
   const hair    = characterDNA.hair    || "soft child hair";
   const skin    = characterDNA.skin    || "natural skin tone";
@@ -898,21 +909,26 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       if (!characterReference && croppedPhoto) {
         try {
-          const dnaCompletion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [{
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Analyze the uploaded child photo and return ONLY JSON.\nReturn:\n{\n  "hair": "string",\n  "skin": "string",\n  "eyes": "string",\n  "face": "string",\n  "ageLook": "string",\n  "outfit": "string",\n  "vibe": "string",\n  "summary": "string"\n}\nRules:\n- Focus only on the child\n- Ignore any brand names, logos, copyrighted characters, or toy franchises\n- If clothing includes a recognizable character or logo, describe it generically`
-                },
-                { type: "image_url", image_url: { url: croppedPhoto } }
-              ]
-            }],
-            temperature: 0.2
-          });
+          console.log(`generate-full [${bookId}]: STEP 1 starting photo analysis ${elapsed()} — photo type: ${croppedPhoto.startsWith('data:') ? 'base64' : 'url'}`);
+          const dnaCompletion = await withTimeout(
+            openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [{
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Analyze the uploaded child photo and return ONLY JSON.\nReturn:\n{\n  "hair": "string",\n  "skin": "string",\n  "eyes": "string",\n  "face": "string",\n  "ageLook": "string",\n  "outfit": "string",\n  "vibe": "string",\n  "summary": "string"\n}\nRules:\n- Focus only on the child\n- Ignore any brand names, logos, copyrighted characters, or toy franchises\n- If clothing includes a recognizable character or logo, describe it generically`
+                  },
+                  { type: "image_url", image_url: { url: croppedPhoto } }
+                ]
+              }],
+              temperature: 0.2
+            }),
+            45000,
+            'STEP1-photo-analysis'
+          );
 
           const characterDNA = safeJsonParse(dnaCompletion.choices?.[0]?.message?.content || "{}", {
             hair: "soft child hair", skin: "warm natural skin tone",
@@ -949,12 +965,17 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 - If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If both the name and story direction are in English or Latin characters, write in English`;
 
-        const storyCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: storyPrompt }],
-          temperature: 0.8
-        });
+        console.log(`generate-full [${bookId}]: STEP 2 starting story generation ${elapsed()}`);
+        const storyCompletion = await withTimeout(
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [{ role: "user", content: storyPrompt }],
+            temperature: 0.8
+          }),
+          90000,
+          'STEP2-story-generation'
+        );
 
         const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
         const storyData = safeJsonParse(storyRaw, {});
@@ -991,24 +1012,25 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
-      // Retry wrapper: up to 2 retries, 90s timeout per attempt.
+      // Retry wrapper: 1 retry, 60s timeout per attempt (was 2 retries × 90s = 270s worst-case).
+      // New worst-case: 60s + 3s + 60s = 123s per image. Batch of 5 = 123s max.
       // If all attempts fail, returns null and logs — pipeline continues regardless.
       async function generatePageImageWithRetry(pageIndex) {
-        const MAX_RETRIES = 2;
-        const TIMEOUT_MS  = 90000;
+        const MAX_RETRIES = 1;
+        const TIMEOUT_MS  = 60000;
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
           try {
             const result = await Promise.race([
               generatePageImage(pageIndex),
               new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 90s`)), TIMEOUT_MS)
+                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 60s`)), TIMEOUT_MS)
               )
             ]);
             return result;
           } catch (err) {
             console.warn(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} failed: ${err.message}`);
             if (attempt <= MAX_RETRIES) {
-              await new Promise(r => setTimeout(r, 3000));
+              await new Promise(r => setTimeout(r, 2000));
             }
           }
         }
@@ -1020,23 +1042,24 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel
-      // Cover gets a 90s timeout; pages use generatePageImageWithRetry (2 retries + 90s each)
+      // Cover gets a 60s timeout; pages use generatePageImageWithRetry (1 retry + 60s each)
+      console.log(`generate-full [${bookId}]: STEP 3+4a starting cover + pages 0,1 in parallel ${elapsed()}`);
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
         bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
           openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 90s")), 90000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 60s")), 60000))
         ]),
         fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
         fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
       ]);
 
-      // Save cover — upload to Storage, fall back to base64
+      // Save cover — upload to Storage (15s timeout), fall back to base64
       if (coverResult?.status === "fulfilled" && coverResult.value) {
         const coverBase64 = await normalizeImageToBase64(coverResult.value?.data?.[0]);
         if (coverBase64) {
           let coverValue = `data:image/jpeg;base64,${coverBase64}`;
           try {
-            const coverUrl = await uploadImageToStorage(bookId, "cover.jpg", coverValue);
+            const coverUrl = await withTimeout(uploadImageToStorage(bookId, "cover.jpg", coverValue), 15000, 'cover-storage');
             if (coverUrl) {
               coverValue = coverUrl;
               console.log(`generate-full [${bookId}]: cover uploaded to Storage`);
@@ -1048,11 +1071,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         }
       }
 
-      // Save priority pages — upload to Storage, fall back to base64
+      // Save priority pages — upload to Storage (15s timeout per upload), fall back to base64
       if (page0Result?.status === "fulfilled" && page0Result.value) {
         let p0value = `data:image/jpeg;base64,${page0Result.value}`;
         try {
-          const url = await uploadImageToStorage(bookId, "page-0.jpg", p0value);
+          const url = await withTimeout(uploadImageToStorage(bookId, "page-0.jpg", p0value), 15000, 'page-0-storage');
           if (url) { p0value = url; console.log(`generate-full [${bookId}]: page-0 uploaded to Storage`); }
         } catch (err) {
           console.warn(`generate-full [${bookId}]: page-0 Storage upload failed: ${err.message}`);
@@ -1063,7 +1086,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       if (page1Result?.status === "fulfilled" && page1Result.value) {
         let p1value = `data:image/jpeg;base64,${page1Result.value}`;
         try {
-          const url = await uploadImageToStorage(bookId, "page-1.jpg", p1value);
+          const url = await withTimeout(uploadImageToStorage(bookId, "page-1.jpg", p1value), 15000, 'page-1-storage');
           if (url) { p1value = url; console.log(`generate-full [${bookId}]: page-1 uploaded to Storage`); }
         } catch (err) {
           console.warn(`generate-full [${bookId}]: page-1 Storage upload failed: ${err.message}`);
@@ -1092,7 +1115,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
             if (base64) {
               let imgValue = `data:image/jpeg;base64,${base64}`;
               try {
-                const url = await uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue);
+                const url = await withTimeout(uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue), 15000, `page-${pageIndex}-storage`);
                 if (url) imgValue = url;
               } catch (err) {
                 console.warn(`generate-full [${bookId}]: page-${pageIndex} Storage upload failed: ${err.message}`);
