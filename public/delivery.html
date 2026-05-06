@@ -447,7 +447,7 @@ async function generatePDF() {
     let heeboLoaded = false;
     try {
       const fontRes = await fetch(
-        'https://cdn.jsdelivr.net/gh/google/fonts/ofl/heebo/Heebo%5Bwght%5D.ttf'
+        'https://cdn.jsdelivr.net/gh/google/fonts/ofl/heebo/static/Heebo-Regular.ttf'
       );
       if (fontRes.ok) {
         const buf   = await fontRes.arrayBuffer();
@@ -684,7 +684,8 @@ async function generatePDF() {
 
     // ── SAVE ──────────────────────────────────────────────────────────────
     p(98, 'Saving PDF...');
-    const safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    let safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase().replace(/_+/g,'_').replace(/^_|_$/g,'');
+    if (!safe) safe = bookId ? bookId.substring(0,8) : 'story';
     pdf.save(safe+'_lifebook.pdf');
     p(100, '✅ PDF downloaded!');
     setTimeout(() => { prog.classList.remove('show'); }, 4000);

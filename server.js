@@ -888,6 +888,10 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const illustrationStyle = book.illustrationStyle || "Soft Storybook";
       const croppedPhoto      = book.croppedPhoto      || book.originalPhoto || "";
       const safeStyle         = sanitizeBrandTerms(illustrationStyle);
+      const t0 = Date.now();
+      const elapsed = () => `+${Math.round((Date.now()-t0)/1000)}s`;
+      const isHebrewBook = /[\u0590-\u05FF]/.test(childName + storyIdea);
+      console.log(`generate-full [${bookId}]: language=${isHebrewBook ? 'Hebrew' : 'English'} — imagePrompts always in English`);
 
       // ── STEP 1: Character reference (photo → DNA + prompt core) ──────────────
       let characterReference = book.characterReference || null;
@@ -937,13 +941,13 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       const promptCore       = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
       const characterSummary = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
-      console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready`);
+      console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
       if (!book.generatedBook?.pages?.length) {
         const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
-- If the child's name contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
-- If the name is in English or Latin characters, write in English`;
+- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
+- If both the name and story direction are in English or Latin characters, write in English`;
 
         const storyCompletion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
@@ -969,7 +973,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
       // Running them together cuts the wait from ~2min to ~60s
-      console.log(`generate-full [${bookId}]: STEP 2 done — story written, starting cover + priority images in parallel`);
+      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, starting cover + priority images in parallel`);
 
       const bookBeforeImgs = await getBook(bookId);
       const pages          = bookBeforeImgs.generatedBook?.pages || [];
@@ -1068,7 +1072,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
 
-      console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved`);
+      console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved ${elapsed()}`);
 
       // שלב 4ב: שאר התמונות (3-16) בbatches של 3
       // שלב 4ב: שאר התמונות — 5 במקביל, כל תמונה נשמרת מיד כשמוכנה
@@ -1106,7 +1110,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
       // This block ALWAYS runs — even if some pages were skipped due to image failures.
-      console.log(`generate-full [${bookId}]: STEP 5 — all batches complete (${fullImages.filter(Boolean).length}/${pages.length} images), checking purchaseUnlocked`);
+      console.log(`generate-full [${bookId}]: STEP 5 — all batches complete ${elapsed()} (${fullImages.filter(Boolean).length}/${pages.length} images), checking purchaseUnlocked`);
       try {
         // getBookLight sufficient — only need purchaseUnlocked + customerEmail for the email decision
         const completedBook = await getBookLight(bookId);
