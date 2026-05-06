@@ -949,26 +949,41 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 - If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If both the name and story direction are in English or Latin characters, write in English`;
 
-        const storyCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: storyPrompt }],
-          temperature: 0.8
-        });
+        try {
+          console.log(`generate-full [${bookId}]: STEP 2 starting`);
+          const storyCompletion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [{ role: "user", content: storyPrompt }],
+            temperature: 0.8
+          });
 
-        const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
-        const storyData = safeJsonParse(storyRaw, {});
-        const generatedBook = {
-          title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
-          subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
-          pages:    Array.isArray(storyData.pages)
-            ? storyData.pages.slice(0, 12).map(p => ({
-                text:        sanitizeBrandTerms(String(p.text        || "").trim()),
-                imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
-              }))
-            : []
-        };
-        await updateBookField(bookId, { generatedBook });
+          const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
+          const storyData = safeJsonParse(storyRaw, {});
+          const generatedBook = {
+            title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
+            subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
+            pages:    Array.isArray(storyData.pages)
+              ? storyData.pages.slice(0, 12).map(p => ({
+                  text:        sanitizeBrandTerms(String(p.text        || "").trim()),
+                  imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
+                }))
+              : []
+          };
+          await updateBookField(bookId, { generatedBook });
+          console.log(`generate-full [${bookId}]: STEP 2 done`);
+        } catch (err) {
+          console.error(`generate-full [${bookId}]: STEP 2 FAILED — ${err.message}`);
+          const fallbackBook = {
+            title: `${childName}'s Magical Adventure`,
+            subtitle: "A story where you are the hero",
+            pages: Array.from({length: 12}, (_, i) => ({
+              text: `Page ${i+1} of ${childName}'s magical adventure.`,
+              imagePrompt: `A young child in a magical storybook adventure, page ${i+1}, warm illustrated style.`
+            }))
+          };
+          await updateBookField(bookId, { generatedBook: fallbackBook });
+        }
       }
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
