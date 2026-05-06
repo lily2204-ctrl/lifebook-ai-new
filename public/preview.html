@@ -182,10 +182,9 @@
 
       <div class="unlock-banner">
         <div class="unlock-text">
-          <strong>Preview  First 2 pages</strong>
-          <span>Unlock the full book (all pages + PDF download)</span>
+          <strong>Preview — First 2 pages</strong>
+          <span>Download the full book as PDF (all pages)</span>
         </div>
-        <div class="unlock-price">$29</div>
       </div>
 
       <div class="pages-wrap" id="pagesWrap"></div>
@@ -198,19 +197,7 @@
         </div>
       </div>
 
-      <div class="locked-section">
-        <div></div>
-        <p>The remaining pages are ready after payment.<br>Instant download included.</p>
-      </div>
-
       <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;">⏳ Preparing your preview...</button>
-      <!-- text updated dynamically by JS to "Order Your Book — $29" -->
-
-      <div class="trust-row">
-        <span class="trust-item"> Secure checkout</span>
-        <span class="trust-item"> Instant download</span>
-        <span class="trust-item"> Secure payment</span>
-      </div>
 
       <div class="still-gen" id="stillGen" style="display:none">
         <div class="mini-spin2"></div>
@@ -305,7 +292,7 @@ function updatePageImg(i, src) {
 }
 
 payBtn && payBtn.addEventListener("click", function() {
-  window.location.href = "checkout.html?bookId=" + encodeURIComponent(bookId);
+  window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId);
 });
 
 var previewShown = false;
@@ -368,7 +355,7 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Order Your Book — $29';
+        payBtn.textContent = '⬇ Download PDF';
       }
 
       // Break when cover + 2 page images all ready (keeps polling so page images update)
@@ -401,13 +388,13 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Order Your Book — $29';
+        payBtn.textContent = '⬇ Download PDF';
       } else if (d3.book && d3.book.generatedBook) {
         // Story exists but no cover yet — still let them proceed
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Order Your Book — $29';
+        payBtn.textContent = '⬇ Download PDF';
       }
     } catch(e) {}
   }
