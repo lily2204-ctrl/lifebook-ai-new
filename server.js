@@ -285,6 +285,27 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// ─── OpenAI health check ──────────────────────────────────────────────────────
+app.get("/api/test-openai", async (req, res) => {
+  try {
+    const keySnippet = process.env.OPENAI_API_KEY
+      ? `${process.env.OPENAI_API_KEY.substring(0, 8)}...`
+      : "NOT SET";
+    console.log(`[test-openai] key=${keySnippet}`);
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "Say hello in one word." }],
+      max_tokens: 10
+    });
+    const reply = completion.choices?.[0]?.message?.content || "(no reply)";
+    console.log(`[test-openai] success — reply: ${reply}`);
+    return res.json({ status: "ok", reply, keySnippet });
+  } catch (err) {
+    console.error(`[test-openai] FAILED: ${err.message}`);
+    return res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
 // Main book fetch — returns full book including image URLs from Supabase Storage.
 // Used by delivery.html, reader.html, preview.html, success.html polling, etc.
 // Image columns now contain Storage URLs (small strings), not base64 — safe to fetch.
