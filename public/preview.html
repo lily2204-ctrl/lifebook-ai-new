@@ -337,7 +337,7 @@ async function pollBook() {
       if (previewShown) updateLiveImages(b);
 
       // Update progress counter
-      var totalPages = (b.generatedBook && b.generatedBook.pages) ? b.generatedBook.pages.length : 16;
+      var totalPages = (b.generatedBook && b.generatedBook.pages) ? b.generatedBook.pages.length : 12;
       var readyCount = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
       var progressEl = document.getElementById('imgProgress');
       var progressText = document.getElementById('imgProgressText');

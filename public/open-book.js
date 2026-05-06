@@ -29,41 +29,19 @@ async function loadBookById(id) {
   return data.book;
 }
 
-async function loadBookIdFromOrder(orderIdValue) {
-  const res = await fetch(`${API_BASE}/api/order/${encodeURIComponent(orderIdValue)}`);
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.message || "Failed to find book from order");
-  }
-
-  return data.bookId;
-}
-
 async function tryOpenBook() {
   try {
-    setStatus("Checking payment status...");
+    setStatus("Loading your book...");
 
-    let finalBookId = bookId;
-
-    if (!finalBookId && orderId) {
-      finalBookId = await loadBookIdFromOrder(orderId);
-    }
-
-    if (!finalBookId) {
-      setStatus("Missing book ID.", true);
+    if (!bookId) {
+      setStatus("Missing book ID. Please use the link from your email.", true);
       return;
     }
 
-    const book = await loadBookById(finalBookId);
+    const book = await loadBookById(bookId);
 
-    if (book.purchaseUnlocked === true || book.paymentStatus === "paid") {
-      setStatus("Your book is ready. Redirecting...");
-      window.location.href = `preview.html?bookId=${encodeURIComponent(finalBookId)}`;
-      return;
-    }
-
-    setStatus("Your payment has not been confirmed yet. Please wait a moment and try again.", true);
+    setStatus("Your book is ready. Redirecting...");
+    window.location.href = `delivery.html?bookId=${encodeURIComponent(bookId)}`;
   } catch (error) {
     console.error("open-book failed:", error);
     setStatus(error.message || "Failed to open your book.", true);

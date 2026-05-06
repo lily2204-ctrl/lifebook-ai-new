@@ -1,5 +1,5 @@
 # Lifebook AI — Project Context & Status
-*Last updated: May 3, 2026 (session 11 — Gumroad overlay checkout)*
+*Last updated: May 6, 2026 (session 13 — full debug, Hebrew PDF fix, internal tool mode)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
@@ -30,7 +30,7 @@ await updateBook(bookId, { generatedBook });
 ---
 
 ## Project
-AI personalized children's storybook. Wizard → photo → crop → AI generates → payment → PDF + email.
+AI personalized children's storybook. Internal tool — no payment wall. Wizard → photo → crop → AI generates → preview → PDF downloads directly from delivery.html.
 
 ## URLs
 - Live: https://lifebooks.online
@@ -38,25 +38,18 @@ AI personalized children's storybook. Wizard → photo → crop → AI generates
 - GitHub: lily2204-ctrl/lifebook-ai (connected to Railway auto-deploy)
 
 ## Stack
-Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image-1 · LemonSqueezy (payments) · Resend · Railway
+Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image-1 · Resend (email) · Railway
 
 ---
 
-## Payment System — LemonSqueezy (NOT Stripe)
-- Stripe completely removed from server.js, package.json, and all HTML
-- LemonSqueezy store: lifebooks.lemonsqueezy.com (Store ID: 347433)
-- Webhook endpoint: `POST /webhooks/lemonsqueezy`
-  - Verifies HMAC-SHA256 signature via `x-signature` header
-  - Reads bookId from `payload.meta.custom_data.bookId`
-  - Responds 200 immediately, processes in background IIFE
-  - Unlocks book → sendPaymentConfirmationEmail → sendBookReadyEmail if already complete
-  - Has detailed console.log at every step for debugging
-- Checkout: `/api/create-checkout-session` → LemonSqueezy fetch API → returns `{ url }`
-  - Passes bookId in `checkout_data.custom.bookId`
-  - Logs bookId and checkout URL being created
-- success.html polls for `purchaseUnlocked` every 2s up to 30 times (60s total)
-  - After 60s timeout → redirects to delivery.html anyway (never goes back to checkout)
-  - openBtn always → delivery.html (never reader.html or checkout.html)
+## Payment Status — INTERNAL TOOL MODE
+- **No payment wall** — site is now an internal tool, PDF downloads directly
+- Stripe: completely removed from server.js, package.json, and all HTML
+- LemonSqueezy: webhook still in server.js (for legacy orders) but checkout flow bypassed
+- Gumroad: webhook added to server.js (`POST /webhooks/gumroad`) for legacy Gumroad sales
+- checkout.html: now shows email + WhatsApp contact form — no payment buttons
+- preview.html button: "⬇ Download PDF" → goes directly to delivery.html
+- Contact email everywhere: `onlinelifebooks@gmail.com`
 
 ## Railway Env Vars
 ```
@@ -65,22 +58,22 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY
 APP_URL=https://lifebooks.online
-ADMIN_EMAIL=books@lifebooks.online
+ADMIN_EMAIL=onlinelifebooks@gmail.com
 LEMONSQUEEZY_API_KEY
 LEMONSQUEEZY_WEBHOOK_SECRET
 LEMONSQUEEZY_STORE_ID=347433
 LEMONSQUEEZY_VARIANT_ID
 ```
-NO STRIPE vars — Stripe is gone completely.
 Note: must be SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_ANON_KEY).
 Note: SUPABASE_SERVICE_ROLE_KEY is required to write to Supabase Storage (anon key has no write permission).
 
 ---
 
-## User Flow
+## User Flow (Internal Tool)
 ```
-wizard.html → crop.html → preview.html → checkout.html → [LemonSqueezy] → success.html → delivery.html → reader.html
+wizard.html → crop.html → preview.html → [Download PDF button] → delivery.html → PDF download
 ```
+checkout.html still exists but is now just a contact page (not part of main flow).
 
 ## generate-full Pipeline
 ```
@@ -90,6 +83,18 @@ STEP 3+4a: Cover + pages 0,1 IN PARALLEL → updateBookField each individually (
 STEP 4b: Remaining pages batches of 5, each saved immediately with updateBookField
 STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 ```
+Each step logs elapsed time in Railway logs: `+Xs` format.
+Language detection logs: `language=Hebrew` or `language=English` at generation start.
+
+---
+
+## Hebrew Support
+- Story generation: if childName OR storyIdea contains Hebrew characters → story generated in Hebrew
+- imagePrompts: ALWAYS in English (regardless of story language) for image generation
+- title/subtitle/page text: in Hebrew when Hebrew book
+- PDF: uses Heebo static font for Hebrew rendering (`static/Heebo-Regular.ttf` — NOT variable font)
+- PDF RTL: `pdf.setR2L(true)` + `align:'right'` for Hebrew text blocks
+- PDF filename: Hebrew names stripped gracefully; falls back to `{bookId.substring(0,8)}_lifebook.pdf`
 
 ---
 
@@ -130,8 +135,8 @@ async function uploadImageToStorage(bookId, imageName, base64data) {
 | `/api/books/:id/unlock` | POST | Manual unlock (dev only) |
 | `/api/books/:id/resend-email` | POST | Resend book ready link |
 | `/api/books/:id/update-photo` | POST | Update cropped photo — uploads to Storage |
-| `/api/create-checkout-session` | POST | LemonSqueezy checkout → returns { url } |
 | `/webhooks/lemonsqueezy` | POST | Verify sig (raw body HMAC) → unlock book → send emails |
+| `/webhooks/gumroad` | POST | Form-urlencoded; bookId from `referrer` field → unlock → send emails |
 | `/api/contact` | POST | Contact form |
 
 ---
@@ -147,50 +152,15 @@ async function uploadImageToStorage(bookId, imageName, base64data) {
 
 ## ⚠️ INFRASTRUCTURE — Requires Manual Action
 These cannot be fixed in code — need dashboard access:
-1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume". Supabase pauses free-tier projects after inactivity. Consider upgrading to Pro.
+1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume". Supabase pauses free-tier projects after inactivity.
 2. **Supabase Storage bucket** — must create `book-images` bucket manually:
    - Go to Supabase dashboard → Storage → New bucket
    - Name: `book-images`
    - Set to **Public** (so image URLs work without auth tokens)
-   - No file size limit needed (images are ~200KB each)
-3. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active. Also check your domain registrar DNS points to Railway's IP.
-4. **LemonSqueezy webhook** — after deploy, go to LemonSqueezy → Settings → Webhooks and check delivery logs to confirm webhook fires and our endpoint returns 200.
-
-## End-to-End Test Results — April 18, 2026
-*Tested on Railway URL (lifebooks.online DNS is down — needs manual fix in Railway/registrar)*
-
-| Step | Status | Notes |
-|------|--------|-------|
-| index.html loads | ✅ | Logo, hero image, CTA button all correct |
-| wizard.html | ✅ | All form fields work, style selector works, Hebrew toggle present |
-| crop.html | ✅ | Photo renders in circle, zoom slider, progress bar on submit, "Redirecting..." status |
-| /api/books/create | ✅ | Book created, photos uploaded to Supabase Storage (not base64 in DB) |
-| /api/books/:id/generate-full | ✅ | Returns 200 immediately, background pipeline starts |
-| preview.html — step tracker | ✅ | "Creating Maya...", timer counts up, steps animate: photo→story→illustrations→ready |
-| preview.html — story generated | ✅ | Title "Maya's Magical Forest Adventure", subtitle correct, ~45s |
-| preview.html — images | ✅ | Cover + pages loaded from Supabase Storage URLs (confirmed NOT base64), ~60-90s |
-| preview.html — page count | ✅ | "2/12 pages illustrated" (correct — not 16) |
-| preview.html — trust badges | ✅ | "Secure checkout · Instant download · Secure payment" (no Stripe) |
-| checkout.html | ✅ | Cover from Storage, order summary correct: Maya · 5 · 12 pages · $39 |
-| /api/create-checkout-session | ✅ | LemonSqueezy checkout URL created and redirect fired correctly |
-| LemonSqueezy redirect | ✅ | Tab navigated to lifebooks.lemonsqueezy.com/checkout correctly |
-| /api/books/:id/unlock | ✅ | Dev unlock works: purchaseUnlocked=true, paymentStatus=paid |
-| success.html | ✅ | Detected purchaseUnlocked=true, cover thumbnail from Storage, "📖 Open My Book" enabled |
-| success.html → delivery.html | ✅ | "Open My Book" navigated correctly to delivery.html (not reader.html) |
-| delivery.html loads | ✅ | Cover, title, child name, 12 pages, Paid status all correct |
-| delivery.html — carousel | ✅ | Page images load from Storage URLs, navigation arrows/dots work |
-| delivery.html — PDF | ✅ | PDF generated, progress bar shown, completed with no errors, file downloaded |
-| Supabase Storage | ✅ | All 12 page images + cover served from jjhrynetritjbxotggqz.supabase.co/storage/v1/object/public/book-images/{bookId}/ |
-| Console errors | ✅ | Zero JS errors across entire flow |
-| Image quality | ✅ | No text rendered in images, consistent child character across pages |
-
-### ⚠️ Infrastructure Issues Found
-1. **lifebooks.online DNS is DOWN** — domain unreachable, Railway URL works fine. Fix: go to Railway → Settings → Domains, verify custom domain mapping. Check DNS registrar points to Railway IP.
-2. **LemonSqueezy actual payment not tested** — cannot complete real payment in browser tool. Webhook flow (signature → unlock → email) should be verified via LemonSqueezy dashboard delivery logs after first real purchase.
+3. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active.
 
 ## Known Bugs — Open
-### 🟢 Nice to have
-1. Hebrew on all pages (currently only wizard.html has full toggle)
+*(none currently — all known bugs fixed)*
 
 ---
 
@@ -198,16 +168,16 @@ These cannot be fixed in code — need dashboard access:
 ```
 server.js · CLAUDE.md · package.json
 public/
-  index.html       ← "12-page storybook", "Secure Payment" (no Stripe refs)
-  wizard.html/js
-  crop.html/js     ← inline status bar with progress steps, no alert()
-  setup.html/js
-  preview.html     ← step tracker loading screen, "0/12 pages", "Secure payment"
-  checkout.html/js ← LemonSqueezy flow, "Secure payment" trust badge
-  success.html     ← polls 30×2s, always → delivery.html, no session_id/unlockBook
-  delivery.html    ← null safety on book/book.generatedBook, || 12 fallbacks
-  reader.html/js · cover.html/js · contact.html
-  terms.html       ← Refund policy + Privacy policy + General terms
+  index.html       ← landing page, "12-page storybook"
+  wizard.html/js   ← child name, age, gender, story idea, photo upload
+  crop.html/js     ← circle crop, zoom, → fires generate-full, → preview.html
+  preview.html     ← step tracker loading screen; "⬇ Download PDF" → delivery.html
+  checkout.html/js ← contact form (email + WhatsApp); NOT in main flow
+  delivery.html    ← book viewer + PDF download (jsPDF + Heebo for Hebrew)
+  reader.html/js   ← full page-flip reader
+  open-book.js     ← legacy; if bookId → redirect delivery.html
+  contact.html     ← contact form
+  terms.html       ← Refund + Privacy + General Terms (onlinelifebooks@gmail.com)
   404.html · accessibility.js · styles.css
   js/state.js · assets/branding/logo.svg
 ```
@@ -258,14 +228,21 @@ public/
 41. ✅ server.js getBookLight(): lightweight DB fetch excluding image columns — used for email-only reads in generate-full STEP 5 and available for metadata-only reads elsewhere
 42. ✅ LemonSqueezy webhook 400 fix: express.json() now explicitly skips all /webhooks/ routes so raw buffer is guaranteed intact for HMAC-SHA256 signature verification
 43. ✅ generate-full image hang: added `generatePageImageWithRetry()` — 2 retries + 90s timeout per attempt for all page images (pages 0-11); cover also wrapped with 90s timeout; pipeline always reaches STEP 5 even if individual pages fail
-44. ✅ generate-full STEP 5 email: improved console.log at every sub-step (before/after sendBookReadyEmail, purchaseUnlocked state, image count); always runs after all batches regardless of page failures
-45. ✅ success.html title: polling loop now updates title/cover/meta on every poll iteration — real book title shown as soon as generatedBook arrives, not just after purchaseUnlocked
-46. ✅ terms.html created: Refund policy (no refunds after generation begins), Privacy policy (photos deleted after creation), General terms, contact strip — matches design system (cream/gold/Playfair/Lato)
-47. ✅ index.html footer: added "Terms &amp; Privacy" link to terms.html alongside existing "Contact Us"
-48. ✅ book-ready email never sent — BUG FIX 1: webhook `allDone` check was too strict (required ALL images, so 1 failed page = email never sent); now allows up to 2 image failures (threshold = pages.length - 2, min 1)
-49. ✅ book-ready email never sent — BUG FIX 2: webhook never extracted `payload.data.attributes.user_email` from LemonSqueezy; now saves verified LS email to `customerEmail` on the book — fixes silent failure when wizard email was blank/wrong
-50. ✅ preview.html cover image never shown (all platforms): `updateLiveImages` used `!coverImage.src` (IDL property) which returns current page URL in mobile Safari when no src attr set — always false; fixed to `coverImage.getAttribute('src') !== b.coverImage`
-51. ✅ preview.html payBtn never enabled: required `hasCover && has2Imgs` — if page images were slow/failed, payBtn stayed disabled forever even with cover ready; fixed to enable on `hasCover` alone; safety net added in timeout fallback
-52. ✅ delivery.html PDF redesign: professional children's picture book layout — alternating Layout A (odd: gold 9mm header bar, full-bleed image 70%, cream bottom 30%, justified Times 12pt body) + Layout B (even: full-bleed image 58%, scallop wave transition, triple diamond ornament, centered Times 13pt); cover page: dark bg, starfield, gold 4.5mm bars, gold-framed illustration, corner L-ornaments, Times bold title; back cover: dark bg, starfield, gold branding; loadB64 helper for Supabase Storage URLs → canvas → data: for jsPDF embedding
-53. ✅ checkout.js: replaced LemonSqueezy `/api/create-checkout-session` fetch with direct Gumroad redirect to https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true; checkout.html: added "📬 After purchase, email your child's photo and details to: books@lifebooks.online" note below pay button in muted text
-54. ✅ checkout.html/js: Gumroad overlay checkout — `<script src="https://gumroad.com/js/gumroad.js">`, button replaced with `<a class="gumroad-button pay-btn" id="gumroadBtn">`, Gumroad default styles overridden with `!important` to match design system; checkout.js sets `?referral=BOOKID` on href after book loads; `window.message` listener for `post_message_name === 'purchase'` → redirects to `success.html?bookId=BOOKID&source=gumroad`
+44. ✅ generate-full STEP 5 email: improved console.log at every sub-step; always runs after all batches regardless of page failures
+45. ✅ success.html title: polling loop now updates title/cover/meta on every poll iteration
+46. ✅ terms.html created: Refund + Privacy + General Terms — matches design system
+47. ✅ index.html footer: added "Terms & Privacy" link to terms.html
+48. ✅ book-ready email never sent — BUG FIX 1: webhook allDone threshold now allows up to 2 image failures (pages.length - 2, min 1)
+49. ✅ book-ready email never sent — BUG FIX 2: webhook now extracts payload.data.attributes.user_email from LemonSqueezy and saves to customerEmail
+50. ✅ preview.html cover image never shown (mobile Safari): fixed `!coverImage.src` (returns page URL when no src) → `coverImage.getAttribute('src') !== b.coverImage`
+51. ✅ preview.html payBtn never enabled: was requiring hasCover && has2Imgs; fixed to enable on hasCover alone
+52. ✅ delivery.html PDF redesign: professional layout, Layout A (odd) + Layout B (even) + cover + back cover; loadB64 canvas helper for Storage URLs
+53. ✅ Payment flow removed: site is now internal tool — preview.html button "⬇ Download PDF" → delivery.html directly; checkout.html replaced with contact form
+54. ✅ Email changed: books@lifebooks.online → onlinelifebooks@gmail.com everywhere (server.js, checkout.html, terms.html, contact.html)
+55. ✅ Gumroad webhook added: POST /webhooks/gumroad — form-urlencoded, bookId from referrer field, unlocks book + sends emails
+56. ✅ Hebrew PDF fix: delivery.html Heebo font changed from variable font (Heebo[wght].ttf) to static (static/Heebo-Regular.ttf) — jsPDF cannot parse variable fonts, causing Hebrew to render as boxes
+57. ✅ Hebrew detection improved: server.js generate-full now checks childName OR storyIdea for Hebrew characters (previously only childName)
+58. ✅ PDF filename Hebrew fix: Hebrew child names (all converted to underscores) now fall back to bookId prefix instead of "___lifebook.pdf"
+59. ✅ Timing logs added: generate-full logs elapsed time at each step (+Xs format) and language=Hebrew/English at start
+60. ✅ preview.html totalPages fallback: was 16 → fixed to 12 (correct page count)
+61. ✅ open-book.js: removed broken /api/order/:orderId call (Stripe legacy, endpoint never existed); now redirects directly to delivery.html; removed unused orderId param handling
