@@ -308,7 +308,7 @@ async function sendPaymentConfirmationEmail(book) {
 
   try {
     await resend.emails.send({
-      from:    "Lifebook <books@lifebooks.online>",
+      from:    "Lifebook <onlinelifebooks@gmail.com>",
       to:      book.customerEmail,
       subject: `✅ Payment confirmed — ${childName}'s book is being created!`,
       html: `
@@ -410,7 +410,7 @@ async function sendBookReadyEmail(book) {
 
   try {
     await resend.emails.send({
-      from: "Lifebook <books@lifebooks.online>",
+      from: "Lifebook <onlinelifebooks@gmail.com>",
       to:   book.customerEmail,
       subject: `✨ ${childName}'s book is ready! "${bookTitle}"`,
       html: `
@@ -1651,11 +1651,11 @@ app.post("/api/contact", async (req, res) => {
     };
     const subjectLine = subjectLabels[subject] || subject || "General inquiry";
     const appUrl = process.env.APP_URL || "https://lifebooks.online";
-    const adminEmail = process.env.ADMIN_EMAIL || "books@lifebooks.online";
+    const adminEmail = process.env.ADMIN_EMAIL || "onlinelifebooks@gmail.com";
 
     // ── Notify admin ──────────────────────────────────────────────────────────
     await resend.emails.send({
-      from:    "Lifebook Contact <books@lifebooks.online>",
+      from:    "Lifebook Contact <onlinelifebooks@gmail.com>",
       to:      [adminEmail],
       replyTo: email,
       subject: `[Contact] ${subjectLine} — from ${name}`,
@@ -1694,7 +1694,7 @@ app.post("/api/contact", async (req, res) => {
 
     // ── Auto-reply to sender ──────────────────────────────────────────────────
     await resend.emails.send({
-      from:    "Lifebook <books@lifebooks.online>",
+      from:    "Lifebook <onlinelifebooks@gmail.com>",
       to:      [email],
       subject: "We got your message! 📖",
       html: `
