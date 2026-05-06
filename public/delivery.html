@@ -395,7 +395,7 @@ async function init() {
   $('dlBtn').onclick         = generatePDF;
 }
 
-// ── PDF GENERATOR (html2canvas + jsPDF — supports Hebrew RTL) ────────────
+// ── PDF GENERATOR (jsPDF + Heebo font for Hebrew RTL) ────────────────────
 async function generatePDF() {
   const prog = $('pdfProg');
   const st   = $('pdfSt');
@@ -409,11 +409,11 @@ async function generatePDF() {
     if (!book) { st.textContent = '❌ Book not found. Please try again.'; return; }
     if (!book.generatedBook) { st.textContent = '❌ Book still generating. Please wait and try again.'; return; }
 
-    const pages = book.generatedBook?.pages || [];
-    let images  = book.fullImages || [];
-    const title = book.generatedBook?.title    || 'Your Magical Adventure';
-    const sub   = book.generatedBook?.subtitle || '';
-    const child = book.childName || 'your child';
+    const pages  = book.generatedBook?.pages || [];
+    let   images = book.fullImages || [];
+    const title  = book.generatedBook?.title    || 'Your Magical Adventure';
+    const sub    = book.generatedBook?.subtitle || '';
+    const child  = book.childName || 'your child';
 
     // Wait up to 3 min for all images
     if (images.filter(Boolean).length < pages.length) {
@@ -428,15 +428,7 @@ async function generatePDF() {
       }
     }
 
-    p(10, 'Loading libraries...');
-    if (!window.html2canvas) {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
+    p(10, 'Loading PDF engine...');
     if (!window.jspdf) {
       await new Promise((res, rej) => {
         const s = document.createElement('script');
@@ -446,7 +438,35 @@ async function generatePDF() {
       });
     }
 
-    // Converts Storage URL or data: URL → data: URL via canvas (fixes CORS for html2canvas)
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, H = 297;
+
+    // ── Load Heebo font (Hebrew support) ──────────────────────────────────
+    p(13, 'Loading Hebrew font...');
+    let heeboLoaded = false;
+    try {
+      const fontRes = await fetch(
+        'https://cdn.jsdelivr.net/gh/google/fonts/ofl/heebo/Heebo%5Bwght%5D.ttf'
+      );
+      if (fontRes.ok) {
+        const buf   = await fontRes.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary  = '';
+        // Process in 8KB chunks to avoid stack overflow on large arrays
+        for (let i = 0; i < bytes.length; i += 8192) {
+          binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+        }
+        pdf.addFileToVFS('Heebo-Regular.ttf', btoa(binary));
+        pdf.addFont('Heebo-Regular.ttf', 'Heebo', 'normal');
+        heeboLoaded = true;
+        console.log('[PDF] Heebo font loaded ✅');
+      }
+    } catch (fontErr) {
+      console.warn('[PDF] Heebo font load failed — Hebrew may show as boxes:', fontErr.message);
+    }
+
+    // ── Image loader ──────────────────────────────────────────────────────
     const loadB64 = src => new Promise(res => {
       if (!src) { res(null); return; }
       if (src.startsWith('data:')) { res(src); return; }
@@ -462,153 +482,214 @@ async function generatePDF() {
       img.src = src;
     });
 
-    p(12, 'Loading images...');
+    // ── Palette & drawing helpers ─────────────────────────────────────────
+    const GOLD  = [200, 146,  42];
+    const CREAM = [253, 246, 236];
+    const BROWN = [ 58,  40,  16];
+    const DARK  = [ 26,  10,   0];
+    const PALE  = [245, 217, 138];
+    const MUTED = [122,  96,  72];
+
+    const fill_    = ([r,g,b]) => pdf.setFillColor(r,g,b);
+    const text_    = ([r,g,b]) => pdf.setTextColor(r,g,b);
+    const goldBar  = (y,h,lp,rp) => { fill_(GOLD); pdf.rect(lp||0,y,W-(lp||0)-(rp||0),h||1.2,'F'); };
+    const goldRule = (y,lp,rp) => goldBar(y,0.7,lp||14,rp||14);
+    const diamond  = (cx,cy,r) => {
+      fill_(GOLD);
+      pdf.triangle(cx,cy-r,cx+r,cy,cx,cy+r,'F');
+      pdf.triangle(cx,cy-r,cx-r,cy,cx,cy+r,'F');
+    };
+    const drawWave = wY => {
+      const R=7, num=Math.ceil(W/(R*2))+2;
+      fill_(CREAM);
+      for (let b=0; b<=num; b++) pdf.circle(b*R*2-R,wY,R,'F');
+      pdf.rect(0,wY,W,H-wY,'F');
+    };
+    const cornerL = (x,y,dx,dy) => { fill_(GOLD); pdf.rect(x,y,dx*12,0.8,'F'); pdf.rect(x,y,0.8,dy*12,'F'); };
+
+    const isHeb = str => /[\u0590-\u05FF]/.test(str);
+
+    // Switch font & RTL mode based on text content. Returns true if Hebrew.
+    function applyFont(str, size) {
+      pdf.setFontSize(size);
+      if (isHeb(str) && heeboLoaded) {
+        pdf.setFont('Heebo', 'normal');
+        if (typeof pdf.setR2L === 'function') pdf.setR2L(true);
+        return true;
+      }
+      pdf.setFont('times', 'normal');
+      if (typeof pdf.setR2L === 'function') pdf.setR2L(false);
+      return false;
+    }
+
+    function resetFont() {
+      pdf.setFont('times', 'normal');
+      if (typeof pdf.setR2L === 'function') pdf.setR2L(false);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // COVER PAGE
+    // ══════════════════════════════════════════════════════════════════════
+    p(16, 'Building cover page...');
     const coverB64 = await loadB64(book.coverImage);
-    const pageB64s = [];
+
+    fill_(DARK); pdf.rect(0,0,W,H,'F');
+    fill_(GOLD);
+    [[W*.12,H*.06],[W*.88,H*.05],[W*.5,H*.03],[W*.25,H*.09],
+     [W*.72,H*.08],[W*.38,H*.05],[W*.62,H*.04],
+     [W*.15,H*.76],[W*.85,H*.79],[W*.5,H*.82]]
+    .forEach(pt => pdf.circle(pt[0],pt[1],0.5,'F'));
+
+    goldBar(0,4.5); goldBar(H-4.5,4.5);
+
+    const imgH65 = H*0.65, iPad = 13;
+    if (coverB64) {
+      fill_(GOLD); pdf.rect(iPad-2.5,6.5,W-iPad*2+5,imgH65-4.5,'F');
+      pdf.addImage(coverB64,'JPEG',iPad,8.5,W-iPad*2,imgH65-8.5);
+    } else {
+      pdf.setDrawColor(200,146,42); pdf.setLineWidth(2);
+      pdf.rect(iPad,8,W-iPad*2,imgH65-12,'S');
+      diamond(W/2,8+(imgH65-12)/2,14);
+    }
+
+    const oX1=iPad-10, oX2=W-iPad+3, oY1=6.5, oY2=imgH65;
+    cornerL(oX1,oY1,1,1); cornerL(oX2-0.8,oY1,-1,1);
+    cornerL(oX1,oY2-0.8,1,-1); cornerL(oX2-0.8,oY2-0.8,-1,-1);
+
+    const tAreaY = H*0.67;
+    goldRule(tAreaY,14,14);
+
+    // Title — use Heebo if Hebrew
+    let cY = tAreaY + 11;
+    const titleHeb = applyFont(title, 24);
+    text_(PALE);
+    const tLines = pdf.splitTextToSize(title, W-40);
+    pdf.text(tLines, titleHeb ? W-14 : W/2, cY, { align: titleHeb ? 'right' : 'center' });
+    cY += tLines.length * 10;
+
+    if (sub) {
+      cY += 4;
+      const subHeb = applyFont(sub, 12);
+      text_(MUTED);
+      pdf.text(sub, subHeb ? W-14 : W/2, cY, { align: subHeb ? 'right' : 'center' });
+      cY += 8;
+    }
+
+    resetFont();
+    cY += 5; goldRule(cY,42,42); cY += 10;
+    pdf.setFontSize(10); pdf.setTextColor(160,130,100);
+    pdf.text('A personalized story for '+child, W/2, cY, {align:'center'});
+    pdf.setFontSize(8); pdf.setTextColor(130,105,78);
+    pdf.text('LIFEBOOK AI  \u00B7  lifebooks.online', W/2, H-9, {align:'center'});
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STORY PAGES
+    // ══════════════════════════════════════════════════════════════════════
     for (let i = 0; i < pages.length; i++) {
-      p(12 + Math.round((i / pages.length) * 5), 'Loading image ' + (i + 1) + '/' + pages.length + '...');
-      pageB64s.push(await loadB64(images[i] || null));
-    }
+      const pct     = 16 + Math.round(((i+1)/pages.length)*76);
+      const pageNum = i+1;
+      const isOdd   = pageNum%2 === 1;
+      p(pct, 'Page '+pageNum+' of '+pages.length+'...');
+      pdf.addPage();
 
-    // Detect Hebrew anywhere in the book
-    const allText  = title + ' ' + pages.map(pg => pg.text || '').join(' ');
-    const isHebrew = /[\u0590-\u05FF]/.test(allText);
-
-    // A4 in CSS pixels at 96 dpi
-    const PW = 794, PH = 1123;
-
-    // Off-screen render container
-    let renderEl = document.getElementById('__pdfRender');
-    if (!renderEl) {
-      renderEl = document.createElement('div');
-      renderEl.id = '__pdfRender';
-      renderEl.style.cssText = `position:fixed;left:-9999px;top:0;width:${PW}px;height:${PH}px;overflow:hidden;z-index:-1;pointer-events:none;`;
-      document.body.appendChild(renderEl);
-    }
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    // Render div → canvas → add to PDF
-    async function renderPage(html, isFirst) {
-      renderEl.innerHTML = html;
-      const canvas = await html2canvas(renderEl.firstElementChild, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: null,
-        logging: false,
-        width: PW,
-        height: PH
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      if (!isFirst) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-    }
-
-    // Safe HTML escape
-    const esc = s => String(s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
-    const titleEsc = esc(title);
-    const subEsc   = esc(sub);
-    const childEsc = esc(child);
-    const titleFs  = title.length > 40 ? 28 : (title.length > 28 ? 32 : 38);
-    const bookDir  = isHebrew ? 'rtl' : 'ltr';
-
-    // ── COVER ──────────────────────────────────────────────────────────────
-    p(18, 'Building cover...');
-    await renderPage(`
-      <div style="width:${PW}px;height:${PH}px;background:#1a0a00;position:relative;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-sizing:border-box;">
-        <div style="position:absolute;top:0;left:0;right:0;height:18px;background:#c8922a;"></div>
-        <div style="position:absolute;bottom:0;left:0;right:0;height:18px;background:#c8922a;"></div>
-        <div style="position:absolute;top:26px;left:28px;right:28px;bottom:330px;border:4px solid #c8922a;overflow:hidden;">
-          ${coverB64
-            ? `<img src="${coverB64}" style="width:100%;height:100%;object-fit:cover;display:block;"/>`
-            : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#3a2010,#5c3d1e);display:flex;align-items:center;justify-content:center;font-size:80px;">📖</div>`}
-        </div>
-        <div style="position:absolute;bottom:18px;left:0;right:0;top:${PH-322}px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 56px;text-align:center;">
-          <div style="width:100%;height:2px;background:#c8922a;margin-bottom:20px;"></div>
-          <div style="font-size:${titleFs}px;color:#f5d98a;font-weight:bold;line-height:1.25;direction:${bookDir};width:100%;text-align:center;">${titleEsc}</div>
-          ${sub ? `<div style="font-size:17px;color:#7a6048;font-style:italic;margin-top:10px;direction:${bookDir};">${subEsc}</div>` : ''}
-          <div style="width:55%;height:1px;background:#c8922a;margin-top:18px;margin-bottom:14px;"></div>
-          <div style="font-size:14px;color:#a08060;">A personalized story for ${childEsc}</div>
-          <div style="font-size:11px;color:#706050;margin-top:8px;letter-spacing:3px;">LIFEBOOK AI</div>
-        </div>
-      </div>`, true);
-
-    // ── STORY PAGES ─────────────────────────────────────────────────────────
-    for (let i = 0; i < pages.length; i++) {
-      const pct     = 18 + Math.round(((i + 1) / pages.length) * 72);
-      const pageNum = i + 1;
-      const isOdd   = pageNum % 2 === 1;
-      p(pct, 'Page ' + pageNum + ' of ' + pages.length + '...');
-
-      const imgB64   = pageB64s[i];
-      const rawText  = (pages[i] && pages[i].text) ? pages[i].text : '';
-      const pageText = esc(rawText);
-      const pgHeb    = /[\u0590-\u05FF]/.test(rawText);
-      const dir      = pgHeb ? 'rtl' : bookDir;
-      const align    = pgHeb ? 'right' : (isOdd ? 'left' : 'center');
-
-      const imgTag = imgB64
-        ? `<img src="${imgB64}" style="width:100%;height:100%;object-fit:cover;display:block;"/>`
-        : `<div style="width:100%;height:100%;background:#f5e9d4;display:flex;align-items:center;justify-content:center;font-size:60px;">📖</div>`;
+      const imgB64   = await loadB64(images[i]);
+      const pageText = pages[i]?.text || '';
+      const pgHeb    = isHeb(pageText) && heeboLoaded;
+      const LH       = 7.5; // line height in mm (~13pt at 1.65 leading)
 
       if (isOdd) {
-        // Layout A: gold header bar → image 67% → cream bottom with text
-        const imgH = Math.round(PH * 0.67);
-        await renderPage(`
-          <div style="width:${PW}px;height:${PH}px;background:#fdf6ec;position:relative;overflow:hidden;font-family:Georgia,'Times New Roman',Arial,sans-serif;box-sizing:border-box;">
-            <div style="position:absolute;top:0;left:0;right:0;height:32px;background:#c8922a;display:flex;align-items:center;justify-content:center;">
-              <span style="font-size:11px;color:#fdf6ec;letter-spacing:0.8px;">${titleEsc.length > 70 ? titleEsc.substring(0,67)+'…' : titleEsc}</span>
-            </div>
-            <div style="position:absolute;top:32px;left:0;right:0;height:${imgH - 32}px;overflow:hidden;">${imgTag}</div>
-            <div style="position:absolute;top:${imgH}px;left:0;right:0;bottom:0;background:#fdf6ec;border-top:3px solid #c8922a;padding:14px 52px 16px;display:flex;flex-direction:column;align-items:center;">
-              <div style="font-size:13px;color:#5c3d1e;margin-bottom:12px;font-family:Georgia,serif;">— ${pageNum} —</div>
-              <div style="font-size:17px;color:#3a2810;line-height:1.75;text-align:${align};direction:${dir};width:100%;font-family:Arial,Georgia,sans-serif;">${pageText}</div>
-            </div>
-          </div>`, false);
+        // Layout A: gold header bar · image 70% · cream bar · text
+        const hdrH=9, imgBH=H*0.70, crmY=imgBH, tM=16;
+
+        goldBar(0,hdrH);
+        resetFont(); pdf.setFontSize(6.5); pdf.setTextColor(253,246,236);
+        pdf.text(title.length>58?title.substring(0,55)+'\u2026':title, W/2, hdrH-2.6, {align:'center'});
+
+        if (imgB64) pdf.addImage(imgB64,'JPEG',0,hdrH,W,imgBH-hdrH);
+        else { fill_([237,224,200]); pdf.rect(0,hdrH,W,imgBH-hdrH,'F'); diamond(W/2,(hdrH+imgBH)/2,8); }
+
+        fill_(CREAM); pdf.rect(0,crmY,W,H-crmY,'F');
+        goldBar(crmY,1.2);
+        resetFont(); pdf.setFontSize(9); text_(BROWN);
+        pdf.text('\u2014 '+pageNum+' \u2014', W/2, crmY+5.8, {align:'center'});
+
+        const tY=crmY+13, tW=W-tM*2;
+        applyFont(pageText, 12); text_(BROWN);
+        const bLines = pdf.splitTextToSize(pageText, tW);
+        if (pgHeb) {
+          for (let li=0; li<bLines.length; li++) {
+            pdf.text(bLines[li], W-tM, tY+li*LH, {align:'right'});
+          }
+        } else {
+          const lH12 = 12*1.72*0.3528;
+          for (let li=0; li<bLines.length; li++) {
+            pdf.text(bLines[li], tM, tY+li*lH12, {
+              align: li===bLines.length-1 ? 'left' : 'justify', maxWidth: tW
+            });
+          }
+        }
+
       } else {
-        // Layout B: image 56% → cream with diamond ornament + text
-        const imgH2 = Math.round(PH * 0.56);
-        await renderPage(`
-          <div style="width:${PW}px;height:${PH}px;background:#fdf6ec;position:relative;overflow:hidden;font-family:Georgia,'Times New Roman',Arial,sans-serif;box-sizing:border-box;">
-            <div style="position:absolute;top:0;left:0;right:0;height:${imgH2}px;overflow:hidden;">${imgTag}</div>
-            <div style="position:absolute;top:${imgH2 - 4}px;left:0;right:0;bottom:0;background:#fdf6ec;border-top:3px solid #e8d5a0;padding:22px 60px 40px;display:flex;flex-direction:column;align-items:center;">
-              <div style="font-size:20px;color:#c8922a;margin-bottom:16px;letter-spacing:14px;">◆ ◆ ◆</div>
-              <div style="font-size:18px;color:#3a2810;line-height:1.8;text-align:${align};direction:${dir};width:100%;font-family:Arial,Georgia,sans-serif;">${pageText}</div>
-            </div>
-            <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:13px;color:#7a6048;font-family:Georgia,serif;">· ${pageNum} ·</div>
-          </div>`, false);
+        // Layout B: image 58% · wave · diamond ornament · text
+        const imgBH2=H*0.58, waveY=imgBH2-6, tM2=18;
+
+        if (imgB64) pdf.addImage(imgB64,'JPEG',0,0,W,imgBH2);
+        else { fill_([237,224,200]); pdf.rect(0,0,W,imgBH2,'F'); diamond(W/2,imgBH2/2,8); }
+
+        drawWave(waveY);
+        const ornY=waveY+15;
+        diamond(W/2,ornY,4.5); diamond(W/2-16,ornY,2.2); diamond(W/2+16,ornY,2.2);
+
+        const tY2=ornY+13, tW2=W-tM2*2;
+        applyFont(pageText, 13); text_(BROWN);
+        const cLines = pdf.splitTextToSize(pageText, tW2);
+        if (pgHeb) {
+          for (let li=0; li<cLines.length; li++) {
+            pdf.text(cLines[li], W-tM2, tY2+li*LH, {align:'right'});
+          }
+        } else {
+          pdf.text(cLines, W/2, tY2, {align:'center', lineHeightFactor:1.65});
+        }
+
+        resetFont(); pdf.setFontSize(9); text_(MUTED);
+        pdf.text('\u00B7 '+pageNum+' \u00B7', W/2, H-7, {align:'center'});
       }
+
+      resetFont(); // ensure LTR for next page
     }
 
-    // ── BACK COVER ───────────────────────────────────────────────────────────
-    p(93, 'Adding back cover...');
-    await renderPage(`
-      <div style="width:${PW}px;height:${PH}px;background:#281607;position:relative;overflow:hidden;font-family:Georgia,'Times New Roman',serif;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;">
-        <div style="position:absolute;top:0;left:0;right:0;height:16px;background:#c8922a;"></div>
-        <div style="position:absolute;bottom:0;left:0;right:0;height:16px;background:#c8922a;"></div>
-        <div style="font-size:64px;margin-bottom:18px;">📖</div>
-        <div style="font-size:52px;color:#f5d98a;font-weight:bold;margin-bottom:10px;letter-spacing:1px;">lifebook</div>
-        <div style="font-size:16px;color:#7a6048;font-style:italic;margin-bottom:26px;">AI-powered personalized storybooks</div>
-        <div style="width:100px;height:1.5px;background:#c8922a;margin-bottom:26px;"></div>
-        <div style="font-size:16px;color:#a08060;">A magical story created just for ${childEsc}</div>
-        <div style="font-size:12px;color:#705840;margin-top:14px;letter-spacing:3px;">LIFEBOOKS.ONLINE</div>
-      </div>`, false);
+    // ══════════════════════════════════════════════════════════════════════
+    // BACK COVER
+    // ══════════════════════════════════════════════════════════════════════
+    p(94, 'Adding back cover...');
+    pdf.addPage();
+    fill_([40,22,7]); pdf.rect(0,0,W,H,'F');
+    fill_(GOLD);
+    [[W*.18,H*.22],[W*.82,H*.18],[W*.55,H*.12],[W*.3,H*.78],
+     [W*.72,H*.75],[W*.1,H*.5],[W*.9,H*.55],[W*.5,H*.88],
+     [W*.42,H*.32],[W*.65,H*.42],[W*.2,H*.6],[W*.78,H*.38]]
+    .forEach(pt => pdf.circle(pt[0],pt[1],0.7,'F'));
 
-    // Cleanup
-    renderEl.innerHTML = '';
+    goldBar(0,4); goldBar(H-4,4);
+    const bY=H*0.48;
+    pdf.setFont('times','bold'); pdf.setFontSize(32); text_(PALE);
+    pdf.text('lifebook', W/2, bY, {align:'center'});
+    pdf.setFont('times','italic'); pdf.setFontSize(12); text_(MUTED);
+    pdf.text('AI-powered personalized storybooks', W/2, bY+14, {align:'center'});
+    goldRule(bY+25,40,40);
+    resetFont(); pdf.setFontSize(10); pdf.setTextColor(160,130,100);
+    pdf.text('A magical story created just for '+child, W/2, bY+36, {align:'center'});
+    pdf.setFontSize(8); pdf.setTextColor(140,115,88);
+    pdf.text('lifebooks.online', W/2, bY+50, {align:'center'});
 
+    // ── SAVE ──────────────────────────────────────────────────────────────
     p(98, 'Saving PDF...');
-    const safe = child.replace(/[^a-z0-9\u0590-\u05FF]/gi, '_').toLowerCase();
-    pdf.save(safe + '_lifebook.pdf');
+    const safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    pdf.save(safe+'_lifebook.pdf');
     p(100, '✅ PDF downloaded!');
     setTimeout(() => { prog.classList.remove('show'); }, 4000);
 
-  } catch (err) {
+  } catch(err) {
     st.textContent = '❌ Error: ' + err.message;
     console.error('PDF error:', err);
   }
