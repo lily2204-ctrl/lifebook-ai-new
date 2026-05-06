@@ -77,17 +77,6 @@ function sanitizeImagePrompt(text = "") {
     .replaceAll(/\btrademark\b/gi, "graphic detail");
 }
 
-// Races a promise against a timeout — rejects with clear message if exceeded.
-// Used to prevent OpenAI API calls and Supabase uploads from hanging indefinitely.
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, rej) =>
-      setTimeout(() => rej(new Error(`Timeout: ${label || 'operation'} exceeded ${Math.round(ms/1000)}s`)), ms)
-    )
-  ]);
-}
-
 function buildCharacterPromptCore(characterDNA, style) {
   const hair    = characterDNA.hair    || "soft child hair";
   const skin    = characterDNA.skin    || "natural skin tone";
@@ -124,15 +113,9 @@ async function normalizeImageToBase64(imageItem) {
   if (!imageItem) return null;
   if (imageItem?.b64_json) return imageItem.b64_json;
   if (imageItem?.url) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    try {
-      const r   = await fetch(imageItem.url, { signal: controller.signal });
-      const arr = await r.arrayBuffer();
-      return Buffer.from(arr).toString("base64");
-    } finally {
-      clearTimeout(timer);
-    }
+    const r   = await fetch(imageItem.url);
+    const arr = await r.arrayBuffer();
+    return Buffer.from(arr).toString("base64");
   }
   return null;
 }
@@ -915,26 +898,21 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       if (!characterReference && croppedPhoto) {
         try {
-          console.log(`generate-full [${bookId}]: STEP 1 starting photo analysis ${elapsed()} — photo type: ${croppedPhoto.startsWith('data:') ? 'base64' : 'url'}`);
-          const dnaCompletion = await withTimeout(
-            openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              response_format: { type: "json_object" },
-              messages: [{
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `Analyze the uploaded child photo and return ONLY JSON.\nReturn:\n{\n  "hair": "string",\n  "skin": "string",\n  "eyes": "string",\n  "face": "string",\n  "ageLook": "string",\n  "outfit": "string",\n  "vibe": "string",\n  "summary": "string"\n}\nRules:\n- Focus only on the child\n- Ignore any brand names, logos, copyrighted characters, or toy franchises\n- If clothing includes a recognizable character or logo, describe it generically`
-                  },
-                  { type: "image_url", image_url: { url: croppedPhoto } }
-                ]
-              }],
-              temperature: 0.2
-            }),
-            45000,
-            'STEP1-photo-analysis'
-          );
+          const dnaCompletion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analyze the uploaded child photo and return ONLY JSON.\nReturn:\n{\n  "hair": "string",\n  "skin": "string",\n  "eyes": "string",\n  "face": "string",\n  "ageLook": "string",\n  "outfit": "string",\n  "vibe": "string",\n  "summary": "string"\n}\nRules:\n- Focus only on the child\n- Ignore any brand names, logos, copyrighted characters, or toy franchises\n- If clothing includes a recognizable character or logo, describe it generically`
+                },
+                { type: "image_url", image_url: { url: croppedPhoto } }
+              ]
+            }],
+            temperature: 0.2
+          });
 
           const characterDNA = safeJsonParse(dnaCompletion.choices?.[0]?.message?.content || "{}", {
             hair: "soft child hair", skin: "warm natural skin tone",
@@ -971,50 +949,31 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 - If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If both the name and story direction are in English or Latin characters, write in English`;
 
-        console.log(`generate-full [${bookId}]: STEP 2 starting story generation ${elapsed()} — prompt length: ${storyPrompt.length} chars`);
-        try {
-          const storyCompletion = await withTimeout(
-            openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              response_format: { type: "json_object" },
-              messages: [{ role: "user", content: storyPrompt }],
-              temperature: 0.8
-            }),
-            150000,
-            'STEP2-story-generation'
-          );
+        const storyCompletion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: storyPrompt }],
+          temperature: 0.8
+        });
 
-          console.log(`generate-full [${bookId}]: STEP 2 OpenAI responded ${elapsed()} — parsing story JSON`);
-          const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
-          const storyData = safeJsonParse(storyRaw, {});
-          const generatedBook = {
-            title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
-            subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
-            pages:    Array.isArray(storyData.pages)
-              ? storyData.pages.slice(0, 12).map(p => ({
-                  text:        sanitizeBrandTerms(String(p.text        || "").trim()),
-                  imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
-                }))
-              : []
-          };
-          console.log(`generate-full [${bookId}]: STEP 2 parsed — title: "${generatedBook.title}", pages: ${generatedBook.pages.length}`);
-          if (generatedBook.pages.length === 0) {
-            console.error(`generate-full [${bookId}]: STEP 2 ERROR — 0 pages parsed from OpenAI response: ${storyRaw.substring(0, 200)}`);
-          }
-          await updateBookField(bookId, { generatedBook });
-          console.log(`generate-full [${bookId}]: STEP 2 saved to DB ${elapsed()}`);
-        } catch (step2Err) {
-          console.error(`generate-full [${bookId}]: STEP 2 FATAL — story generation failed: ${step2Err.message}`);
-          // Cannot continue without a story — abort pipeline
-          throw step2Err;
-        }
-      } else {
-        console.log(`generate-full [${bookId}]: STEP 2 skipped — generatedBook already exists (${book.generatedBook.pages.length} pages)`);
+        const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
+        const storyData = safeJsonParse(storyRaw, {});
+        const generatedBook = {
+          title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
+          subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
+          pages:    Array.isArray(storyData.pages)
+            ? storyData.pages.slice(0, 12).map(p => ({
+                text:        sanitizeBrandTerms(String(p.text        || "").trim()),
+                imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
+              }))
+            : []
+        };
+        await updateBookField(bookId, { generatedBook });
       }
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
       // Running them together cuts the wait from ~2min to ~60s
-      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, fetching book from DB before images`);
+      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, starting cover + priority images in parallel`);
 
       const bookBeforeImgs = await getBook(bookId);
       const pages          = bookBeforeImgs.generatedBook?.pages || [];
@@ -1024,8 +983,6 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const fullImages     = [...existingImages];
       while (fullImages.length < pages.length) fullImages.push(null);
 
-      console.log(`generate-full [${bookId}]: DB re-fetch done — pages=${pages.length}, existingImages=${existingImages.filter(Boolean).length}, hasCover=${!!bookBeforeImgs.coverImage} ${elapsed()}`);
-
       // פונקציה ליצירת תמונה אחת
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
@@ -1034,27 +991,24 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
-      // Retry wrapper: 1 retry, 60s timeout per attempt (was 2 retries × 90s = 270s worst-case).
-      // New worst-case: 60s + 3s + 60s = 123s per image. Batch of 5 = 123s max.
+      // Retry wrapper: up to 2 retries, 90s timeout per attempt.
       // If all attempts fail, returns null and logs — pipeline continues regardless.
       async function generatePageImageWithRetry(pageIndex) {
-        const MAX_RETRIES = 1;
-        const TIMEOUT_MS  = 60000;
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS  = 90000;
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
           try {
-            console.log(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} starting ${elapsed()}`);
             const result = await Promise.race([
               generatePageImage(pageIndex),
               new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 60s`)), TIMEOUT_MS)
+                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 90s`)), TIMEOUT_MS)
               )
             ]);
-            console.log(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} succeeded ${elapsed()}`);
             return result;
           } catch (err) {
             console.warn(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} failed: ${err.message}`);
             if (attempt <= MAX_RETRIES) {
-              await new Promise(r => setTimeout(r, 2000));
+              await new Promise(r => setTimeout(r, 3000));
             }
           }
         }
@@ -1066,24 +1020,23 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel
-      // Cover gets a 60s timeout; pages use generatePageImageWithRetry (1 retry + 60s each)
-      console.log(`generate-full [${bookId}]: STEP 3+4a starting cover + pages 0,1 in parallel ${elapsed()}`);
+      // Cover gets a 90s timeout; pages use generatePageImageWithRetry (2 retries + 90s each)
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
         bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
           openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 60s")), 60000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 90s")), 90000))
         ]),
         fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
         fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
       ]);
 
-      // Save cover — upload to Storage (15s timeout), fall back to base64
+      // Save cover — upload to Storage, fall back to base64
       if (coverResult?.status === "fulfilled" && coverResult.value) {
         const coverBase64 = await normalizeImageToBase64(coverResult.value?.data?.[0]);
         if (coverBase64) {
           let coverValue = `data:image/jpeg;base64,${coverBase64}`;
           try {
-            const coverUrl = await withTimeout(uploadImageToStorage(bookId, "cover.jpg", coverValue), 15000, 'cover-storage');
+            const coverUrl = await uploadImageToStorage(bookId, "cover.jpg", coverValue);
             if (coverUrl) {
               coverValue = coverUrl;
               console.log(`generate-full [${bookId}]: cover uploaded to Storage`);
@@ -1095,11 +1048,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         }
       }
 
-      // Save priority pages — upload to Storage (15s timeout per upload), fall back to base64
+      // Save priority pages — upload to Storage, fall back to base64
       if (page0Result?.status === "fulfilled" && page0Result.value) {
         let p0value = `data:image/jpeg;base64,${page0Result.value}`;
         try {
-          const url = await withTimeout(uploadImageToStorage(bookId, "page-0.jpg", p0value), 15000, 'page-0-storage');
+          const url = await uploadImageToStorage(bookId, "page-0.jpg", p0value);
           if (url) { p0value = url; console.log(`generate-full [${bookId}]: page-0 uploaded to Storage`); }
         } catch (err) {
           console.warn(`generate-full [${bookId}]: page-0 Storage upload failed: ${err.message}`);
@@ -1110,7 +1063,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       if (page1Result?.status === "fulfilled" && page1Result.value) {
         let p1value = `data:image/jpeg;base64,${page1Result.value}`;
         try {
-          const url = await withTimeout(uploadImageToStorage(bookId, "page-1.jpg", p1value), 15000, 'page-1-storage');
+          const url = await uploadImageToStorage(bookId, "page-1.jpg", p1value);
           if (url) { p1value = url; console.log(`generate-full [${bookId}]: page-1 uploaded to Storage`); }
         } catch (err) {
           console.warn(`generate-full [${bookId}]: page-1 Storage upload failed: ${err.message}`);
@@ -1121,17 +1074,16 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved ${elapsed()}`);
 
-      // STEP 4b: remaining pages in batches of 5
+      // שלב 4ב: שאר התמונות (3-16) בbatches של 3
+      // שלב 4ב: שאר התמונות — 5 במקביל, כל תמונה נשמרת מיד כשמוכנה
       const remaining = [];
       for (let i = 2; i < pages.length; i++) {
         if (!fullImages[i]) remaining.push(i);
       }
-      console.log(`generate-full [${bookId}]: STEP 4b — ${remaining.length} remaining pages to generate: [${remaining.join(',')}] ${elapsed()}`);
 
       const BATCH_SIZE = 5;
       for (let batchStart = 0; batchStart < remaining.length; batchStart += BATCH_SIZE) {
         const batch = remaining.slice(batchStart, batchStart + BATCH_SIZE);
-        console.log(`generate-full [${bookId}]: STEP 4b batch [${batch.join(',')}] starting ${elapsed()}`);
 
         // כל תמונה שומרת מיד לDB ברגע שמוכנה — לא מחכה לסוף הbatch
         await Promise.allSettled(batch.map(async (pageIndex) => {
@@ -1140,7 +1092,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
             if (base64) {
               let imgValue = `data:image/jpeg;base64,${base64}`;
               try {
-                const url = await withTimeout(uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue), 15000, `page-${pageIndex}-storage`);
+                const url = await uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue);
                 if (url) imgValue = url;
               } catch (err) {
                 console.warn(`generate-full [${bookId}]: page-${pageIndex} Storage upload failed: ${err.message}`);
@@ -1154,7 +1106,6 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
             console.error(`generate-full [${bookId}]: image ${pageIndex} failed:`, err.message);
           }
         }));
-        console.log(`generate-full [${bookId}]: STEP 4b batch [${batch.join(',')}] done ${elapsed()} — total images so far: ${fullImages.filter(Boolean).length}/${pages.length}`);
       }
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
