@@ -185,7 +185,7 @@
           <strong>Preview  First 2 pages</strong>
           <span>Unlock the full book (all pages + PDF download)</span>
         </div>
-        <div class="unlock-price">$39</div>
+        <div class="unlock-price">$29</div>
       </div>
 
       <div class="pages-wrap" id="pagesWrap"></div>
@@ -204,6 +204,7 @@
       </div>
 
       <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;">⏳ Preparing your preview...</button>
+      <!-- text updated dynamically by JS to "Order Your Book — $29" -->
 
       <div class="trust-row">
         <span class="trust-item"> Secure checkout</span>
@@ -367,7 +368,7 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Unlock Full Book — $39';
+        payBtn.textContent = 'Order Your Book — $29';
       }
 
       // Break when cover + 2 page images all ready (keeps polling so page images update)
@@ -400,13 +401,13 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Unlock Full Book — $39';
+        payBtn.textContent = 'Order Your Book — $29';
       } else if (d3.book && d3.book.generatedBook) {
         // Story exists but no cover yet — still let them proceed
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Unlock Full Book — $39';
+        payBtn.textContent = 'Order Your Book — $29';
       }
     } catch(e) {}
   }

@@ -7,34 +7,19 @@ function getBookId() {
 document.addEventListener("DOMContentLoaded", async function() {
   var bookId = getBookId();
 
-  var coverImageEl     = document.getElementById("coverImage");
-  var bookTitleValue   = document.getElementById("bookTitleValue");
-  var bookSubtitleValue= document.getElementById("bookSubtitleValue");
-  var nameEl           = document.getElementById("name");
-  var ageEl            = document.getElementById("age");
-  var styleEl          = document.getElementById("style");
-  var pagesEl          = document.getElementById("pages");
-  var gumroadBtn       = document.getElementById("gumroadBtn");
-  var backToPreviewBtn = document.getElementById("backToPreviewBtn");
-  var backToCoverBtn   = document.getElementById("backToCoverBtn");
-  var checkoutStatus   = document.getElementById("checkoutStatus");
+  var coverImageEl      = document.getElementById("coverImage");
+  var bookTitleValue    = document.getElementById("bookTitleValue");
+  var bookSubtitleValue = document.getElementById("bookSubtitleValue");
+  var nameEl            = document.getElementById("name");
+  var ageEl             = document.getElementById("age");
+  var styleEl           = document.getElementById("style");
+  var pagesEl           = document.getElementById("pages");
+  var checkoutStatus    = document.getElementById("checkoutStatus");
 
   if (!bookId) {
     window.location.href = "wizard.html";
     return;
   }
-
-  // Set bookId as referral parameter and wire up direct redirect on click
-  if (gumroadBtn) {
-    var gumroadUrl = "https://lilypad583.gumroad.com/l/personalized-storybook?wanted=true&referral=" + encodeURIComponent(bookId);
-    gumroadBtn.href = gumroadUrl;
-    gumroadBtn.addEventListener("click", function(e) {
-      e.preventDefault();
-      window.location.href = gumroadUrl;
-    });
-  }
-
-  var book = null;
 
   async function loadBook() {
     var res  = await fetch(API_BASE + "/api/books/" + bookId);
@@ -58,16 +43,8 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
   }
 
-  backToPreviewBtn && backToPreviewBtn.addEventListener("click", function() {
-    window.location.href = "preview.html?bookId=" + encodeURIComponent(bookId);
-  });
-
-  backToCoverBtn && backToCoverBtn.addEventListener("click", function() {
-    window.location.href = "cover.html?bookId=" + encodeURIComponent(bookId);
-  });
-
   try {
-    book = await loadBook();
+    var book = await loadBook();
     renderBook(book);
   } catch(error) {
     console.error("loadBook failed:", error);
