@@ -124,9 +124,15 @@ async function normalizeImageToBase64(imageItem) {
   if (!imageItem) return null;
   if (imageItem?.b64_json) return imageItem.b64_json;
   if (imageItem?.url) {
-    const r   = await fetch(imageItem.url);
-    const arr = await r.arrayBuffer();
-    return Buffer.from(arr).toString("base64");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const r   = await fetch(imageItem.url, { signal: controller.signal });
+      const arr = await r.arrayBuffer();
+      return Buffer.from(arr).toString("base64");
+    } finally {
+      clearTimeout(timer);
+    }
   }
   return null;
 }
@@ -965,36 +971,50 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 - If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
 - If both the name and story direction are in English or Latin characters, write in English`;
 
-        console.log(`generate-full [${bookId}]: STEP 2 starting story generation ${elapsed()}`);
-        const storyCompletion = await withTimeout(
-          openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [{ role: "user", content: storyPrompt }],
-            temperature: 0.8
-          }),
-          90000,
-          'STEP2-story-generation'
-        );
+        console.log(`generate-full [${bookId}]: STEP 2 starting story generation ${elapsed()} — prompt length: ${storyPrompt.length} chars`);
+        try {
+          const storyCompletion = await withTimeout(
+            openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [{ role: "user", content: storyPrompt }],
+              temperature: 0.8
+            }),
+            150000,
+            'STEP2-story-generation'
+          );
 
-        const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
-        const storyData = safeJsonParse(storyRaw, {});
-        const generatedBook = {
-          title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
-          subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
-          pages:    Array.isArray(storyData.pages)
-            ? storyData.pages.slice(0, 12).map(p => ({
-                text:        sanitizeBrandTerms(String(p.text        || "").trim()),
-                imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
-              }))
-            : []
-        };
-        await updateBookField(bookId, { generatedBook });
+          console.log(`generate-full [${bookId}]: STEP 2 OpenAI responded ${elapsed()} — parsing story JSON`);
+          const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
+          const storyData = safeJsonParse(storyRaw, {});
+          const generatedBook = {
+            title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
+            subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
+            pages:    Array.isArray(storyData.pages)
+              ? storyData.pages.slice(0, 12).map(p => ({
+                  text:        sanitizeBrandTerms(String(p.text        || "").trim()),
+                  imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
+                }))
+              : []
+          };
+          console.log(`generate-full [${bookId}]: STEP 2 parsed — title: "${generatedBook.title}", pages: ${generatedBook.pages.length}`);
+          if (generatedBook.pages.length === 0) {
+            console.error(`generate-full [${bookId}]: STEP 2 ERROR — 0 pages parsed from OpenAI response: ${storyRaw.substring(0, 200)}`);
+          }
+          await updateBookField(bookId, { generatedBook });
+          console.log(`generate-full [${bookId}]: STEP 2 saved to DB ${elapsed()}`);
+        } catch (step2Err) {
+          console.error(`generate-full [${bookId}]: STEP 2 FATAL — story generation failed: ${step2Err.message}`);
+          // Cannot continue without a story — abort pipeline
+          throw step2Err;
+        }
+      } else {
+        console.log(`generate-full [${bookId}]: STEP 2 skipped — generatedBook already exists (${book.generatedBook.pages.length} pages)`);
       }
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
       // Running them together cuts the wait from ~2min to ~60s
-      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, starting cover + priority images in parallel`);
+      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, fetching book from DB before images`);
 
       const bookBeforeImgs = await getBook(bookId);
       const pages          = bookBeforeImgs.generatedBook?.pages || [];
@@ -1003,6 +1023,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const existingImages = bookBeforeImgs.fullImages || [];
       const fullImages     = [...existingImages];
       while (fullImages.length < pages.length) fullImages.push(null);
+
+      console.log(`generate-full [${bookId}]: DB re-fetch done — pages=${pages.length}, existingImages=${existingImages.filter(Boolean).length}, hasCover=${!!bookBeforeImgs.coverImage} ${elapsed()}`);
 
       // פונקציה ליצירת תמונה אחת
       async function generatePageImage(pageIndex) {
@@ -1020,12 +1042,14 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         const TIMEOUT_MS  = 60000;
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
           try {
+            console.log(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} starting ${elapsed()}`);
             const result = await Promise.race([
               generatePageImage(pageIndex),
               new Promise((_, reject) =>
                 setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 60s`)), TIMEOUT_MS)
               )
             ]);
+            console.log(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} succeeded ${elapsed()}`);
             return result;
           } catch (err) {
             console.warn(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} failed: ${err.message}`);
@@ -1097,16 +1121,17 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved ${elapsed()}`);
 
-      // שלב 4ב: שאר התמונות (3-16) בbatches של 3
-      // שלב 4ב: שאר התמונות — 5 במקביל, כל תמונה נשמרת מיד כשמוכנה
+      // STEP 4b: remaining pages in batches of 5
       const remaining = [];
       for (let i = 2; i < pages.length; i++) {
         if (!fullImages[i]) remaining.push(i);
       }
+      console.log(`generate-full [${bookId}]: STEP 4b — ${remaining.length} remaining pages to generate: [${remaining.join(',')}] ${elapsed()}`);
 
       const BATCH_SIZE = 5;
       for (let batchStart = 0; batchStart < remaining.length; batchStart += BATCH_SIZE) {
         const batch = remaining.slice(batchStart, batchStart + BATCH_SIZE);
+        console.log(`generate-full [${bookId}]: STEP 4b batch [${batch.join(',')}] starting ${elapsed()}`);
 
         // כל תמונה שומרת מיד לDB ברגע שמוכנה — לא מחכה לסוף הbatch
         await Promise.allSettled(batch.map(async (pageIndex) => {
@@ -1129,6 +1154,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
             console.error(`generate-full [${bookId}]: image ${pageIndex} failed:`, err.message);
           }
         }));
+        console.log(`generate-full [${bookId}]: STEP 4b batch [${batch.join(',')}] done ${elapsed()} — total images so far: ${fullImages.filter(Boolean).length}/${pages.length}`);
       }
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
