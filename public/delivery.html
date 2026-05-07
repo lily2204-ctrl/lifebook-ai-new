@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Your Book</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -395,7 +395,10 @@ async function init() {
   $('dlBtn').onclick         = generatePDF;
 }
 
-// ── PDF GENERATOR (jsPDF + Heebo font for Hebrew RTL) ────────────────────
+// ── PDF GENERATOR (canvas-based Hebrew rendering) ────────────────────────
+// Hebrew text is rendered via Canvas 2D (uses browser's native Heebo font
+// loaded via Google Fonts) then embedded as PNG — no jsPDF font encoding.
+// English text uses jsPDF Times directly (fast, crisp).
 async function generatePDF() {
   const prog = $('pdfProg');
   const st   = $('pdfSt');
@@ -442,28 +445,48 @@ async function generatePDF() {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const W = 210, H = 297;
 
-    // ── Load Heebo font (Hebrew support) ──────────────────────────────────
-    p(13, 'Loading Hebrew font...');
-    let heeboLoaded = false;
-    try {
-      const fontRes = await fetch(
-        'https://cdn.jsdelivr.net/gh/google/fonts/ofl/heebo/static/Heebo-Regular.ttf'
-      );
-      if (fontRes.ok) {
-        const buf   = await fontRes.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        let binary  = '';
-        // Process in 8KB chunks to avoid stack overflow on large arrays
-        for (let i = 0; i < bytes.length; i += 8192) {
-          binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
-        }
-        pdf.addFileToVFS('Heebo-Regular.ttf', btoa(binary));
-        pdf.addFont('Heebo-Regular.ttf', 'Heebo', 'normal');
-        heeboLoaded = true;
-        console.log('[PDF] Heebo font loaded ✅');
+    p(13, 'Preparing text renderer...');
+
+    // ── Canvas Hebrew renderer ────────────────────────────────────────────
+    // Renders Hebrew RTL text onto a canvas using the browser's native Heebo
+    // font, then returns a PNG data URL + height in mm for pdf.addImage().
+    function renderHebrewCanvas(text, widthMm, fontSizePt, hexColor) {
+      const PX_PER_MM = 4;   // 96dpi base
+      const RETINA    = 2;   // 2× for crispness
+      const widthPx   = Math.round(widthMm * PX_PER_MM * RETINA);
+      const fontPx    = Math.round(fontSizePt * (4 / 3) * RETINA); // pt→px at 96dpi, scaled
+      const lineH     = Math.round(fontPx * 1.75);
+
+      // Measure-based word wrap
+      const tmp = document.createElement('canvas');
+      tmp.width = widthPx; tmp.height = 1;
+      const tCtx = tmp.getContext('2d');
+      tCtx.font = `${fontPx}px Heebo, Arial`;
+      const lines = [];
+      let cur = '';
+      for (const w of text.split(' ')) {
+        const trial = cur ? cur + ' ' + w : w;
+        if (tCtx.measureText(trial).width > widthPx - fontPx && cur) {
+          lines.push(cur); cur = w;
+        } else { cur = trial; }
       }
-    } catch (fontErr) {
-      console.warn('[PDF] Heebo font load failed — Hebrew may show as boxes:', fontErr.message);
+      if (cur) lines.push(cur);
+
+      const pad = Math.round(fontPx * 0.3);
+      const cH  = lineH * lines.length + pad;
+      const c   = document.createElement('canvas');
+      c.width = widthPx; c.height = cH;
+      const ctx = c.getContext('2d');
+      ctx.direction = 'rtl';
+      ctx.textAlign = 'right';
+      ctx.font      = `${fontPx}px Heebo, Arial`;
+      ctx.fillStyle = hexColor || '#3a2810';
+      lines.forEach((line, i) => ctx.fillText(line, widthPx - 4, fontPx + i * lineH));
+
+      return {
+        dataUrl:  c.toDataURL('image/png'),
+        heightMm: cH / RETINA / PX_PER_MM
+      };
     }
 
     // ── Image loader ──────────────────────────────────────────────────────
@@ -509,22 +532,9 @@ async function generatePDF() {
 
     const isHeb = str => /[\u0590-\u05FF]/.test(str);
 
-    // Switch font & RTL mode based on text content. Returns true if Hebrew.
-    function applyFont(str, size) {
+    function setEngFont(size) {
       pdf.setFontSize(size);
-      if (isHeb(str) && heeboLoaded) {
-        pdf.setFont('Heebo', 'normal');
-        if (typeof pdf.setR2L === 'function') pdf.setR2L(true);
-        return true;
-      }
       pdf.setFont('times', 'normal');
-      if (typeof pdf.setR2L === 'function') pdf.setR2L(false);
-      return false;
-    }
-
-    function resetFont() {
-      pdf.setFont('times', 'normal');
-      if (typeof pdf.setR2L === 'function') pdf.setR2L(false);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -559,27 +569,35 @@ async function generatePDF() {
     const tAreaY = H*0.67;
     goldRule(tAreaY,14,14);
 
-    // Title — use Heebo if Hebrew
-    let cY = tAreaY + 11;
-    const titleHeb = applyFont(title, 24);
-    text_(PALE);
-    const tLines = pdf.splitTextToSize(title, W-40);
-    pdf.text(tLines, titleHeb ? W-14 : W/2, cY, { align: titleHeb ? 'right' : 'center' });
-    cY += tLines.length * 10;
-
-    if (sub) {
-      cY += 4;
-      const subHeb = applyFont(sub, 12);
-      text_(MUTED);
-      pdf.text(sub, subHeb ? W-14 : W/2, cY, { align: subHeb ? 'right' : 'center' });
-      cY += 8;
+    // Title (Hebrew → canvas PNG; English → jsPDF text)
+    let cY = tAreaY + 5;
+    if (isHeb(title)) {
+      const { dataUrl, heightMm } = renderHebrewCanvas(title, W-28, 24, '#f5d98a');
+      pdf.addImage(dataUrl, 'PNG', 14, cY, W-28, heightMm);
+      cY += heightMm + 3;
+    } else {
+      setEngFont(24); text_(PALE);
+      const tLines = pdf.splitTextToSize(title, W-40);
+      pdf.text(tLines, W/2, cY + 9, { align: 'center' });
+      cY += tLines.length * 10;
     }
 
-    resetFont();
+    if (sub) {
+      if (isHeb(sub)) {
+        const { dataUrl, heightMm } = renderHebrewCanvas(sub, W-28, 12, '#7a6048');
+        pdf.addImage(dataUrl, 'PNG', 14, cY + 2, W-28, heightMm);
+        cY += heightMm + 4;
+      } else {
+        setEngFont(12); text_(MUTED);
+        pdf.text(sub, W/2, cY + 6, { align: 'center' });
+        cY += 8;
+      }
+    }
+
     cY += 5; goldRule(cY,42,42); cY += 10;
-    pdf.setFontSize(10); pdf.setTextColor(160,130,100);
+    setEngFont(10); pdf.setTextColor(160,130,100);
     pdf.text('A personalized story for '+child, W/2, cY, {align:'center'});
-    pdf.setFontSize(8); pdf.setTextColor(130,105,78);
+    setEngFont(8); pdf.setTextColor(130,105,78);
     pdf.text('LIFEBOOK AI  \u00B7  lifebooks.online', W/2, H-9, {align:'center'});
 
     // ══════════════════════════════════════════════════════════════════════
@@ -594,15 +612,14 @@ async function generatePDF() {
 
       const imgB64   = await loadB64(images[i]);
       const pageText = pages[i]?.text || '';
-      const pgHeb    = isHeb(pageText) && heeboLoaded;
-      const LH       = 7.5; // line height in mm (~13pt at 1.65 leading)
+      const pgHeb    = isHeb(pageText);
 
       if (isOdd) {
         // Layout A: gold header bar · image 70% · cream bar · text
         const hdrH=9, imgBH=H*0.70, crmY=imgBH, tM=16;
 
         goldBar(0,hdrH);
-        resetFont(); pdf.setFontSize(6.5); pdf.setTextColor(253,246,236);
+        setEngFont(6.5); pdf.setTextColor(253,246,236);
         pdf.text(title.length>58?title.substring(0,55)+'\u2026':title, W/2, hdrH-2.6, {align:'center'});
 
         if (imgB64) pdf.addImage(imgB64,'JPEG',0,hdrH,W,imgBH-hdrH);
@@ -610,18 +627,17 @@ async function generatePDF() {
 
         fill_(CREAM); pdf.rect(0,crmY,W,H-crmY,'F');
         goldBar(crmY,1.2);
-        resetFont(); pdf.setFontSize(9); text_(BROWN);
+        setEngFont(9); text_(BROWN);
         pdf.text('\u2014 '+pageNum+' \u2014', W/2, crmY+5.8, {align:'center'});
 
         const tY=crmY+13, tW=W-tM*2;
-        applyFont(pageText, 12); text_(BROWN);
-        const bLines = pdf.splitTextToSize(pageText, tW);
         if (pgHeb) {
-          for (let li=0; li<bLines.length; li++) {
-            pdf.text(bLines[li], W-tM, tY+li*LH, {align:'right'});
-          }
+          const { dataUrl, heightMm } = renderHebrewCanvas(pageText, tW, 12, '#3a2810');
+          pdf.addImage(dataUrl, 'PNG', tM, tY, tW, heightMm);
         } else {
-          const lH12 = 12*1.72*0.3528;
+          setEngFont(12); text_(BROWN);
+          const bLines = pdf.splitTextToSize(pageText, tW);
+          const lH12   = 12*1.72*0.3528;
           for (let li=0; li<bLines.length; li++) {
             pdf.text(bLines[li], tM, tY+li*lH12, {
               align: li===bLines.length-1 ? 'left' : 'justify', maxWidth: tW
@@ -641,21 +657,18 @@ async function generatePDF() {
         diamond(W/2,ornY,4.5); diamond(W/2-16,ornY,2.2); diamond(W/2+16,ornY,2.2);
 
         const tY2=ornY+13, tW2=W-tM2*2;
-        applyFont(pageText, 13); text_(BROWN);
-        const cLines = pdf.splitTextToSize(pageText, tW2);
         if (pgHeb) {
-          for (let li=0; li<cLines.length; li++) {
-            pdf.text(cLines[li], W-tM2, tY2+li*LH, {align:'right'});
-          }
+          const { dataUrl, heightMm } = renderHebrewCanvas(pageText, tW2, 13, '#3a2810');
+          pdf.addImage(dataUrl, 'PNG', tM2, tY2, tW2, heightMm);
         } else {
+          setEngFont(13); text_(BROWN);
+          const cLines = pdf.splitTextToSize(pageText, tW2);
           pdf.text(cLines, W/2, tY2, {align:'center', lineHeightFactor:1.65});
         }
 
-        resetFont(); pdf.setFontSize(9); text_(MUTED);
+        setEngFont(9); text_(MUTED);
         pdf.text('\u00B7 '+pageNum+' \u00B7', W/2, H-7, {align:'center'});
       }
-
-      resetFont(); // ensure LTR for next page
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -677,9 +690,9 @@ async function generatePDF() {
     pdf.setFont('times','italic'); pdf.setFontSize(12); text_(MUTED);
     pdf.text('AI-powered personalized storybooks', W/2, bY+14, {align:'center'});
     goldRule(bY+25,40,40);
-    resetFont(); pdf.setFontSize(10); pdf.setTextColor(160,130,100);
+    setEngFont(10); pdf.setTextColor(160,130,100);
     pdf.text('A magical story created just for '+child, W/2, bY+36, {align:'center'});
-    pdf.setFontSize(8); pdf.setTextColor(140,115,88);
+    setEngFont(8); pdf.setTextColor(140,115,88);
     pdf.text('lifebooks.online', W/2, bY+50, {align:'center'});
 
     // ── SAVE ──────────────────────────────────────────────────────────────
