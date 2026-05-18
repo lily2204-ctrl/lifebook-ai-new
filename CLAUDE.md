@@ -92,9 +92,18 @@ Language detection logs: `language=Hebrew` or `language=English` at generation s
 - Story generation: if childName OR storyIdea contains Hebrew characters → story generated in Hebrew
 - imagePrompts: ALWAYS in English (regardless of story language) for image generation
 - title/subtitle/page text: in Hebrew when Hebrew book
-- PDF: uses Heebo static font for Hebrew rendering (`static/Heebo-Regular.ttf` — NOT variable font)
-- PDF RTL: `pdf.setR2L(true)` + `align:'right'` for Hebrew text blocks
+- PDF Hebrew: rendered via Canvas 2D API (`renderHebrewCanvas()`) → PNG embedded in jsPDF. No TTF font loading. Browser uses native Heebo from Google Fonts in `<head>`. Eliminates all encoding/gibberish issues.
 - PDF filename: Hebrew names stripped gracefully; falls back to `{bookId.substring(0,8)}_lifebook.pdf`
+
+## Page Layout — Viewer + PDF
+All story pages (both viewer in delivery.html/reader.html AND PDF) use a unified split layout:
+- **Left half**: solid colored background + text centered vertically, direction:rtl for Hebrew, Playfair Display font, page number subtle at bottom
+- **Right half**: illustration image, object-fit:cover, full bleed, no padding/margin/white border
+- **Color palette** rotates per page based on child gender:
+  - בן (boy): `#E8F4FD, #E8F8F5, #EAF2FF, #FFF8E7, #F0F4FF` — text `#1a5276`
+  - בת (girl): `#FDE8F4, #F3E8FF, #FFF0E8, #E8FDF5, #FFFDE8` — text `#7b1a5a`
+- gender detection: `childGender` field, matches boy/male/זכר/בן vs default girl palette
+- Cover + back cover keep existing dark/gold design unchanged
 
 ---
 
