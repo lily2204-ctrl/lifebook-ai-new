@@ -6,6 +6,8 @@ import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import bcrypt from "bcryptjs";
+import jwt    from "jsonwebtoken";
 
 const app = express();
 app.use(cors());
@@ -35,6 +37,54 @@ const supabase = createClient(
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ─── Admin Auth ───────────────────────────────────────────────────────────────
+const ADMIN_USERNAME      = process.env.ADMIN_USERNAME      || "";
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
+const ADMIN_JWT_SECRET    = process.env.ADMIN_JWT_SECRET    || "";
+
+if (!ADMIN_JWT_SECRET) {
+  console.warn("⚠️  ADMIN_JWT_SECRET is not set — admin endpoints will be disabled");
+}
+
+// In-memory rate limiter: max 5 failed attempts per IP within 15 minutes
+const loginAttempts = new Map(); // ip → { count, firstAttempt }
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS    = 15 * 60 * 1000;
+
+function checkLoginRateLimit(ip) {
+  const now   = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || (now - entry.firstAttempt) > LOGIN_WINDOW_MS) {
+    loginAttempts.set(ip, { count: 1, firstAttempt: now });
+    return { blocked: false };
+  }
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    const retryAfterSec = Math.ceil((LOGIN_WINDOW_MS - (now - entry.firstAttempt)) / 1000);
+    return { blocked: true, retryAfterSec };
+  }
+  entry.count++;
+  return { blocked: false };
+}
+
+function resetLoginRateLimit(ip) {
+  loginAttempts.delete(ip);
+}
+
+function requireAdminAuth(req, res, next) {
+  if (!ADMIN_JWT_SECRET) {
+    return res.status(503).json({ error: "Admin not configured" });
+  }
+  const auth  = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Missing token" });
+  try {
+    req.adminUser = jwt.verify(token, ADMIN_JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function safeJsonParse(raw, fallback = {}) {
@@ -887,6 +937,51 @@ app.post("/api/books/:bookId/unlock", async (req, res) => {
   }
 });
 
+// ─── Template prompt builder ───────────────────────────────────────────────────
+// Fetches a story_template row and fills all {{placeholders}}.
+// Returns a ready-to-send prompt string, or null if template not found/inactive.
+async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore) {
+  const { data: tmpl, error } = await supabase
+    .from("story_templates")
+    .select("story_skeleton, variations, input_schema")
+    .eq("slug", templateSlug)
+    .eq("active", true)
+    .single();
+
+  if (error || !tmpl) {
+    console.warn(`[template] slug="${templateSlug}" not found or inactive — falling back to custom mode`);
+    return null;
+  }
+
+  // Resolve allergyVariant from variations map
+  const allergyType  = inputs.allergyType  || "";
+  const allergyOther = inputs.allergyOther || "";
+  const variationMap = tmpl.variations?.allergyType || {};
+
+  let allergyVariant = variationMap[allergyType] || allergyType;
+  // Fill {{allergyOther}} and {{childName}} inside the variation text
+  allergyVariant = allergyVariant
+    .replace(/\{\{allergyOther\}\}/g, allergyOther)
+    .replace(/\{\{childName\}\}/g,   inputs.childName || "");
+
+  // Gender note for skeleton
+  const genderNote = (inputs.childGender === "ילד")
+    ? "הילד הוא בן — השתמש בלשון זכר לאורך כל הסיפור."
+    : "הילדה היא בת — השתמש בלשון נקבה לאורך כל הסיפור.";
+
+  // Fill all placeholders in the skeleton, including character consistency fields
+  const prompt = tmpl.story_skeleton
+    .replace(/\{\{childName\}\}/g,       inputs.childName   || "")
+    .replace(/\{\{childAge\}\}/g,        inputs.childAge    || "")
+    .replace(/\{\{childGender\}\}/g,     inputs.childGender || "")
+    .replace(/\{\{genderNote\}\}/g,      genderNote)
+    .replace(/\{\{allergyVariant\}\}/g,  allergyVariant)
+    .replace(/\{\{characterSummary\}\}/g, sanitizeBrandTerms(characterSummary))
+    .replace(/\{\{promptCore\}\}/g,      sanitizeBrandTerms(promptCore));
+
+  return prompt;
+}
+
 // ─── Generate Full Book (story + cover + images) — fires in background ────────
 app.post("/api/books/:bookId/generate-full", async (req, res) => {
   const bookId = req.params.bookId;
@@ -966,10 +1061,33 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
       if (!book.generatedBook?.pages?.length) {
-        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
-- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
-- If both the name and story direction are in English or Latin characters, write in English`;
 
+        // Determine mode from request body (default: custom — no existing behaviour changes)
+        let mode             = req.body?.mode            || 'custom';
+        const templateSlug   = req.body?.templateSlug    || null;
+        const templateInputs = req.body?.templateInputs  || {};
+
+        let storyPrompt;
+
+        // ── template mode ──────────────────────────────────────────────────────
+        if (mode === 'template' && templateSlug) {
+          console.log(`generate-full [${bookId}]: STEP 2 mode=template slug=${templateSlug}`);
+          storyPrompt = await buildTemplateStoryPrompt(
+            templateSlug, templateInputs, characterSummary, promptCore
+          );
+          if (!storyPrompt) {
+            console.warn(`generate-full [${bookId}]: STEP 2 template not found — falling back to custom`);
+            mode = 'custom';
+          }
+        }
+
+        // ── custom mode (default, and fallback from template) ──────────────────
+        if (mode !== 'template') {
+          console.log(`generate-full [${bookId}]: STEP 2 mode=custom`);
+          storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
+        }
+
+        // ── OpenAI call (identical for both modes) ─────────────────────────────
         try {
           console.log(`generate-full [${bookId}]: STEP 2 starting`);
           const storyCompletion = await openai.chat.completions.create({
@@ -1778,13 +1896,124 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+// ─── Admin: Login ─────────────────────────────────────────────────────────────
+app.post("/api/admin/login", async (req, res) => {
+  if (!ADMIN_JWT_SECRET || !ADMIN_PASSWORD_HASH) {
+    return res.status(503).json({ error: "Admin not configured" });
+  }
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const rl = checkLoginRateLimit(ip);
+  if (rl.blocked) {
+    return res.status(429).json({
+      error: `Too many failed attempts. Try again in ${rl.retryAfterSec} seconds.`
+    });
+  }
+  const { username, password } = req.body || {};
+  const usernameOk = username === ADMIN_USERNAME;
+  const passwordOk = usernameOk && await bcrypt.compare(password || "", ADMIN_PASSWORD_HASH);
+  if (!usernameOk || !passwordOk) {
+    console.warn(`[admin] Failed login attempt from ${ip}`);
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  resetLoginRateLimit(ip);
+  const token = jwt.sign({ username }, ADMIN_JWT_SECRET, { expiresIn: "8h" });
+  console.log(`[admin] Login success for "${username}" from ${ip}`);
+  return res.json({ token });
+});
+
+// ─── Admin: List templates ────────────────────────────────────────────────────
+app.get("/api/admin/templates", requireAdminAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from("story_templates")
+    .select("id, slug, name, description, active, input_schema, illustration_style")
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ templates: data });
+});
+
+// ─── Admin: Create book ───────────────────────────────────────────────────────
+app.post("/api/admin/books/create", requireAdminAuth, async (req, res) => {
+  try {
+    const { v4: uuidv4 } = await import("uuid");
+    const { childName, childAge, childGender, customerEmail,
+            croppedPhoto, originalPhoto, illustrationStyle } = req.body || {};
+
+    if (!childName || !croppedPhoto) {
+      return res.status(400).json({ error: "childName and croppedPhoto are required" });
+    }
+
+    const bookId = uuidv4();
+    let croppedUrl  = croppedPhoto;
+    let originalUrl = originalPhoto || croppedPhoto;
+
+    try {
+      croppedUrl  = await uploadImageToStorage(bookId, "cropped-photo.jpg",  croppedPhoto);
+      originalUrl = await uploadImageToStorage(bookId, "original-photo.jpg", originalPhoto || croppedPhoto);
+    } catch (storageErr) {
+      console.warn("[admin] Storage upload failed, using base64 fallback:", storageErr.message);
+    }
+
+    const book = {
+      bookId,
+      childName:          sanitizeBrandTerms(childName),
+      childAge:           String(childAge || ""),
+      childGender:        childGender || "",
+      storyIdea:          "",
+      illustrationStyle:  illustrationStyle || "Soft Storybook",
+      croppedPhoto:       croppedUrl,
+      originalPhoto:      originalUrl,
+      customerEmail:      customerEmail || "",
+      characterReference: null,
+      generatedBook:      null,
+      coverImage:         null,
+      previewImages:      [],
+      fullImages:         [],
+      selectedFormat:     "digital",
+      selectedPrice:      0,
+      paymentStatus:      "paid",
+      purchaseUnlocked:   true,
+      stripeSessionId:    null
+    };
+
+    await insertBook(book);
+    console.log(`[admin] Book created: ${bookId} — child: ${childName}`);
+    return res.json({ bookId });
+  } catch (err) {
+    console.error("[admin] Create book error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: Generate book (calls existing generate-full internally) ───────────
+app.post("/api/admin/books/:bookId/generate", requireAdminAuth, async (req, res) => {
+  const { bookId } = req.params;
+
+  const book = await getBookLight(bookId);
+  if (!book) return res.status(404).json({ error: "Book not found" });
+
+  res.json({ status: "ok", message: "Generation started" });
+
+  // Delegate to the existing public endpoint — generate-full is completely untouched
+  const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 8080}`;
+  fetch(`${baseUrl}/api/books/${bookId}/generate-full`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode:           req.body?.mode           || "template",
+      templateSlug:   req.body?.templateSlug   || null,
+      templateInputs: req.body?.templateInputs || {}
+    })
+  }).catch(err =>
+    console.error(`[admin] internal generate call failed for ${bookId}:`, err.message)
+  );
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  // API routes return JSON 404
   if (req.path.startsWith("/api/") || req.path.startsWith("/webhooks/")) {
     return res.status(404).json({ status: "error", message: "Not found" });
   }
-  // HTML pages return 404.html
   res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
 });
 
