@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Your Book</title>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&family=Suez+One&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -480,10 +480,11 @@ async function generatePDF() {
     // ── Canvas Hebrew renderer ────────────────────────────────────────────
     // Renders Hebrew RTL text onto a canvas using the browser's native Heebo
     // font, then returns a PNG data URL + height in mm for pdf.addImage().
-    // opts: { align: 'center'|'right', shadow: true|false }
+    // opts: { align: 'center'|'right', shadow: true|false, font: 'fontFamily string' }
     function renderHebrewCanvas(text, widthMm, fontSizePt, hexColor, opts) {
-      const align  = (opts && opts.align)  || 'right';
-      const shadow = (opts && opts.shadow) || false;
+      const align      = (opts && opts.align)  || 'right';
+      const shadow     = (opts && opts.shadow) || false;
+      const fontFamily = (opts && opts.font)   || 'Heebo, Arial';
       const PX_PER_MM = 4;   // 96dpi base
       const RETINA    = 2;   // 2× for crispness
       const widthPx   = Math.round(widthMm * PX_PER_MM * RETINA);
@@ -494,7 +495,7 @@ async function generatePDF() {
       const tmp = document.createElement('canvas');
       tmp.width = widthPx; tmp.height = 1;
       const tCtx = tmp.getContext('2d');
-      tCtx.font = `${fontPx}px Heebo, Arial`;
+      tCtx.font = `${fontPx}px ${fontFamily}`;
       const lines = [];
       let cur = '';
       for (const w of text.split(' ')) {
@@ -512,7 +513,7 @@ async function generatePDF() {
       const ctx = c.getContext('2d');
       ctx.direction = 'rtl';
       ctx.textAlign = align === 'center' ? 'center' : 'right';
-      ctx.font      = `${fontPx}px Heebo, Arial`;
+      ctx.font      = `${fontPx}px ${fontFamily}`;
       ctx.fillStyle = hexColor || '#3a2810';
       if (shadow) {
         ctx.shadowColor   = 'rgba(0,0,0,0.88)';
@@ -638,9 +639,9 @@ async function generatePDF() {
     // Estimate heights (actual mm from renderHebrewCanvas)
     let cY = H * 0.52; // default starting Y
 
-    // Child name — very large, white, centered
+    // Child name — very large, white, centered — Suez One display font
     if (isHeb(child)) {
-      const { dataUrl, heightMm } = renderHebrewCanvas(child, W - 24, coverNameFontPt, '#ffffff', { align: 'center' });
+      const { dataUrl, heightMm } = renderHebrewCanvas(child, W - 24, coverNameFontPt, '#ffffff', { align: 'center', font: '"Suez One", Heebo, Arial' });
       cY = H * 0.52;
       pdf.addImage(dataUrl, 'PNG', 12, cY, W - 24, heightMm);
       cY += heightMm + 6;
@@ -719,7 +720,7 @@ async function generatePDF() {
 
       // Text overlay — white bold, centered, with shadow (via canvas)
       const tPad = 18, tW = W - tPad * 2;
-      const bottomMargin = 18; // mm from page bottom
+      const bottomMargin = 28; // mm from page bottom — raised for comfortable reading
 
       if (pgHeb) {
         const { dataUrl, heightMm } = renderHebrewCanvas(pageText, tW, 15, '#ffffff', { align: 'center', shadow: true });
@@ -761,62 +762,71 @@ async function generatePDF() {
     pdf.rect(10, 10, W-20, H-20, 'S');
     pdf.setLineWidth(0.3);
     pdf.rect(12.5, 12.5, W-25, H-25, 'S');
-    // Star ornament
-    setEngFont(22); pdf.setTextColor(201, 168, 76);
-    pdf.text('\u2605', W/2, H*0.28, { align: 'center' });
-    // Dedication text
+    // Dedication text — centered, all via canvas for Hebrew
     const dedLine1 = isHeb(child) ? '\u05E1\u05E4\u05E8 \u05D6\u05D4 \u05E0\u05DB\u05EA\u05D1 \u05D1\u05DE\u05D9\u05D5\u05D7\u05D3 \u05E2\u05D1\u05D5\u05E8' : 'This book was created especially for';
     const dedLine2 = child;
-    const dedLine3 = isHeb(child) ? '\u05E9\u05DB\u05DC \u05D4\u05E8\u05E4\u05EA\u05E7\u05D0\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05DE\u05DE\u05DA' : 'may every adventure begin with you';
+    const dedLine3 = isHeb(child) ? '\u05E9\u05DB\u05DC \u05DB\u05DC \u05D4\u05E8\u05E4\u05EA\u05E7\u05D0\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05DE\u05DE\u05DA' : 'may every adventure begin with you';
     if (isHeb(child)) {
-      const { dataUrl: d1, heightMm: h1 } = renderHebrewCanvas(dedLine1, W-40, 13, '#7a6048');
-      pdf.addImage(d1, 'PNG', 20, H*0.36, W-40, h1);
-      const { dataUrl: d2, heightMm: h2 } = renderHebrewCanvas(dedLine2, W-40, 22, '#2c1a0e');
-      pdf.addImage(d2, 'PNG', 20, H*0.36+h1+4, W-40, h2);
-      const { dataUrl: d3, heightMm: h3 } = renderHebrewCanvas(dedLine3, W-40, 11, '#9b8060');
-      pdf.addImage(d3, 'PNG', 20, H*0.36+h1+h2+10, W-40, h3);
+      const { dataUrl: d1, heightMm: h1 } = renderHebrewCanvas(dedLine1, W-40, 15, '#7a6048', { align: 'center' });
+      pdf.addImage(d1, 'PNG', 20, H*0.33, W-40, h1);
+      const { dataUrl: d2, heightMm: h2 } = renderHebrewCanvas(dedLine2, W-40, 30, '#2c1a0e', { align: 'center', font: '"Suez One", Heebo, Arial' });
+      pdf.addImage(d2, 'PNG', 20, H*0.33+h1+5, W-40, h2);
+      const { dataUrl: d3, heightMm: h3 } = renderHebrewCanvas(dedLine3, W-40, 14, '#9b8060', { align: 'center' });
+      pdf.addImage(d3, 'PNG', 20, H*0.33+h1+h2+10, W-40, h3);
     } else {
-      setEngFont(12); pdf.setTextColor(122, 96, 72);
-      pdf.text(dedLine1, W/2, H*0.38, { align: 'center' });
-      setEngFont(22); pdf.setFont('times','bold'); pdf.setTextColor(44, 26, 14);
-      pdf.text(dedLine2, W/2, H*0.48, { align: 'center' });
-      setEngFont(11); pdf.setFont('times','italic'); pdf.setTextColor(155, 128, 96);
-      pdf.text(dedLine3, W/2, H*0.56, { align: 'center' });
+      setEngFont(14); pdf.setTextColor(122, 96, 72);
+      pdf.text(dedLine1, W/2, H*0.36, { align: 'center' });
+      setEngFont(26); pdf.setFont('times','bold'); pdf.setTextColor(44, 26, 14);
+      pdf.text(dedLine2, W/2, H*0.46, { align: 'center' });
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(155, 128, 96);
+      pdf.text(dedLine3, W/2, H*0.54, { align: 'center' });
     }
     // Gold rule
-    goldRule(H*0.64, W*0.28, W*0.28);
-    // Lifebook branding
+    goldRule(H*0.62, W*0.28, W*0.28);
+    // Lifebook logo — centered, visible
     if (logoPng) {
-      const dedLogoW = 36;
+      const dedLogoW = 44;
       const dedLogoH = logoPng.hMm * (dedLogoW / logoPng.wMm);
-      pdf.addImage(logoPng.dataUrl, 'PNG', (W - dedLogoW)/2, H*0.72, dedLogoW, dedLogoH);
+      pdf.addImage(logoPng.dataUrl, 'PNG', (W - dedLogoW)/2, H*0.68, dedLogoW, dedLogoH);
     } else {
-      setEngFont(11); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
-      pdf.text('Life Book', W/2, H*0.74, { align: 'center' });
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
+      pdf.text('Life Book', W/2, H*0.72, { align: 'center' });
     }
 
-    // BACK COVER
+    // BACK COVER — warm cream, centered branding
     // ══════════════════════════════════════════════════════════════════════
     p(94, 'Adding back cover...');
     pdf.addPage();
-    fill_([40,22,7]); pdf.rect(0,0,W,H,'F');
-    fill_(GOLD);
-    [[W*.18,H*.22],[W*.82,H*.18],[W*.55,H*.12],[W*.3,H*.78],
-     [W*.72,H*.75],[W*.1,H*.5],[W*.9,H*.55],[W*.5,H*.88],
-     [W*.42,H*.32],[W*.65,H*.42],[W*.2,H*.6],[W*.78,H*.38]]
-    .forEach(pt => pdf.circle(pt[0],pt[1],0.7,'F'));
+    fill_([250, 244, 232]); pdf.rect(0, 0, W, H, 'F');
+    goldBar(0, 4); goldBar(H - 4, 4);
 
-    goldBar(0,4); goldBar(H-4,4);
-    const bY=H*0.48;
-    pdf.setFont('times','bold'); pdf.setFontSize(32); text_(PALE);
-    pdf.text('lifebook', W/2, bY, {align:'center'});
-    pdf.setFont('times','italic'); pdf.setFontSize(12); text_(MUTED);
-    pdf.text('AI-powered personalized storybooks', W/2, bY+14, {align:'center'});
-    goldRule(bY+25,40,40);
-    setEngFont(10); pdf.setTextColor(160,130,100);
-    pdf.text('A magical story created just for '+child, W/2, bY+36, {align:'center'});
-    setEngFont(8); pdf.setTextColor(140,115,88);
-    pdf.text('lifebooks.online', W/2, bY+50, {align:'center'});
+    // Lifebook logo centered
+    if (logoPng) {
+      const bcLogoW = 52;
+      const bcLogoH = logoPng.hMm * (bcLogoW / logoPng.wMm);
+      pdf.addImage(logoPng.dataUrl, 'PNG', (W - bcLogoW)/2, H*0.34, bcLogoW, bcLogoH);
+    } else {
+      pdf.setFont('times','italic'); pdf.setFontSize(28); text_(GOLD);
+      pdf.text('Life Book', W/2, H*0.42, {align:'center'});
+    }
+
+    // Gold rule
+    goldRule(H*0.52, W*0.3, W*0.3);
+
+    // "A magical story created just for [child name]"
+    // Hebrew name rendered via canvas to avoid RTL garble
+    if (isHeb(child)) {
+      setEngFont(11); pdf.setTextColor(120, 96, 72);
+      pdf.text('A magical story created just for', W/2, H*0.58, {align:'center'});
+      const { dataUrl: bcName, heightMm: bcNameH } = renderHebrewCanvas(child, W - 50, 14, '#7a5030', { align: 'center', font: '"Suez One", Heebo, Arial' });
+      pdf.addImage(bcName, 'PNG', 25, H*0.62, W - 50, bcNameH);
+    } else {
+      setEngFont(11); pdf.setTextColor(120, 96, 72);
+      pdf.text('A magical story created just for ' + child, W/2, H*0.58, {align:'center'});
+    }
+
+    setEngFont(9); pdf.setTextColor(160, 130, 100);
+    pdf.text('lifebooksil.com', W/2, H*0.72, {align:'center'});
 
     // ── SAVE ──────────────────────────────────────────────────────────────
     p(98, 'Saving PDF...');
