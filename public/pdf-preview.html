@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>PDF Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  body { background: #333; display: flex; gap: 40px; padding: 40px; justify-content: center; flex-wrap: wrap; font-family: sans-serif; }
+  .label { color: #aaa; text-align: center; margin-bottom: 10px; font-size: 13px; letter-spacing: 1px; }
+  .page-wrap { display: flex; flex-direction: column; }
+
+  /* A5 proportion: 148x210mm → 370x525px at 2.5x */
+  .page {
+    width: 370px; height: 525px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+
+  /* ── COVER ── */
+  .cover { background: #1a1008; }
+  .cover .bg-img {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #3d2a1a 0%, #1a3040 40%, #0d2030 70%, #1a1008 100%);
+  }
+  /* Sample illustration placeholder */
+  .cover .illustration {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 35%, rgba(100,180,255,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse at 30% 60%, rgba(255,200,100,0.15) 0%, transparent 50%),
+      linear-gradient(180deg, #1a2840 0%, #0d1820 50%, #050810 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cover .illustration::after {
+    content: "🌟";
+    font-size: 80px;
+    opacity: 0.4;
+    position: absolute;
+    top: 25%; left: 50%; transform: translate(-50%,-50%);
+  }
+  /* Gradient overlay bottom half */
+  .cover .gradient-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 58%;
+    background: linear-gradient(to bottom, transparent 0%, rgba(10,5,2,0.55) 30%, rgba(10,5,2,0.85) 65%, rgba(10,5,2,0.97) 100%);
+  }
+  /* Title block */
+  .cover .title-block {
+    position: absolute;
+    bottom: 72px; left: 0; right: 0;
+    text-align: center; padding: 0 18px;
+  }
+  .cover .title-block .child-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px; font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.9);
+    margin-bottom: 8px;
+    direction: rtl;
+  }
+  .cover .title-block .title {
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px; font-weight: 400;
+    color: #f5e6a3;
+    line-height: 1.4;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+    margin-bottom: 6px;
+    direction: rtl;
+  }
+  .cover .title-block .gold-rule {
+    width: 80px; height: 1px;
+    background: #c9a84c; margin: 8px auto 0;
+    opacity: 0.7;
+  }
+  /* Logo footer */
+  .cover .logo-footer {
+    position: absolute; bottom: 12px; left: 0; right: 0;
+    text-align: center;
+  }
+  .cover .logo-footer img {
+    height: 48px; width: auto; display: block;
+    margin: 0 auto 2px;
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.8));
+  }
+  .cover .logo-footer .site {
+    font-size: 8px; color: #8a7050;
+    letter-spacing: 0.5px; margin-top: 1px;
+    font-family: 'Heebo', sans-serif;
+  }
+
+  /* ── DEDICATION PAGE ── */
+  .dedication { background: #fdf6ec; }
+  .dedication .outer-border {
+    position: absolute; inset: 10px;
+    border: 0.8px solid #c9a84c;
+  }
+  .dedication .inner-border {
+    position: absolute; inset: 12.5px;
+    border: 0.3px solid #c9a84c;
+  }
+  .dedication .content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 30px 30px;
+  }
+  .dedication .star {
+    font-size: 28px; color: #c9a84c;
+    margin-bottom: 28px;
+    line-height: 1;
+  }
+  .dedication .line1 {
+    font-family: 'Heebo', sans-serif;
+    font-size: 11px; color: #7a6048;
+    margin-bottom: 10px;
+    direction: rtl;
+  }
+  .dedication .child-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 700;
+    color: #2c1a0e;
+    margin-bottom: 10px;
+    direction: rtl;
+  }
+  .dedication .line3 {
+    font-family: 'Heebo', sans-serif;
+    font-size: 10px; color: #9b8060;
+    font-style: italic; margin-bottom: 28px;
+    direction: rtl;
+  }
+  .dedication .gold-rule {
+    width: 90px; height: 1px;
+    background: #c9a84c; margin-bottom: 24px; opacity: 0.6;
+  }
+  .dedication .brand img {
+    height: 48px; width: auto; display: block;
+    margin: 0 auto 3px;
+  }
+  .dedication .site {
+    font-size: 8px; color: #b49060; letter-spacing: 0.5px;
+  }
+
+  .note {
+    color: #888; font-size: 11px; text-align: center;
+    margin-top: 8px; max-width: 370px; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="page-wrap">
+  <div class="label">COVER</div>
+  <div class="page cover">
+    <div class="illustration"></div>
+    <div class="gradient-overlay"></div>
+    <div class="title-block">
+      <div class="child-name">מיה</div>
+      <div class="title">גיבורת העל והקריפטונייט הסודי שלה</div>
+      <div class="gold-rule"></div>
+    </div>
+    <div class="logo-footer">
+      <img src="assets/branding/lifebook new logo .webp" alt="Life Book">
+      <div class="site">lifebooks.online</div>
+    </div>
+  </div>
+  <div class="note">בספר האמיתי: תמונת הAI ממלאת את כל הדף במקום הרקע הכהה</div>
+</div>
+
+<!-- DEDICATION -->
+<div class="page-wrap">
+  <div class="label">דף הקדשה</div>
+  <div class="page dedication">
+    <div class="outer-border"></div>
+    <div class="inner-border"></div>
+    <div class="content">
+      <div class="star">⭐</div>
+      <div class="line1">הספר הזה נכתב במיוחד עבור</div>
+      <div class="child-name">מיה</div>
+      <div class="line3">שכל הרפתקאה מתחילה ממך</div>
+      <div class="gold-rule"></div>
+      <div class="brand"><img src="assets/branding/lifebook new logo .webp" alt="Life Book"></div>
+      <div class="site">lifebooks.online</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

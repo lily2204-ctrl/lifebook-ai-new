@@ -535,6 +535,29 @@ async function generatePDF() {
       img.src = src;
     });
 
+    // ── SVG logo → PNG base64 (for embedding in jsPDF) ───────────────────
+    // Loads assets/branding/logo.svg into a canvas and exports as PNG.
+    // Returns { dataUrl, wMm, hMm } sized to fit targetWidthMm.
+    async function loadLogoPng(targetWidthMm) {
+      return new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+          const aspect = img.naturalWidth / img.naturalHeight;
+          const PX_PER_MM = 4;
+          const wPx = Math.round(targetWidthMm * PX_PER_MM * 2);
+          const hPx = Math.round(wPx / aspect);
+          const c = document.createElement('canvas');
+          c.width = wPx; c.height = hPx;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, wPx, hPx);
+          const hMm = targetWidthMm / aspect;
+          res({ dataUrl: c.toDataURL('image/png'), wMm: targetWidthMm, hMm });
+        };
+        img.onerror = () => res(null);
+        img.src = 'assets/branding/lifebook new logo .webp';
+      });
+    }
+
     // ── Palette & drawing helpers ─────────────────────────────────────────
     const GOLD  = [200, 146,  42];
     const CREAM = [253, 246, 236];
@@ -571,7 +594,8 @@ async function generatePDF() {
     // COVER PAGE — full-bleed image, floating title overlay, logo footer
     // ══════════════════════════════════════════════════════════════════════
     p(16, 'Building cover page...');
-    const coverB64 = await loadB64(book.coverImage);
+    const coverB64  = await loadB64(book.coverImage);
+    const logoPng   = await loadLogoPng(38);
 
     // Full-bleed image (or dark fallback)
     if (coverB64) {
@@ -596,53 +620,44 @@ async function generatePDF() {
     }
     pdf.setGState(new pdf.GState({ opacity: 1 }));
 
-    // Title block — centered, bold, large
-    let cY = H * 0.52;
-    if (isHeb(title)) {
-      const { dataUrl, heightMm } = renderHebrewCanvas(title, W - 20, 28, '#f5e6a3');
+    // Title block: child name large, then book title below
+    let cY = H * 0.50;
+
+    // Child name — large, white/cream
+    if (isHeb(child)) {
+      const { dataUrl, heightMm } = renderHebrewCanvas(child, W - 20, 34, '#ffffff');
       pdf.addImage(dataUrl, 'PNG', 10, cY, W - 20, heightMm);
-      cY += heightMm + 4;
+      cY += heightMm + 5;
     } else {
-      setEngFont(26); pdf.setTextColor(245, 230, 163);
-      const tLines = pdf.splitTextToSize(title, W - 24);
-      tLines.forEach((line, li) => {
-        pdf.text(line, W/2, cY + 10 + li*12, { align: 'center' });
-      });
-      cY += tLines.length * 12 + 4;
+      setEngFont(30); pdf.setFont('times','bold'); pdf.setTextColor(255, 255, 255);
+      pdf.text(child, W/2, cY + 12, { align: 'center' });
+      cY += 16;
     }
 
-    // Subtitle
-    if (sub) {
-      if (isHeb(sub)) {
-        const { dataUrl, heightMm } = renderHebrewCanvas(sub, W - 28, 12, '#c9a84c');
-        pdf.addImage(dataUrl, 'PNG', 14, cY, W - 28, heightMm);
-        cY += heightMm + 3;
-      } else {
-        setEngFont(12); pdf.setTextColor(201, 168, 76);
-        pdf.text(sub, W/2, cY + 6, { align: 'center' });
-        cY += 9;
-      }
+    // Book title — smaller, gold
+    if (isHeb(title)) {
+      const { dataUrl, heightMm } = renderHebrewCanvas(title, W - 22, 18, '#f5e6a3');
+      pdf.addImage(dataUrl, 'PNG', 11, cY, W - 22, heightMm);
+      cY += heightMm + 4;
+    } else {
+      setEngFont(18); pdf.setFont('times','normal'); pdf.setTextColor(245, 230, 163);
+      const tLines = pdf.splitTextToSize(title, W - 24);
+      tLines.forEach((line, li) => {
+        pdf.text(line, W/2, cY + 8 + li*9, { align: 'center' });
+      });
+      cY += tLines.length * 9 + 4;
     }
 
     // Gold rule under title
     goldRule(cY + 2, W*0.25, W*0.25);
 
     // Lifebook logo at bottom center
-    const logoImg = document.querySelector('img[src*="logo"]') || document.querySelector('header img');
-    const logoSrc = logoImg ? logoImg.src : null;
-    if (logoSrc && logoSrc.endsWith('.svg')) {
-      // SVG logo: draw text fallback (jsPDF cannot embed SVG)
-      setEngFont(13); pdf.setTextColor(201, 168, 76);
-      pdf.setFont('times', 'italic');
-      pdf.text('Life Book', W/2, H - 11, { align: 'center' });
-      setEngFont(7); pdf.setTextColor(180, 150, 90);
-      pdf.text('lifebooks.online', W/2, H - 6, { align: 'center' });
+    if (logoPng) {
+      const lx = (W - logoPng.wMm) / 2;
+      pdf.addImage(logoPng.dataUrl, 'PNG', lx, H - logoPng.hMm - 5, logoPng.wMm, logoPng.hMm);
     } else {
-      setEngFont(13); pdf.setTextColor(201, 168, 76);
-      pdf.setFont('times', 'italic');
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
       pdf.text('Life Book', W/2, H - 11, { align: 'center' });
-      setEngFont(7); pdf.setTextColor(180, 150, 90);
-      pdf.text('lifebooks.online', W/2, H - 6, { align: 'center' });
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -749,10 +764,14 @@ async function generatePDF() {
     // Gold rule
     goldRule(H*0.64, W*0.28, W*0.28);
     // Lifebook branding
-    setEngFont(11); pdf.setFont('times','italic'); pdf.setTextColor(201, 168, 76);
-    pdf.text('Life Book', W/2, H*0.74, { align: 'center' });
-    setEngFont(8); pdf.setFont('times','normal'); pdf.setTextColor(180, 150, 100);
-    pdf.text('lifebooks.online', W/2, H*0.79, { align: 'center' });
+    if (logoPng) {
+      const dedLogoW = 36;
+      const dedLogoH = logoPng.hMm * (dedLogoW / logoPng.wMm);
+      pdf.addImage(logoPng.dataUrl, 'PNG', (W - dedLogoW)/2, H*0.72, dedLogoW, dedLogoH);
+    } else {
+      setEngFont(11); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
+      pdf.text('Life Book', W/2, H*0.74, { align: 'center' });
+    }
 
     // BACK COVER
     // ══════════════════════════════════════════════════════════════════════
