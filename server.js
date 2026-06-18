@@ -1935,7 +1935,6 @@ app.get("/api/admin/templates", requireAdminAuth, async (req, res) => {
 // ─── Admin: Create book ───────────────────────────────────────────────────────
 app.post("/api/admin/books/create", requireAdminAuth, async (req, res) => {
   try {
-    const { v4: uuidv4 } = await import("uuid");
     const { childName, childAge, childGender, customerEmail,
             croppedPhoto, originalPhoto, illustrationStyle } = req.body || {};
 
@@ -1943,7 +1942,7 @@ app.post("/api/admin/books/create", requireAdminAuth, async (req, res) => {
       return res.status(400).json({ error: "childName and croppedPhoto are required" });
     }
 
-    const bookId = uuidv4();
+    const bookId = crypto.randomUUID();
     let croppedUrl  = croppedPhoto;
     let originalUrl = originalPhoto || croppedPhoto;
 
