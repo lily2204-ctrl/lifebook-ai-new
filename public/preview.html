@@ -361,6 +361,7 @@ async function pollBook() {
       // Break when cover + 2 page images all ready (keeps polling so page images update)
       if (hasCover && has2Imgs) {
         setStep(4, "Ready!", 100);
+        document.title = "✅ הספר מוכן!";
         var total = b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0;
         var ready = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
         if (ready < total && stillGen) stillGen.style.display = "flex";

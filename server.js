@@ -1145,17 +1145,17 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
-      // Retry wrapper: up to 2 retries, 90s timeout per attempt.
+      // Retry wrapper: up to 2 retries, 180s timeout per attempt.
       // If all attempts fail, returns null and logs — pipeline continues regardless.
       async function generatePageImageWithRetry(pageIndex) {
         const MAX_RETRIES = 2;
-        const TIMEOUT_MS  = 90000;
+        const TIMEOUT_MS  = 180000;
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
           try {
             const result = await Promise.race([
               generatePageImage(pageIndex),
               new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 90s`)), TIMEOUT_MS)
+                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 180s`)), TIMEOUT_MS)
               )
             ]);
             return result;
@@ -1174,11 +1174,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
 
       // Run cover + pages 0 and 1 all at once in parallel
-      // Cover gets a 90s timeout; pages use generatePageImageWithRetry (2 retries + 90s each)
+      // Cover gets a 180s timeout; pages use generatePageImageWithRetry (2 retries + 180s each)
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
         bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
           openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 90s")), 90000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
         ]),
         fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
         fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
@@ -1966,7 +1966,7 @@ app.post("/api/admin/books/create", requireAdminAuth, async (req, res) => {
       illustrationStyle:  illustrationStyle || "Soft Storybook",
       croppedPhoto:       croppedUrl,
       originalPhoto:      originalUrl,
-      customerEmail:      customerEmail || "",
+      customerEmail:      customerEmail || process.env.ADMIN_EMAIL || "",
       characterReference: null,
       generatedBook:      null,
       coverImage:         null,
