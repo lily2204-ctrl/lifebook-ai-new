@@ -1141,7 +1141,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
         const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
-        const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024" });
+        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1024x1536", quality: "high" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
@@ -1177,7 +1177,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // Cover gets a 90s timeout; pages use generatePageImageWithRetry (2 retries + 90s each)
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
         bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
-          openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
+          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 90s")), 90000))
         ]),
         fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
@@ -1360,9 +1360,10 @@ Rules:
 - no copyrighted costume emblems`.trim();
 
               const imgResp = await openai.images.generate({
-                model:  "gpt-image-1",
-                prompt: finalPrompt,
-                size:   "1024x1024"
+                model:   "gpt-image-2",
+                prompt:  finalPrompt,
+                size:    "1024x1536",
+                quality: "high"
               });
 
               const base64 = await normalizeImageToBase64(imgResp?.data?.[0]);
@@ -1551,9 +1552,10 @@ Background:
 `.trim();
 
     const imageResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: characterSheetPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  characterSheetPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const characterSheetBase64 = await normalizeImageToBase64(imageResp?.data?.[0]);
@@ -1725,9 +1727,10 @@ Rules:
 `.trim();
 
     const imgResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: coverPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  coverPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const coverImageBase64 = await normalizeImageToBase64(imgResp?.data?.[0]);
@@ -1776,9 +1779,10 @@ Rules:
 `.trim();
 
     const imgResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: finalPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  finalPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const imageBase64 = await normalizeImageToBase64(imgResp?.data?.[0]);
