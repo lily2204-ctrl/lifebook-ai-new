@@ -683,6 +683,8 @@ async function generatePDF() {
     // Matches the viewer spread layout exactly.
     // ══════════════════════════════════════════════════════════════════════
     // Build page scrim gradient PNG once — reused for all story pages
+    // soft3d images tend to be brighter/more vivid → slightly stronger scrim for legibility
+    const isSoft3d = (book.illustrationStyle || '').toLowerCase() === 'soft3d';
     const pageScrimH = H * 0.42;
     const pageScrimDataUrl = (() => {
       const sc = document.createElement('canvas');
@@ -690,8 +692,8 @@ async function generatePDF() {
       const sCtx = sc.getContext('2d');
       const sg = sCtx.createLinearGradient(0, 0, 0, 300);
       sg.addColorStop(0,    'rgba(0,0,0,0)');
-      sg.addColorStop(0.45, 'rgba(0,0,0,0.48)');
-      sg.addColorStop(1,    'rgba(0,0,0,0.80)');
+      sg.addColorStop(0.45, isSoft3d ? 'rgba(0,0,0,0.58)' : 'rgba(0,0,0,0.48)');
+      sg.addColorStop(1,    isSoft3d ? 'rgba(0,0,0,0.90)' : 'rgba(0,0,0,0.80)');
       sCtx.fillStyle = sg;
       sCtx.fillRect(0, 0, 4, 300);
       return sc.toDataURL('image/png');

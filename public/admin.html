@@ -549,7 +549,12 @@ function buildFields(fields) {
       input.innerHTML = `<option value="">— בחרי —</option>`;
       (field.options || []).forEach(opt => {
         const o = document.createElement("option");
-        o.value = opt; o.textContent = opt;
+        // support both plain string options and {value, label} objects
+        if (opt && typeof opt === "object") {
+          o.value = opt.value; o.textContent = opt.label;
+        } else {
+          o.value = opt; o.textContent = opt;
+        }
         input.appendChild(o);
       });
       input.addEventListener("change", () => updateShowIf(fields));
@@ -633,7 +638,7 @@ async function doGenerate() {
         childName, childAge, childGender,
         croppedPhoto:      croppedBase64,
         originalPhoto:     croppedBase64,
-        illustrationStyle: currentTemplate.illustration_style || "Soft Storybook"
+        illustrationStyle: templateInputs.illustrationStyle || currentTemplate.illustration_style || "Soft Storybook"
       })
     });
     if (createRes.status === 401) { handleExpiredToken(); return; }

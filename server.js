@@ -36,6 +36,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Illustration style keys → full prompt descriptions (no brand names)
+const STYLE_DESCRIPTIONS = {
+  watercolor: "Soft Storybook watercolor illustration, warm hand-painted textures, gentle pencil outlines, delicate transparent washes, storybook warmth",
+  soft3d:     "soft 3D rendered children's illustration, modern animated film style, rounded friendly character, large expressive eyes, warm cinematic lighting, smooth volumes, gentle colors",
+};
+function resolveStyle(raw) {
+  return STYLE_DESCRIPTIONS[raw] || sanitizeBrandTerms(raw) || STYLE_DESCRIPTIONS.watercolor;
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Admin Auth ───────────────────────────────────────────────────────────────
@@ -1003,7 +1012,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const storyIdea         = book.storyIdea         || "a magical adventure";
       const illustrationStyle = book.illustrationStyle || "Soft Storybook";
       const croppedPhoto      = book.croppedPhoto      || book.originalPhoto || "";
-      const safeStyle         = sanitizeBrandTerms(illustrationStyle);
+      const safeStyle         = resolveStyle(illustrationStyle);
       const t0 = Date.now();
       const elapsed = () => `+${Math.round((Date.now()-t0)/1000)}s`;
       const isHebrewBook = /[\u0590-\u05FF]/.test(childName + storyIdea);
@@ -1474,7 +1483,7 @@ app.post("/generate-character-reference", async (req, res) => {
     }
 
     const style     = illustration_style || "Soft Storybook";
-    const safeStyle = sanitizeBrandTerms(style);
+    const safeStyle = resolveStyle(style);
 
     const dnaCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
