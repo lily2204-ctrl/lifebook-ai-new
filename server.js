@@ -1214,12 +1214,68 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const fullImages     = [...existingImages];
       while (fullImages.length < pages.length) fullImages.push(null);
 
-      // פונקציה ליצירת תמונה אחת
+      // ── Load reference image for image-edit pipeline ──────────────────────
+      // referenceBuffer is set once and reused for every page (same original photo).
+      // If loading fails → fallback to text-to-image with a clear warning.
+      let referenceBuffer = null;
+      if (USE_IMAGE_EDIT && croppedPhoto) {
+        try {
+          const refRes = await fetch(croppedPhoto);
+          if (!refRes.ok) throw new Error(`HTTP ${refRes.status}`);
+          const arrBuf = await refRes.arrayBuffer();
+          referenceBuffer = Buffer.from(arrBuf);
+          console.log(`generate-full [${bookId}]: reference photo loaded (${referenceBuffer.length} bytes) — using image-edit pipeline`);
+        } catch (refErr) {
+          console.warn(`generate-full [${bookId}]: ⚠️ FALLBACK — could not load reference photo (${refErr.message}). Falling back to text-to-image (no face identity). Book will still be generated.`);
+          referenceBuffer = null;
+        }
+      }
+
+      // Build STYLE_LOCK once — same string prepended to every page prompt
+      const styleLock = (USE_IMAGE_EDIT && referenceBuffer) ? buildStyleLock(illustrationStyle) : null;
+
+      const useEditPipeline = USE_IMAGE_EDIT && referenceBuffer !== null;
+
+      // ── V2 retry wrapper (image-edit) — 180s timeout, 2 retries ─────────
+      async function generatePageImageWithRetryV2(scenePrompt) {
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS  = 180000;
+        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+          try {
+            const result = await Promise.race([
+              generatePageImageV2(referenceBuffer, scenePrompt),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`image-edit timed out after 180s`)), TIMEOUT_MS)
+              )
+            ]);
+            return await normalizeImageToBase64(result?.data?.[0]);
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: image-edit attempt ${attempt} failed: ${err.message}`);
+            if (attempt <= MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+        }
+        console.error(`generate-full [${bookId}]: image-edit — all attempts failed, skipping (null)`);
+        return null;
+      }
+
+      // ── Old text-to-image function (unchanged, used when useEditPipeline=false) ──
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
         const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- keep the lower third of the composition calmer and less visually busy, with a simpler or softer background — this area is reserved for text overlay\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
         const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1024x1536", quality: "high" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
+      }
+
+      // ── Unified page generator: picks V2 or V1 based on flag ─────────────
+      async function generateAnyPage(pageIndex) {
+        if (useEditPipeline) {
+          const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
+          const scenePrompt = `${styleLock} ${scene} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          return generatePageImageWithRetryV2(scenePrompt);
+        }
+        return generatePageImage(pageIndex);
       }
 
       // Retry wrapper: up to 2 retries, 180s timeout per attempt.
@@ -1230,7 +1286,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
           try {
             const result = await Promise.race([
-              generatePageImage(pageIndex),
+              generateAnyPage(pageIndex),
               new Promise((_, reject) =>
                 setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 180s`)), TIMEOUT_MS)
               )
@@ -1247,23 +1303,38 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return null;
       }
 
-      // Cover prompt
-      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+      // Cover prompt / cover generation
+      let coverGenPromise;
+      if (useEditPipeline) {
+        const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
+        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        coverGenPromise = Promise.race([
+          generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
+        ]);
+      } else {
+        const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+        coverGenPromise = Promise.race([
+          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
+        ]);
+      }
 
       // Run cover + pages 0 and 1 all at once in parallel
       // Cover gets a 180s timeout; pages use generatePageImageWithRetry (2 retries + 180s each)
       const [coverResult, page0Result, page1Result] = await Promise.allSettled([
-        bookBeforeImgs.coverImage ? Promise.resolve(null) : Promise.race([
-          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
-        ]),
+        bookBeforeImgs.coverImage ? Promise.resolve(null) : coverGenPromise,
         fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
         fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
       ]);
 
       // Save cover — upload to Storage, fall back to base64
+      // V2 pipeline: coverResult.value is already a base64 string (normalizeImageToBase64 called inside the promise)
+      // V1 pipeline: coverResult.value is the raw API response object
       if (coverResult?.status === "fulfilled" && coverResult.value) {
-        const coverBase64 = await normalizeImageToBase64(coverResult.value?.data?.[0]);
+        const coverBase64 = useEditPipeline
+          ? coverResult.value   // already base64 string from V2
+          : await normalizeImageToBase64(coverResult.value?.data?.[0]);
         if (coverBase64) {
           let coverValue = `data:image/jpeg;base64,${coverBase64}`;
           try {
