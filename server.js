@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
@@ -8,6 +8,11 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 import jwt    from "jsonwebtoken";
+
+// ── Feature flag: image-to-image identity pipeline ───────────────────────────
+// Set to true to use openai.images.edit (identity-preserving) instead of .generate.
+// Set to false to revert to the old text-to-image pipeline.
+const USE_IMAGE_EDIT = true;
 
 const app = express();
 app.use(cors());
