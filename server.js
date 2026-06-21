@@ -45,13 +45,13 @@ const supabase = createClient(
 // STYLE_LOCK strings — exact wording from brief. Do not soften/change.
 const STYLE_LOCK = {
   watercolor:
-    "A flat hand-painted watercolor children's storybook illustration, gentle " +
-    "storybook style with soft uniform watercolor textures and soft muted colors. " +
-    "Consistent illustrated character design across the whole book — the same " +
-    "simplified painted look in every single image, never photorealistic, never " +
-    "a portrait, never 3D. Keep the child's face, age, features and identity " +
-    "exactly as in the reference photo, consistent and identical in every " +
-    "illustration.",
+    "Transform the reference photo into a flat hand-painted watercolor children's " +
+    "storybook illustration. Simplified illustrated style — NOT photorealistic, " +
+    "NOT a portrait, NOT a photograph, NOT realistic rendering. The final image " +
+    "must look like a page from a hand-painted picture book, not like a painting " +
+    "of a real person. Keep the child's face, age, and identity from the reference, " +
+    "but render them in a simplified illustrated way, consistent and identical " +
+    "across every page of the book.",
   soft3d:
     "Transform this into a 3D rendered animated character. " +
     "Glossy smooth 3D surfaces, big expressive eyes, soft cinematic studio lighting, " +
@@ -1277,7 +1277,10 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generateAnyPage(pageIndex) {
         if (useEditPipeline) {
           const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
-          const scenePrompt = `${styleLock} ${scene} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const styleReminder = (illustrationStyle || "").toLowerCase() === "soft3d"
+            ? ""
+            : " Style reminder: flat watercolor picture book illustration, NOT photorealistic, same simplified painted look as every other page.";
+          const scenePrompt = `${styleLock} ${scene}${styleReminder} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
