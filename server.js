@@ -1035,16 +1035,19 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
     return null;
   }
 
-  // Resolve allergyVariant from variations map
+  // Resolve allergyVariant from variations map (allergy-hero template)
   const allergyType  = inputs.allergyType  || "";
   const allergyOther = inputs.allergyOther || "";
-  const variationMap = tmpl.variations?.allergyType || {};
-
-  let allergyVariant = variationMap[allergyType] || allergyType;
-  // Fill {{allergyOther}} and {{childName}} inside the variation text
+  const allergyMap   = tmpl.variations?.allergyType || {};
+  let allergyVariant = allergyMap[allergyType] || allergyType;
   allergyVariant = allergyVariant
     .replace(/\{\{allergyOther\}\}/g, allergyOther)
     .replace(/\{\{childName\}\}/g,   inputs.childName || "");
+
+  // Resolve dadRoleVariant from variations map (dad-hero template)
+  const dadRole    = inputs.dadRole || "";
+  const dadRoleMap = tmpl.variations?.dadRole || {};
+  const dadRoleVariant = dadRoleMap[dadRole] || dadRole || "עובד קשה";
 
   // Gender note for skeleton
   const genderNote = (inputs.childGender === "ילד")
@@ -1058,6 +1061,11 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
     .replace(/\{\{childGender\}\}/g,     inputs.childGender || "")
     .replace(/\{\{genderNote\}\}/g,      genderNote)
     .replace(/\{\{allergyVariant\}\}/g,  allergyVariant)
+    .replace(/\{\{dadName\}\}/g,         inputs.dadName     || "אבא")
+    .replace(/\{\{dadRoleVariant\}\}/g,  dadRoleVariant)
+    .replace(/\{\{grandpaName\}\}/g,     inputs.grandpaName || "סבא")
+    .replace(/\{\{grandmaName\}\}/g,     inputs.grandmaName || "סבתא")
+    .replace(/\{\{regionName\}\}/g,      inputs.regionName  || "כפר ירוק ורחוק")
     .replace(/\{\{characterSummary\}\}/g, sanitizeBrandTerms(characterSummary))
     .replace(/\{\{promptCore\}\}/g,      sanitizeBrandTerms(promptCore));
 
