@@ -1020,8 +1020,24 @@ app.post("/api/books/:bookId/unlock", async (req, res) => {
 });
 
 // ─── Template prompt builder ───────────────────────────────────────────────────
-// Fetches a story_template row and fills all {{placeholders}}.
+// Fetches a story_template row and fills all {{placeholders}} generically.
 // Returns a ready-to-send prompt string, or null if template not found/inactive.
+//
+// HOW IT WORKS:
+// 1. Build a values map from all inputs fields (childName, allergyType, dadName, etc.)
+// 2. For each key in tmpl.variations, resolve inputs[key] against the map,
+//    then store as {{key + "Variant"}} in the values map. Sub-placeholders
+//    inside the resolved variation text (e.g. {{allergyOther}}) are expanded too.
+// 3. Add computed fields: genderNote, characterSummary, promptCore.
+// 4. Replace every {{key}} in the skeleton with its value. Unknown keys → "".
+//
+// Adding a new template = INSERT into story_templates only. No code change needed.
+//
+// ── OLD VERSION (kept for rollback) ──────────────────────────────────────────
+// async function buildTemplateStoryPrompt_OLD(templateSlug, inputs, characterSummary, promptCore) {
+//   ... (template-specific allergyVariant + dadRoleVariant hardcoded) ...
+// }
+// ─────────────────────────────────────────────────────────────────────────────
 async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore) {
   const { data: tmpl, error } = await supabase
     .from("story_templates")
@@ -1035,39 +1051,36 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
     return null;
   }
 
-  // Resolve allergyVariant from variations map (allergy-hero template)
-  const allergyType  = inputs.allergyType  || "";
-  const allergyOther = inputs.allergyOther || "";
-  const allergyMap   = tmpl.variations?.allergyType || {};
-  let allergyVariant = allergyMap[allergyType] || allergyType;
-  allergyVariant = allergyVariant
-    .replace(/\{\{allergyOther\}\}/g, allergyOther)
-    .replace(/\{\{childName\}\}/g,   inputs.childName || "");
+  // Step 1: seed values map from all inputs
+  const vals = {};
+  for (const [k, v] of Object.entries(inputs || {})) {
+    vals[k] = String(v ?? "");
+  }
 
-  // Resolve dadRoleVariant from variations map (dad-hero template)
-  const dadRole    = inputs.dadRole || "";
-  const dadRoleMap = tmpl.variations?.dadRole || {};
-  const dadRoleVariant = dadRoleMap[dadRole] || dadRole || "עובד קשה";
+  // Step 2: resolve each variation key → store as {{key + "Variant"}}
+  // e.g. variations.allergyType["בוטנים"] = "אלרגיה לבוטנים"  → vals.allergyTypeVariant
+  // Sub-placeholders inside the resolved text (e.g. {{allergyOther}}) are expanded
+  // using the current vals map.
+  const variations = tmpl.variations || {};
+  for (const [varKey, varMap] of Object.entries(variations)) {
+    if (varMap && typeof varMap === "object") {
+      const chosen  = vals[varKey] || "";
+      let resolved  = varMap[chosen] || chosen || "";
+      // expand sub-placeholders (e.g. {{allergyOther}}, {{childName}})
+      resolved = resolved.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
+      vals[varKey + "Variant"] = resolved;
+    }
+  }
 
-  // Gender note for skeleton
-  const genderNote = (inputs.childGender === "ילד")
+  // Step 3: computed fields
+  vals.genderNote = (inputs.childGender === "ילד")
     ? "הילד הוא בן — השתמש בלשון זכר לאורך כל הסיפור."
     : "הילדה היא בת — השתמש בלשון נקבה לאורך כל הסיפור.";
+  vals.characterSummary = sanitizeBrandTerms(characterSummary || "");
+  vals.promptCore       = sanitizeBrandTerms(promptCore       || "");
 
-  // Fill all placeholders in the skeleton, including character consistency fields
-  const prompt = tmpl.story_skeleton
-    .replace(/\{\{childName\}\}/g,       inputs.childName   || "")
-    .replace(/\{\{childAge\}\}/g,        inputs.childAge    || "")
-    .replace(/\{\{childGender\}\}/g,     inputs.childGender || "")
-    .replace(/\{\{genderNote\}\}/g,      genderNote)
-    .replace(/\{\{allergyVariant\}\}/g,  allergyVariant)
-    .replace(/\{\{dadName\}\}/g,         inputs.dadName     || "אבא")
-    .replace(/\{\{dadRoleVariant\}\}/g,  dadRoleVariant)
-    .replace(/\{\{grandpaName\}\}/g,     inputs.grandpaName || "סבא")
-    .replace(/\{\{grandmaName\}\}/g,     inputs.grandmaName || "סבתא")
-    .replace(/\{\{regionName\}\}/g,      inputs.regionName  || "כפר ירוק ורחוק")
-    .replace(/\{\{characterSummary\}\}/g, sanitizeBrandTerms(characterSummary))
-    .replace(/\{\{promptCore\}\}/g,      sanitizeBrandTerms(promptCore));
+  // Step 4: replace every {{key}} in the skeleton; unknown keys → ""
+  const prompt = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
 
   return prompt;
 }
