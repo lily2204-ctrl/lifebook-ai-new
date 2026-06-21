@@ -1227,6 +1227,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           };
           await updateBookField(bookId, { generatedBook });
           console.log(`generate-full [${bookId}]: STEP 2 done`);
+          console.log(`generate-full [${bookId}]: STEP 2 imagePrompts —`, JSON.stringify(generatedBook.pages.map((p, i) => ({ i, imagePrompt: p.imagePrompt }))));
         } catch (err) {
           console.error(`generate-full [${bookId}]: STEP 2 FAILED — ${err.message}`);
           const fallbackBook = {
@@ -1311,7 +1312,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generateAnyPage(pageIndex) {
         if (useEditPipeline) {
           const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
-          console.log(`generate-full [${bookId}]: page-${pageIndex} scene length=${scene.length} chars`);
+          console.log(`generate-full [${bookId}]: page-${pageIndex} scene: ${scene}`);
           const hasFamilyMember = /\b(father|mother|dad|mom|grandfather|grandmother|grandpa|grandma|brother|sister|parent|family|siblings?)\b/i.test(scene);
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
