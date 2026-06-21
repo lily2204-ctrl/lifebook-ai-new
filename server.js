@@ -45,12 +45,13 @@ const supabase = createClient(
 // STYLE_LOCK strings — exact wording from brief. Do not soften/change.
 const STYLE_LOCK = {
   watercolor:
-    "A soft watercolor children's storybook illustration, gentle hand-painted " +
-    "style with visible watercolor textures, soft muted colors, consistent " +
-    "character design. Keep the child's face, age, features and identity " +
-    "exactly as in the reference photo, and keep them consistent and identical " +
-    "across every illustration in the book. Hand-painted watercolor look, " +
-    "NOT 3D, NOT photorealistic, NOT a photo.",
+    "A flat hand-painted watercolor children's storybook illustration, gentle " +
+    "storybook style with soft uniform watercolor textures and soft muted colors. " +
+    "Consistent illustrated character design across the whole book — the same " +
+    "simplified painted look in every single image, never photorealistic, never " +
+    "a portrait, never 3D. Keep the child's face, age, features and identity " +
+    "exactly as in the reference photo, consistent and identical in every " +
+    "illustration.",
   soft3d:
     "Transform this into a 3D rendered animated character. " +
     "Glossy smooth 3D surfaces, big expressive eyes, soft cinematic studio lighting, " +
