@@ -45,13 +45,12 @@ const supabase = createClient(
 // STYLE_LOCK strings — exact wording from brief. Do not soften/change.
 const STYLE_LOCK = {
   watercolor:
-    "Transform the reference photo into a flat hand-painted watercolor children's " +
-    "storybook illustration. Simplified illustrated style — NOT photorealistic, " +
-    "NOT a portrait, NOT a photograph, NOT realistic rendering. The final image " +
-    "must look like a page from a hand-painted picture book, not like a painting " +
-    "of a real person. Keep the child's face, age, and identity from the reference, " +
-    "but render them in a simplified illustrated way, consistent and identical " +
-    "across every page of the book.",
+    "A soft watercolor children's storybook illustration, gentle hand-painted " +
+    "style with visible watercolor textures, soft muted colors, consistent " +
+    "character design. Keep the child's face, age, features and identity " +
+    "exactly as in the reference photo, and keep them consistent and identical " +
+    "across every illustration in the book. Hand-painted watercolor look, " +
+    "NOT 3D, NOT photorealistic, NOT a photo.",
   soft3d:
     "Transform this into a 3D rendered animated character. " +
     "Glossy smooth 3D surfaces, big expressive eyes, soft cinematic studio lighting, " +
@@ -1080,9 +1079,16 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
   vals.promptCore       = sanitizeBrandTerms(promptCore       || "");
 
   // Step 4: replace every {{key}} in the skeleton; unknown keys → ""
-  const prompt = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
+  const filledSkeleton = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
 
-  return prompt;
+  // Prepend writing rules automatically — no {{writingRules}} needed in any skeleton
+  const writingRules = `כללי כתיבה חשובים:\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+  const prompt = `${writingRules}\n\n${filledSkeleton}`;
+
+  // skinToneSource: "child" (default) or "fixed" (template overrides child's skin tone)
+  const skinToneSource = tmpl.input_schema?.skinToneSource || "child";
+
+  return { prompt, skinToneSource };
 }
 
 // ─── Generate Full Book (story + cover + images) — fires in background ────────
@@ -1144,7 +1150,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           characterReference = {
             characterDNA,
             characterPromptCore: promptCore,
-            characterSummary: characterDNA.summary || "A warm curious child hero."
+            characterSummary: characterDNA.summary || "A warm curious child hero.",
+            skinToneDescription: [characterDNA.skin, characterDNA.hair].filter(Boolean).join(" and ")
           };
           await updateBookField(bookId, { characterReference });
         } catch (err) {
@@ -1158,8 +1165,9 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         }
       }
 
-      const promptCore       = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
-      const characterSummary = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
+      const promptCore           = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
+      const characterSummary     = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
+      const skinToneDescription  = characterReference?.skinToneDescription || "";
       console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
@@ -1171,23 +1179,28 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         const templateInputs = req.body?.templateInputs  || {};
 
         let storyPrompt;
+        let templateSkinToneSource = "child"; // default: derive skin tone from child photo
 
         // ── template mode ──────────────────────────────────────────────────────
         if (mode === 'template' && templateSlug) {
           console.log(`generate-full [${bookId}]: STEP 2 mode=template slug=${templateSlug}`);
-          storyPrompt = await buildTemplateStoryPrompt(
+          const tmplResult = await buildTemplateStoryPrompt(
             templateSlug, templateInputs, characterSummary, promptCore
           );
-          if (!storyPrompt) {
+          if (!tmplResult) {
             console.warn(`generate-full [${bookId}]: STEP 2 template not found — falling back to custom`);
             mode = 'custom';
+          } else {
+            storyPrompt            = tmplResult.prompt;
+            templateSkinToneSource = tmplResult.skinToneSource;
           }
         }
 
         // ── custom mode (default, and fallback from template) ──────────────────
         if (mode !== 'template') {
           console.log(`generate-full [${bookId}]: STEP 2 mode=custom`);
-          storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
+          const writingRules = `כללי כתיבה חשובים:\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${childAge}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+          storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
         }
 
         // ── OpenAI call (identical for both modes) ─────────────────────────────
@@ -1299,10 +1312,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         if (useEditPipeline) {
           const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
           console.log(`generate-full [${bookId}]: page-${pageIndex} scene length=${scene.length} chars`);
-          const styleReminder = (illustrationStyle || "").toLowerCase() === "soft3d"
-            ? ""
-            : " Style reminder: flat watercolor picture book illustration, NOT photorealistic, same simplified painted look as every other page.";
-          const scenePrompt = `${styleLock} ${scene}${styleReminder} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const hasFamilyMember = /\b(father|mother|dad|mom|grandfather|grandmother|grandpa|grandma|brother|sister|parent|family|siblings?)\b/i.test(scene);
+          const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
+            ? ` Family members share the child's ${skinToneDescription}.`
+            : "";
+          const scenePrompt = `${styleLock} ${scene}${skinToneHint} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
