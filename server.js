@@ -1277,6 +1277,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generateAnyPage(pageIndex) {
         if (useEditPipeline) {
           const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
+          console.log(`generate-full [${bookId}]: page-${pageIndex} scene length=${scene.length} chars`);
           const styleReminder = (illustrationStyle || "").toLowerCase() === "soft3d"
             ? ""
             : " Style reminder: flat watercolor picture book illustration, NOT photorealistic, same simplified painted look as every other page.";
