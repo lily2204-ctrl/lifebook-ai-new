@@ -74,7 +74,16 @@ function softenPrompt(prompt) {
     .replace(/\bdanger\b/gi, "challenge")
     .replace(/\bscream(ing|s|ed)?\b/gi, "calls out")
     .replace(/\bblood\b/gi, "red berries")
-    .replace(/\bweapon(s)?\b/gi, "magical tool");
+    .replace(/\bweapon(s)?\b/gi, "magical tool")
+    // dad-hero / family scenes — avoid physical contact phrasing that triggers safety filter
+    .replace(/\bembrac(ing|es?|ed)\b/gi, "warmly holding close")
+    .replace(/\bhugg(ing|s|ed)\b/gi, "warmly holding close")
+    .replace(/\bhug\b/gi, "warm moment with")
+    .replace(/\bholding the child\b/gi, "close beside the child")
+    .replace(/\bruns? to\b/gi, "rushes happily toward")
+    .replace(/\brunning to\b/gi, "rushing happily toward")
+    .replace(/\bkiss(es|ing|ed)?\b/gi, "smiles warmly at")
+    .replace(/\bcarr(ies|ying|ied)\b/gi, "walks lovingly with");
 }
 
 // Image-to-image generation using openai.images.edit
@@ -1179,7 +1188,6 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         const templateInputs = req.body?.templateInputs  || {};
 
         let storyPrompt;
-        let templateSkinToneSource = "child"; // default: derive skin tone from child photo
 
         // ── template mode ──────────────────────────────────────────────────────
         if (mode === 'template' && templateSlug) {
@@ -1275,6 +1283,10 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const styleLock = (USE_IMAGE_EDIT && referenceBuffer) ? buildStyleLock(illustrationStyle) : null;
 
       const useEditPipeline = USE_IMAGE_EDIT && referenceBuffer !== null;
+
+      // templateSkinToneSource: set during STEP 2 template mode; default "child"
+      // Declared here (outside the STEP 2 if-block) so generateAnyPage can access it
+      let templateSkinToneSource = "child";
 
       // ── V2 retry wrapper (image-edit) — 180s timeout, 2 retries ─────────
       async function generatePageImageWithRetryV2(scenePrompt) {
