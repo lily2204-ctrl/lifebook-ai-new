@@ -1184,6 +1184,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // Declared here — before STEP 2 sets it and before generateAnyPage reads it
       let templateSkinToneSource = "child";
       let templateCharacterBible = null;
+      // Declared here — before STEP 2 if-block so bannedNamesInPrompt can access it even when STEP 2 is skipped
+      let templateInputs = {};
       console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
@@ -1192,7 +1194,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         // Determine mode from request body (default: custom — no existing behaviour changes)
         let mode             = req.body?.mode            || 'custom';
         const templateSlug   = req.body?.templateSlug    || null;
-        const templateInputs = req.body?.templateInputs  || {};
+        templateInputs       = req.body?.templateInputs  || {};
 
         let storyPrompt;
 
@@ -1367,7 +1369,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         let result = text;
         for (const name of bannedNamesInPrompt) {
           // Remove "Saba <Name>", "<Name>", etc. — case-insensitive word-boundary match
-          result = result.replace(new RegExp(`\\b${name}\\b`, "gi"), "");
+          const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          result = result.replace(new RegExp(`\\b${escapedName}\\b`, "gi"), "");
         }
         // Clean up double spaces left by removal
         return result.replace(/\s{2,}/g, " ").trim();
