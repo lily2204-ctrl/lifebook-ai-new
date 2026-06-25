@@ -1049,7 +1049,7 @@ app.post("/api/books/:bookId/unlock", async (req, res) => {
 async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore) {
   const { data: tmpl, error } = await supabase
     .from("story_templates")
-    .select("story_skeleton, variations, input_schema")
+    .select("story_skeleton, variations, input_schema, character_bible")
     .eq("slug", templateSlug)
     .eq("active", true)
     .single();
@@ -1097,7 +1097,11 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
   // skinToneSource: "child" (default) or "fixed" (template overrides child's skin tone)
   const skinToneSource = tmpl.input_schema?.skinToneSource || "child";
 
-  return { prompt, skinToneSource };
+  // character_bible: resolved character descriptions keyed by Hebrew role name
+  // Values may contain "derived from child photo" (filled at runtime) or fixed strings
+  const characterBible = tmpl.character_bible || null;
+
+  return { prompt, skinToneSource, characterBible };
 }
 
 // ─── Generate Full Book (story + cover + images) — fires in background ────────
@@ -1179,6 +1183,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const skinToneDescription  = characterReference?.skinToneDescription || "";
       // Declared here — before STEP 2 sets it and before generateAnyPage reads it
       let templateSkinToneSource = "child";
+      let templateCharacterBible = null;
       console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
@@ -1203,6 +1208,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           } else {
             storyPrompt            = tmplResult.prompt;
             templateSkinToneSource = tmplResult.skinToneSource;
+            templateCharacterBible = tmplResult.characterBible;
           }
         }
 
@@ -1318,16 +1324,47 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
+      // Hebrew role → bible key mapping
+      const HEBREW_ROLE_MAP = {
+        "סבא": "saba", "סבתא": "savta",
+        "אמא": "ima",  "אבא": "aba",
+        "אח":  "ach",  "אחות": "achot",
+      };
+
+      // Build character appearance hint from character_bible for a given page text (Hebrew)
+      function buildBibleHint(pageText) {
+        if (!templateCharacterBible || !pageText) return "";
+        const hints = [];
+        for (const [hebrewRole, bibleKey] of Object.entries(HEBREW_ROLE_MAP)) {
+          if (!pageText.includes(hebrewRole)) continue;
+          const entry = templateCharacterBible[bibleKey];
+          if (!entry || entry._rule) continue; // skip meta-fields
+          const appearance = (typeof entry === "string") ? entry : entry.appearance;
+          if (!appearance) continue;
+          if (appearance === "derived from child photo") {
+            // runtime substitution: use skinToneDescription from STEP 1
+            if (skinToneDescription) hints.push(`${hebrewRole}: ${skinToneDescription}.`);
+          } else {
+            hints.push(`${hebrewRole}: ${appearance}.`);
+          }
+        }
+        return hints.length ? ` Character appearances: ${hints.join(" ")}` : "";
+      }
+
       // ── Unified page generator: picks V2 or V1 based on flag ─────────────
       async function generateAnyPage(pageIndex) {
         if (useEditPipeline) {
-          const scene = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
+          const scene    = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
+          const pageText = pages[pageIndex]?.text || "";
           console.log(`generate-full [${bookId}]: page-${pageIndex} scene: ${scene}`);
-          const hasFamilyMember = /\b(father|mother|dad|mom|grandfather|grandmother|grandpa|grandma|brother|sister|parent|family|siblings?)\b/i.test(scene);
+
+          // character_bible hint (from template) takes priority over generic skinToneHint
+          const bibleHint = buildBibleHint(pageText);
+          const hasFamilyMember = !bibleHint && /\b(father|mother|dad|mom|grandfather|grandmother|grandpa|grandma|brother|sister|parent|family|siblings?)\b/i.test(scene);
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock} ${scene}${skinToneHint} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
