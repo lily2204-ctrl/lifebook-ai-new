@@ -100,7 +100,7 @@ async function generatePageImageV2(referenceBuffer, scenePrompt, attempt = 0) {
       model:   "gpt-image-1",
       image:   imageFile,
       prompt:  scenePrompt,
-      size:    "1024x1536",
+      size:    "1536x1024",
       quality: "high",
     });
     return resp;
@@ -1219,31 +1219,50 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
         }
 
-        // ── OpenAI call (identical for both modes) ─────────────────────────────
-        try {
-          console.log(`generate-full [${bookId}]: STEP 2 starting`);
-          const storyCompletion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [{ role: "user", content: storyPrompt }],
-            temperature: 0.8
-          });
+        // ── OpenAI call (identical for both modes) — up to 2 retries if <12 pages ──
+        // Suffix appended to every story prompt to reinforce 12-page requirement
+        const pageSuffix = `\n\n⚠️ MANDATORY: The "pages" array in your JSON response MUST contain EXACTLY 12 objects — no more, no fewer. Count them before you respond.`;
 
-          const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
-          const storyData = safeJsonParse(storyRaw, {});
-          const generatedBook = {
-            title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
-            subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
-            pages:    Array.isArray(storyData.pages)
-              ? storyData.pages.slice(0, 12).map(p => ({
+        const parseStoryResponse = (raw) => {
+          const data = safeJsonParse(raw, {});
+          return {
+            title:    sanitizeBrandTerms(data.title    || `The Magical Adventure of ${childName}`),
+            subtitle: sanitizeBrandTerms(data.subtitle || "A story where you are the hero"),
+            pages:    Array.isArray(data.pages)
+              ? data.pages.slice(0, 12).map(p => ({
                   text:        sanitizeBrandTerms(String(p.text        || "").trim()),
                   imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
                 }))
               : []
           };
-          if (generatedBook.pages.length < 12) {
-            console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 — GPT returned only ${generatedBook.pages.length}/12 pages. Check story_skeleton page count instructions.`);
+        };
+
+        try {
+          let generatedBook = null;
+          const MAX_STORY_ATTEMPTS = 3;
+          for (let attempt = 1; attempt <= MAX_STORY_ATTEMPTS; attempt++) {
+            console.log(`generate-full [${bookId}]: STEP 2 attempt ${attempt}/${MAX_STORY_ATTEMPTS}`);
+            const completion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [{ role: "user", content: storyPrompt + pageSuffix }],
+              temperature: 0.8
+            });
+            const raw = completion.choices?.[0]?.message?.content || "{}";
+            const candidate = parseStoryResponse(raw);
+            if (candidate.pages.length === 12) {
+              generatedBook = candidate;
+              console.log(`generate-full [${bookId}]: STEP 2 — got 12 pages on attempt ${attempt}`);
+              break;
+            }
+            console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 attempt ${attempt} — got ${candidate.pages.length}/12 pages, retrying...`);
+            if (attempt === MAX_STORY_ATTEMPTS) {
+              // Best effort: use whatever we got
+              generatedBook = candidate;
+              console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 FINAL — only ${candidate.pages.length}/12 pages after ${MAX_STORY_ATTEMPTS} attempts. Building partial book.`);
+            }
           }
+
           await updateBookField(bookId, { generatedBook });
           console.log(`generate-full [${bookId}]: STEP 2 done — ${generatedBook.pages.length} pages`);
           console.log(`generate-full [${bookId}]: STEP 2 imagePrompts —`, JSON.stringify(generatedBook.pages.map((p, i) => ({ i, imagePrompt: p.imagePrompt }))));
@@ -1323,7 +1342,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
         const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- keep the lower third of the composition calmer and less visually busy, with a simpler or softer background — this area is reserved for text overlay\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
-        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1024x1536", quality: "high" });
+        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1536x1024", quality: "high" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
@@ -1387,7 +1406,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Landscape orientation. Character positioned with breathing room on both sides, head and feet fully within frame, no cropping. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
@@ -1422,7 +1441,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       let coverGenPromise;
       if (useEditPipeline) {
         const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
-        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        const coverScenePrompt = `${styleLock} ${coverScene} Landscape orientation. Character positioned with breathing room on both sides, head and feet fully within frame, no cropping. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
         coverGenPromise = Promise.race([
           generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
@@ -1430,7 +1449,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       } else {
         const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
         coverGenPromise = Promise.race([
-          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
+          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1536x1024", quality: "high" }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
         ]);
       }
@@ -1625,7 +1644,7 @@ Rules:
               const imgResp = await openai.images.generate({
                 model:   "gpt-image-2",
                 prompt:  finalPrompt,
-                size:    "1024x1536",
+                size:    "1536x1024",
                 quality: "high"
               });
 
@@ -1817,7 +1836,7 @@ Background:
     const imageResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  characterSheetPrompt,
-      size:    "1024x1536",
+      size:    "1536x1024",
       quality: "high"
     });
 
@@ -1992,7 +2011,7 @@ Rules:
     const imgResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  coverPrompt,
-      size:    "1024x1536",
+      size:    "1536x1024",
       quality: "high"
     });
 
@@ -2044,7 +2063,7 @@ Rules:
     const imgResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  finalPrompt,
-      size:    "1024x1536",
+      size:    "1536x1024",
       quality: "high"
     });
 
