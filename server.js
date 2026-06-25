@@ -1091,7 +1091,7 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
   const filledSkeleton = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
 
   // Prepend writing rules automatically — no {{writingRules}} needed in any skeleton
-  const writingRules = `כללי כתיבה חשובים:\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+  const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
   const prompt = `${writingRules}\n\n${filledSkeleton}`;
 
   // skinToneSource: "child" (default) or "fixed" (template overrides child's skin tone)
@@ -1215,7 +1215,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         // ── custom mode (default, and fallback from template) ──────────────────
         if (mode !== 'template') {
           console.log(`generate-full [${bookId}]: STEP 2 mode=custom`);
-          const writingRules = `כללי כתיבה חשובים:\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${childAge}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+          const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${childAge}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
           storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
         }
 
@@ -1241,8 +1241,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
                 }))
               : []
           };
+          if (generatedBook.pages.length < 12) {
+            console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 — GPT returned only ${generatedBook.pages.length}/12 pages. Check story_skeleton page count instructions.`);
+          }
           await updateBookField(bookId, { generatedBook });
-          console.log(`generate-full [${bookId}]: STEP 2 done`);
+          console.log(`generate-full [${bookId}]: STEP 2 done — ${generatedBook.pages.length} pages`);
           console.log(`generate-full [${bookId}]: STEP 2 imagePrompts —`, JSON.stringify(generatedBook.pages.map((p, i) => ({ i, imagePrompt: p.imagePrompt }))));
         } catch (err) {
           console.error(`generate-full [${bookId}]: STEP 2 FAILED — ${err.message}`);
@@ -1331,6 +1334,26 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         "אח":  "ach",  "אחות": "achot",
       };
 
+      // Names that must not appear in imagePrompts (cause GPT-image to try rendering/distorting them)
+      // Built from inputs: childName + any template input fields that look like names
+      const bannedNamesInPrompt = [
+        inputs?.childName,
+        inputs?.dadName,
+        inputs?.grandpaName,
+        inputs?.grandmaName,
+      ].filter(Boolean).map(n => n.trim()).filter(n => n.length > 1);
+
+      function stripBannedNames(text) {
+        if (!bannedNamesInPrompt.length) return text;
+        let result = text;
+        for (const name of bannedNamesInPrompt) {
+          // Remove "Saba <Name>", "<Name>", etc. — case-insensitive word-boundary match
+          result = result.replace(new RegExp(`\\b${name}\\b`, "gi"), "");
+        }
+        // Clean up double spaces left by removal
+        return result.replace(/\s{2,}/g, " ").trim();
+      }
+
       // Build character appearance hint from character_bible for a given page text (Hebrew)
       function buildBibleHint(pageText) {
         if (!templateCharacterBible || !pageText) return "";
@@ -1354,7 +1377,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // ── Unified page generator: picks V2 or V1 based on flag ─────────────
       async function generateAnyPage(pageIndex) {
         if (useEditPipeline) {
-          const scene    = sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || "");
+          const scene    = stripBannedNames(sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || ""));
           const pageText = pages[pageIndex]?.text || "";
           console.log(`generate-full [${bookId}]: page-${pageIndex} scene: ${scene}`);
 
