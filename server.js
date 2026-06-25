@@ -1356,10 +1356,10 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       // Names that must not appear in imagePrompts (cause GPT-image to try rendering/distorting them)
       // Built from inputs: childName + any template input fields that look like names
       const bannedNamesInPrompt = [
-        inputs?.childName,
-        inputs?.dadName,
-        inputs?.grandpaName,
-        inputs?.grandmaName,
+        childName,
+        templateInputs?.dadName,
+        templateInputs?.grandpaName,
+        templateInputs?.grandmaName,
       ].filter(Boolean).map(n => n.trim()).filter(n => n.length > 1);
 
       function stripBannedNames(text) {
