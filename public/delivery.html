@@ -767,7 +767,7 @@ async function generatePDF() {
     // Dedication text — centered, all via canvas for Hebrew
     const dedLine1 = isHeb(child) ? '\u05E1\u05E4\u05E8 \u05D6\u05D4 \u05E0\u05DB\u05EA\u05D1 \u05D1\u05DE\u05D9\u05D5\u05D7\u05D3 \u05E2\u05D1\u05D5\u05E8' : 'This book was created especially for';
     const dedLine2 = child;
-    const dedLine3 = isHeb(child) ? '\u05E9\u05DB\u05DC \u05DB\u05DC \u05D4\u05E8\u05E4\u05EA\u05E7\u05D0\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05DE\u05DE\u05DA' : 'may every adventure begin with you';
+    const dedLine3 = isHeb(child) ? '\u05E9\u05DB\u05DC \u05D4\u05E8\u05E4\u05EA\u05E7\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05DE\u05DE\u05DA' : 'may every adventure begin with you';
     if (isHeb(child)) {
       const { dataUrl: d1, heightMm: h1 } = renderHebrewCanvas(dedLine1, W-40, 15, '#7a6048', { align: 'center' });
       pdf.addImage(d1, 'PNG', 20, H*0.33, W-40, h1);

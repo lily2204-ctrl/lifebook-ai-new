@@ -1409,7 +1409,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Landscape orientation. Character positioned with breathing room on both sides, head and feet fully within frame, no cropping. keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Landscape orientation. Character fully centered with generous headroom above — never cropped at the top; full head, hair, and shoulders visible with clear space above. Head and feet both within frame. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
@@ -1444,7 +1444,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       let coverGenPromise;
       if (useEditPipeline) {
         const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
-        const coverScenePrompt = `${styleLock} ${coverScene} Landscape orientation. Character positioned with breathing room on both sides, head and feet fully within frame, no cropping. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        const coverScenePrompt = `${styleLock} ${coverScene} Landscape orientation. Character fully centered with generous headroom above — never cropped at the top; full head, hair, and shoulders visible with clear space above. Head and feet both within frame. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
         coverGenPromise = Promise.race([
           generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
