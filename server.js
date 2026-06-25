@@ -1177,6 +1177,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const promptCore           = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
       const characterSummary     = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
       const skinToneDescription  = characterReference?.skinToneDescription || "";
+      // Declared here — before STEP 2 sets it and before generateAnyPage reads it
+      let templateSkinToneSource = "child";
       console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
@@ -1283,10 +1285,6 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const styleLock = (USE_IMAGE_EDIT && referenceBuffer) ? buildStyleLock(illustrationStyle) : null;
 
       const useEditPipeline = USE_IMAGE_EDIT && referenceBuffer !== null;
-
-      // templateSkinToneSource: set during STEP 2 template mode; default "child"
-      // Declared here (outside the STEP 2 if-block) so generateAnyPage can access it
-      let templateSkinToneSource = "child";
 
       // ── V2 retry wrapper (image-edit) — 180s timeout, 2 retries ─────────
       async function generatePageImageWithRetryV2(scenePrompt) {
