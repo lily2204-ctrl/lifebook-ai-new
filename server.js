@@ -100,7 +100,7 @@ async function generatePageImageV2(referenceBuffer, scenePrompt, attempt = 0) {
       model:   "gpt-image-1",
       image:   imageFile,
       prompt:  scenePrompt,
-      size:    "1536x1024",
+      size:    "1024x1536",
       quality: "high",
     });
     return resp;
@@ -1344,7 +1344,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
         const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- keep the lower third of the composition calmer and less visually busy, with a simpler or softer background — this area is reserved for text overlay\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
-        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1536x1024", quality: "high" });
+        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1024x1536", quality: "high" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
@@ -1409,7 +1409,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Landscape orientation. Character fully centered with generous headroom above — never cropped at the top; full head, hair, and shoulders visible with clear space above. Head and feet both within frame. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           return generatePageImageWithRetryV2(scenePrompt);
         }
         return generatePageImage(pageIndex);
@@ -1444,7 +1444,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       let coverGenPromise;
       if (useEditPipeline) {
         const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
-        const coverScenePrompt = `${styleLock} ${coverScene} Landscape orientation. Character fully centered with generous headroom above — never cropped at the top; full head, hair, and shoulders visible with clear space above. Head and feet both within frame. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
         coverGenPromise = Promise.race([
           generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
@@ -1452,7 +1452,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       } else {
         const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
         coverGenPromise = Promise.race([
-          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1536x1024", quality: "high" }),
+          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
         ]);
       }
@@ -1647,7 +1647,7 @@ Rules:
               const imgResp = await openai.images.generate({
                 model:   "gpt-image-2",
                 prompt:  finalPrompt,
-                size:    "1536x1024",
+                size:    "1024x1536",
                 quality: "high"
               });
 
@@ -1839,7 +1839,7 @@ Background:
     const imageResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  characterSheetPrompt,
-      size:    "1536x1024",
+      size:    "1024x1536",
       quality: "high"
     });
 
@@ -2014,7 +2014,7 @@ Rules:
     const imgResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  coverPrompt,
-      size:    "1536x1024",
+      size:    "1024x1536",
       quality: "high"
     });
 
@@ -2066,7 +2066,7 @@ Rules:
     const imgResp = await openai.images.generate({
       model:   "gpt-image-2",
       prompt:  finalPrompt,
-      size:    "1536x1024",
+      size:    "1024x1536",
       quality: "high"
     });
 
