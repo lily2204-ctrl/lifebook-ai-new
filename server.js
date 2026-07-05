@@ -20,6 +20,7 @@ app.use(cors());
 // ─── LemonSqueezy webhook needs the RAW body for signature verification ───────
 // express.raw MUST run before express.json for the webhook route
 app.use("/webhooks/lemonsqueezy", express.raw({ type: "*/*", limit: "25mb" }));
+app.use("/webhooks/shopify", express.raw({ type: "*/*", limit: "25mb" }));
 // JSON body parser — explicitly skip webhook routes so raw buffer is preserved
 app.use((req, res, next) => {
   if (req.path.startsWith("/webhooks/")) return next();
@@ -926,6 +927,90 @@ app.post("/webhooks/lemonsqueezy", async (req, res) => {
       }
     } catch (err) {
       console.error("[LS Webhook] processing failed:", err.message, err.stack);
+    }
+  })();
+});
+
+
+// ─── Shopify Webhook (orders/paid) ───────────────────────────────────────────
+app.post("/webhooks/shopify", async (req, res) => {
+  console.log("[Shopify Webhook] received");
+
+  const sig           = req.headers["x-shopify-hmac-sha256"] || "";
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error("[Shopify Webhook] SHOPIFY_WEBHOOK_SECRET not set — returning 500");
+    return res.status(500).send("Webhook secret not configured");
+  }
+
+  // Shopify signs with HMAC-SHA256, base64-encoded
+  const digest = crypto.createHmac("sha256", webhookSecret).update(req.body).digest("base64");
+  let valid = false;
+  try {
+    valid = sig.length > 0 && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(sig));
+  } catch (e) { valid = false; }
+
+  if (!valid) {
+    console.error("[Shopify Webhook] signature MISMATCH — rejecting");
+    return res.status(401).send("Invalid signature");
+  }
+
+  console.log("[Shopify Webhook] signature verified — responding 200 immediately");
+  res.status(200).send("ok");
+
+  // ── Process in background (same pattern as LemonSqueezy webhook) ──
+  (async () => {
+    try {
+      const payload = JSON.parse(req.body.toString());
+      const orderId = String(payload?.id || "");
+      const shopifyEmail = (payload?.email || payload?.contact_email || "").trim();
+
+      // book_id arrives via cart attributes -> order note_attributes
+      const noteAttrs = payload?.note_attributes || [];
+      const attr = noteAttrs.find(a => {
+        const n = (a?.name || "").toLowerCase();
+        return n === "book_id" || n === "bookid";
+      });
+      const bookId = attr?.value;
+
+      console.log(`[Shopify Webhook] orderId: ${orderId}, bookId: ${bookId}, email: ${shopifyEmail || "(none)"}`);
+
+      if (!bookId) {
+        console.error("[Shopify Webhook] no book_id in note_attributes:", JSON.stringify(noteAttrs));
+        return;
+      }
+
+      const unlockPatch = {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  orderId   // reusing existing DB column for Shopify order ID
+      };
+      if (shopifyEmail) unlockPatch.customerEmail = shopifyEmail;
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[Shopify Webhook] book ${bookId} unlocked via Shopify order ${orderId}`);
+
+      const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[Shopify Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`[Shopify Webhook] payment confirmation email sent`);
+
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2);
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[Shopify Webhook] readyCount=${readyCount}/${pages.length}, allDone=${allDone}`);
+      if (allDone) {
+        await sendBookReadyEmail(paidBook);
+        console.log(`[Shopify Webhook] book ready email sent`);
+      }
+    } catch (err) {
+      console.error("[Shopify Webhook] processing failed:", err.message, err.stack);
     }
   })();
 });
