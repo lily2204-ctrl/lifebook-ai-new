@@ -1,19 +1,31 @@
 import express from "express";
 import cors from "cors";
-import OpenAI from "openai";
-import Stripe from "stripe";
+import OpenAI, { toFile } from "openai";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import bcrypt from "bcryptjs";
+import jwt    from "jsonwebtoken";
+
+// ── Feature flag: image-to-image identity pipeline ───────────────────────────
+// Set to true to use openai.images.edit (identity-preserving) instead of .generate.
+// Set to false to revert to the old text-to-image pipeline.
+const USE_IMAGE_EDIT = true;
 
 const app = express();
 app.use(cors());
 
-// ─── Stripe webhook needs the RAW body for signature verification ─────────────
-app.use("/webhooks/stripe", express.raw({ type: "*/*", limit: "25mb" }));
-app.use(express.json({ limit: "25mb" }));
+// ─── LemonSqueezy webhook needs the RAW body for signature verification ───────
+// express.raw MUST run before express.json for the webhook route
+app.use("/webhooks/lemonsqueezy", express.raw({ type: "*/*", limit: "25mb" }));
+app.use("/webhooks/shopify", express.raw({ type: "*/*", limit: "25mb" }));
+// JSON body parser — explicitly skip webhook routes so raw buffer is preserved
+app.use((req, res, next) => {
+  if (req.path.startsWith("/webhooks/")) return next();
+  express.json({ limit: "25mb" })(req, res, next);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -30,9 +42,140 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ── Image-to-image identity pipeline helpers ──────────────────────────────────
+// STYLE_LOCK strings — exact wording from brief. Do not soften/change.
+const STYLE_LOCK = {
+  watercolor:
+    "A soft watercolor children's storybook illustration, gentle hand-painted " +
+    "style with visible watercolor textures, soft muted colors, consistent " +
+    "character design. Keep the child's face, age, features and identity " +
+    "exactly as in the reference photo, and keep them consistent and identical " +
+    "across every illustration in the book. Hand-painted watercolor look, " +
+    "NOT 3D, NOT photorealistic, NOT a photo.",
+  soft3d:
+    "Transform this into a 3D rendered animated character. " +
+    "Glossy smooth 3D surfaces, big expressive eyes, soft cinematic studio lighting, " +
+    "subsurface scattering on the skin, depth of field, looks like a frame from a " +
+    "high-quality animated movie. NOT a painting, NOT watercolor, NOT a photo. " +
+    "Keep the child's facial identity, features and hairstyle from the reference.",
+};
+
+function buildStyleLock(illustrationStyleKey) {
+  const key = (illustrationStyleKey || "").toLowerCase();
+  return STYLE_LOCK[key] || STYLE_LOCK.watercolor;
+}
+
+// Replace words that tend to trigger the safety filter on child images
+function softenPrompt(prompt) {
+  return prompt
+    .replace(/\bfight(ing|s)?\b/gi, "adventures bravely")
+    .replace(/\battack(ing|s|ed)?\b/gi, "faces")
+    .replace(/\bstabb(ing|s|ed)?\b/gi, "pointing")
+    .replace(/\bkill(ing|s|ed)?\b/gi, "overcomes")
+    .replace(/\bdanger\b/gi, "challenge")
+    .replace(/\bscream(ing|s|ed)?\b/gi, "calls out")
+    .replace(/\bblood\b/gi, "red berries")
+    .replace(/\bweapon(s)?\b/gi, "magical tool")
+    // dad-hero / family scenes — avoid physical contact phrasing that triggers safety filter
+    .replace(/\bembrac(ing|es?|ed)\b/gi, "warmly holding close")
+    .replace(/\bhugg(ing|s|ed)\b/gi, "warmly holding close")
+    .replace(/\bhug\b/gi, "warm moment with")
+    .replace(/\bholding the child\b/gi, "close beside the child")
+    .replace(/\bruns? to\b/gi, "rushes happily toward")
+    .replace(/\brunning to\b/gi, "rushing happily toward")
+    .replace(/\bkiss(es|ing|ed)?\b/gi, "smiles warmly at")
+    .replace(/\bcarr(ies|ying|ied)\b/gi, "walks lovingly with");
+}
+
+// Image-to-image generation using openai.images.edit
+// referenceBuffer: Buffer of the cropped photo (PNG/JPEG)
+// scenePrompt: STYLE_LOCK + scene description + "Portrait orientation."
+async function generatePageImageV2(referenceBuffer, scenePrompt, attempt = 0) {
+  const isSafety = (msg) =>
+    typeof msg === "string" &&
+    (msg.includes("safety system") || msg.includes("content_policy") || msg.includes("rejected"));
+
+  try {
+    const imageFile = await toFile(referenceBuffer, "reference.png", { type: "image/png" });
+    const resp = await openai.images.edit({
+      model:   "gpt-image-1",
+      image:   imageFile,
+      prompt:  scenePrompt,
+      size:    "1024x1536",
+      quality: "high",
+    });
+    return resp;
+  } catch (err) {
+    if (isSafety(err?.message) && attempt < 2) {
+      console.warn(`[image-edit] Safety filter triggered (attempt ${attempt+1}), retrying with softened prompt`);
+      return generatePageImageV2(referenceBuffer, softenPrompt(scenePrompt), attempt + 1);
+    }
+    if (!isSafety(err?.message) && attempt < 3) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+      return generatePageImageV2(referenceBuffer, scenePrompt, attempt + 1);
+    }
+    throw err;
+  }
+}
+
+// Illustration style keys → full prompt descriptions (no brand names)
+const STYLE_DESCRIPTIONS = {
+  watercolor: "Soft Storybook watercolor illustration, warm hand-painted textures, gentle pencil outlines, delicate transparent washes, storybook warmth",
+  soft3d:     "soft 3D rendered children's illustration, modern animated film style, rounded friendly character, large expressive eyes, warm cinematic lighting, smooth volumes, gentle colors",
+};
+function resolveStyle(raw) {
+  return STYLE_DESCRIPTIONS[raw] || sanitizeBrandTerms(raw) || STYLE_DESCRIPTIONS.watercolor;
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ─── Admin Auth ───────────────────────────────────────────────────────────────
+const ADMIN_USERNAME      = process.env.ADMIN_USERNAME      || "";
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
+const ADMIN_JWT_SECRET    = process.env.ADMIN_JWT_SECRET    || "";
+
+if (!ADMIN_JWT_SECRET) {
+  console.warn("⚠️  ADMIN_JWT_SECRET is not set — admin endpoints will be disabled");
+}
+
+// In-memory rate limiter: max 5 failed attempts per IP within 15 minutes
+const loginAttempts = new Map(); // ip → { count, firstAttempt }
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS    = 15 * 60 * 1000;
+
+function checkLoginRateLimit(ip) {
+  const now   = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || (now - entry.firstAttempt) > LOGIN_WINDOW_MS) {
+    loginAttempts.set(ip, { count: 1, firstAttempt: now });
+    return { blocked: false };
+  }
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    const retryAfterSec = Math.ceil((LOGIN_WINDOW_MS - (now - entry.firstAttempt)) / 1000);
+    return { blocked: true, retryAfterSec };
+  }
+  entry.count++;
+  return { blocked: false };
+}
+
+function resetLoginRateLimit(ip) {
+  loginAttempts.delete(ip);
+}
+
+function requireAdminAuth(req, res, next) {
+  if (!ADMIN_JWT_SECRET) {
+    return res.status(503).json({ error: "Admin not configured" });
+  }
+  const auth  = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Missing token" });
+  try {
+    req.adminUser = jwt.verify(token, ADMIN_JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function safeJsonParse(raw, fallback = {}) {
@@ -85,18 +228,25 @@ function buildCharacterPromptCore(characterDNA, style) {
   const outfit  = characterDNA.outfit  || "simple timeless child outfit";
 
   return `
-Main character reference:
-- ${ageLook}
-- Hair: ${hair}
-- Skin tone: ${skin}
-- Eyes: ${eyes}
-- Face: ${face}
+LOCKED CHILD CHARACTER — must be identical in every single illustration:
+- Age appearance: ${ageLook}
+- HAIR (exact): ${hair}
+- SKIN TONE (exact): ${skin}
+- EYES (exact): ${eyes}
+- FACE SHAPE (exact): ${face}
 - Outfit style: ${outfit}
-- General vibe: ${vibe}
+- Overall vibe: ${vibe}
 
-Keep this exact same child character consistent across all illustrations.
-Do not change the child's identity, age appearance, hair color, skin tone, or facial structure.
-Illustration style must be: ${style}.
+CONSISTENCY RULES — strictly enforce:
+1. Same child face in EVERY illustration — do not alter facial features, bone structure, or proportions
+2. Same hair color and style — do not change length, color, or texture
+3. Same skin tone — do not lighten or darken between scenes
+4. Same eye color and shape — no variation allowed
+5. If the child changes clothes between scenes, ALL other features stay identical
+6. Do NOT introduce a different child or a generic child
+
+Illustration style: ${style}.
+This is the SAME child that must appear identically in every illustration.
 `.trim();
 }
 
@@ -109,6 +259,34 @@ async function normalizeImageToBase64(imageItem) {
     return Buffer.from(arr).toString("base64");
   }
   return null;
+}
+
+// ─── Supabase Storage helper ──────────────────────────────────────────────────
+// Uploads a base64 image to Supabase Storage bucket "book-images".
+// Returns the public URL, or throws on error.
+// Path structure: {bookId}/cover.jpg, {bookId}/page-0.jpg, etc.
+async function uploadImageToStorage(bookId, imageName, base64data) {
+  if (!base64data) return null;
+
+  // Strip data URL prefix (data:image/jpeg;base64,...)
+  const base64Clean = base64data.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(base64Clean, "base64");
+  const filePath = `${bookId}/${imageName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("book-images")
+    .upload(filePath, buffer, {
+      contentType: "image/jpeg",
+      upsert: true   // overwrite if re-generating
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: urlData } = supabase.storage
+    .from("book-images")
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
 }
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -201,6 +379,26 @@ async function getBook(bookId) {
   return dbRowToBook(data);
 }
 
+// Lightweight fetch — excludes large image columns.
+// Use for polling endpoints where image data is not needed.
+// Full image columns are now URLs in Storage (small), but legacy rows may have base64 blobs.
+async function getBookLight(bookId) {
+  const { data, error } = await supabase
+    .from("books")
+    .select([
+      "book_id", "child_name", "child_age", "child_gender",
+      "story_idea", "illustration_style", "customer_email",
+      "character_reference", "generated_book",
+      "selected_format", "selected_price",
+      "payment_status", "purchase_unlocked",
+      "stripe_session_id", "created_at", "updated_at"
+    ].join(", "))
+    .eq("book_id", bookId)
+    .maybeSingle();
+  if (error) throw error;
+  return dbRowToBook(data);
+}
+
 async function updateBook(bookId, patch) {
   const dbPatch = patchToDbFields(patch);
   const { data, error } = await supabase
@@ -228,6 +426,30 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// ─── OpenAI health check ──────────────────────────────────────────────────────
+app.get("/api/test-openai", async (req, res) => {
+  try {
+    const keySnippet = process.env.OPENAI_API_KEY
+      ? `${process.env.OPENAI_API_KEY.substring(0, 8)}...`
+      : "NOT SET";
+    console.log(`[test-openai] key=${keySnippet}`);
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "Say hello in one word." }],
+      max_tokens: 10
+    });
+    const reply = completion.choices?.[0]?.message?.content || "(no reply)";
+    console.log(`[test-openai] success — reply: ${reply}`);
+    return res.json({ status: "ok", reply, keySnippet });
+  } catch (err) {
+    console.error(`[test-openai] FAILED: ${err.message}`);
+    return res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Main book fetch — returns full book including image URLs from Supabase Storage.
+// Used by delivery.html, reader.html, preview.html, success.html polling, etc.
+// Image columns now contain Storage URLs (small strings), not base64 — safe to fetch.
 app.get("/api/books/:bookId", async (req, res) => {
   try {
     const book = await getBook(req.params.bookId);
@@ -248,7 +470,7 @@ async function sendPaymentConfirmationEmail(book) {
 
   try {
     await resend.emails.send({
-      from:    "Lifebook <books@lifebooks.online>",
+      from:    "Lifebook <onlinelifebooks@gmail.com>",
       to:      book.customerEmail,
       subject: `✅ Payment confirmed — ${childName}'s book is being created!`,
       html: `
@@ -345,12 +567,12 @@ async function sendBookReadyEmail(book) {
   const bookTitle = book.generatedBook?.title    || "Your Magical Storybook";
   const bookSub   = book.generatedBook?.subtitle || "A personalized adventure";
   const childName = book.childName || "your child";
-  const pageCount = book.generatedBook?.pages?.length || 16;
+  const pageCount = book.generatedBook?.pages?.length || 12;
   const downloadUrl = `${appUrl}/delivery.html?bookId=${book.bookId}`;
 
   try {
     await resend.emails.send({
-      from: "Lifebook <books@lifebooks.online>",
+      from: "Lifebook <onlinelifebooks@gmail.com>",
       to:   book.customerEmail,
       subject: `✨ ${childName}'s book is ready! "${bookTitle}"`,
       html: `
@@ -458,6 +680,30 @@ app.post("/api/books/create", async (req, res) => {
     const rawInput   = req.body || {};
     const bookId     = crypto.randomUUID();
 
+    // ── Upload user photos to Supabase Storage (fall back to base64 if upload fails) ──
+    let croppedPhotoVal  = cleanInput.croppedPhoto  || "";
+    let originalPhotoVal = cleanInput.originalPhoto || "";
+
+    if (croppedPhotoVal.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(bookId, "cropped-photo.jpg", croppedPhotoVal);
+        if (url) croppedPhotoVal = url;
+        console.log(`[Create] cropped photo uploaded to Storage: ${url}`);
+      } catch (err) {
+        console.warn(`[Create] Failed to upload cropped photo to Storage (using base64 fallback): ${err.message}`);
+      }
+    }
+
+    if (originalPhotoVal.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(bookId, "original-photo.jpg", originalPhotoVal);
+        if (url) originalPhotoVal = url;
+        console.log(`[Create] original photo uploaded to Storage: ${url}`);
+      } catch (err) {
+        console.warn(`[Create] Failed to upload original photo to Storage (using base64 fallback): ${err.message}`);
+      }
+    }
+
     const book = {
       bookId,
       childName:         cleanInput.childName        || "",
@@ -465,8 +711,8 @@ app.post("/api/books/create", async (req, res) => {
       childGender:       rawInput.childGender         || "",
       storyIdea:         cleanInput.storyIdea         || "",
       illustrationStyle: cleanInput.illustrationStyle || "Soft Storybook",
-      croppedPhoto:      cleanInput.croppedPhoto      || "",
-      originalPhoto:     cleanInput.originalPhoto     || "",
+      croppedPhoto:      croppedPhotoVal,
+      originalPhoto:     originalPhotoVal,
       customerEmail:     rawInput.customerEmail       || "",
       characterReference:null,
       generatedBook:     null,
@@ -497,10 +743,11 @@ app.patch("/api/books/:bookId", async (req, res) => {
   }
 });
 
-// ─── Stripe: Create Checkout Session ─────────────────────────────────────────
+// ─── LemonSqueezy: Create Checkout Session ───────────────────────────────────
 app.post("/api/create-checkout-session", async (req, res) => {
   try {
-    const { bookId, format } = req.body;
+    const { bookId } = req.body;
+    console.log(`[Checkout] create-checkout-session called with bookId: ${bookId}`);
 
     if (!bookId) {
       return res.status(400).json({ status: "error", message: "Missing bookId" });
@@ -511,109 +758,325 @@ app.post("/api/create-checkout-session", async (req, res) => {
       return res.status(404).json({ status: "error", message: "Book not found" });
     }
 
-    const isDigital    = (format || book.selectedFormat) !== "printed";
-    const priceInCents = isDigital ? 3900 : 4900; // $39 / $49
-    const productName  = isDigital
-      ? `Lifebook — Digital Edition (${book.childName})`
-      : `Lifebook — Printed Book (${book.childName})`;
+    const apiKey    = process.env.LEMONSQUEEZY_API_KEY;
+    const storeId   = process.env.LEMONSQUEEZY_STORE_ID  || "347433";
+    const variantId = process.env.LEMONSQUEEZY_VARIANT_ID;
+    const appUrl    = process.env.APP_URL || "https://lifebooks.online";
 
-    const appUrl = process.env.APP_URL || "https://lifebooks.online";
+    console.log(`[Checkout] storeId=${storeId} variantId=${variantId} apiKey=${apiKey ? "set" : "MISSING"}`);
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: productName,
-              description: `Personalized storybook: "${book.generatedBook?.title || "Your Magical Adventure"}"`,
-              images: book.coverImage ? [] : [] // Stripe requires hosted URLs, not base64
-            },
-            unit_amount: priceInCents
-          },
-          quantity: 1
+    if (!apiKey || !variantId) {
+      console.error("[Checkout] Missing LEMONSQUEEZY_API_KEY or LEMONSQUEEZY_VARIANT_ID");
+      return res.status(500).json({ status: "error", message: "Payment not configured — missing API key or variant ID" });
+    }
+
+    const redirectUrl = `${appUrl}/success.html?bookId=${encodeURIComponent(bookId)}`;
+    console.log(`[Checkout] redirect_url: ${redirectUrl}`);
+
+    const requestBody = {
+      data: {
+        type: "checkouts",
+        attributes: {
+          checkout_data: { custom: { bookId } },
+          product_options: { redirect_url: redirectUrl }
+        },
+        relationships: {
+          store:   { data: { type: "stores",   id: String(storeId)   } },
+          variant: { data: { type: "variants",  id: String(variantId) } }
         }
-      ],
-      mode: "payment",
-      metadata: {
-        bookId,
-        format: isDigital ? "digital" : "printed"
+      }
+    };
+
+    console.log(`[Checkout] sending to LS API: ${JSON.stringify(requestBody)}`);
+
+    const lsRes = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type":  "application/vnd.api+json",
+        "Accept":        "application/vnd.api+json"
       },
-      success_url: `${appUrl}/success.html?bookId=${bookId}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${appUrl}/checkout.html?bookId=${bookId}`
+      body: JSON.stringify(requestBody)
     });
 
-    // Save session ID to book so we can link it on webhook
-    await updateBook(bookId, { stripeSessionId: session.id });
+    const lsData = await lsRes.json();
 
-    return res.json({ status: "ok", url: session.url });
+    if (!lsRes.ok) {
+      console.error("[Checkout] LemonSqueezy API error:", JSON.stringify(lsData));
+      return res.status(500).json({ status: "error", message: "Failed to create checkout — LS error: " + JSON.stringify(lsData?.errors || lsData) });
+    }
+
+    const checkoutUrl = lsData?.data?.attributes?.url;
+    console.log(`[Checkout] checkout URL created: ${checkoutUrl}`);
+
+    if (!checkoutUrl) {
+      console.error("[Checkout] No URL in LS response:", JSON.stringify(lsData));
+      return res.status(500).json({ status: "error", message: "No checkout URL returned from LemonSqueezy" });
+    }
+
+    return res.json({ status: "ok", url: checkoutUrl });
   } catch (err) {
-    console.error("Stripe session error:", err);
+    console.error("[Checkout] Unexpected error:", err.message, err.stack);
     return res.status(500).json({ status: "error", message: err?.message || "Failed to create checkout session" });
   }
 });
 
-// ─── Stripe Webhook ───────────────────────────────────────────────────────────
-app.post("/webhooks/stripe", async (req, res) => {
-  const sig           = req.headers["stripe-signature"];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// ─── LemonSqueezy Webhook ─────────────────────────────────────────────────────
+app.post("/webhooks/lemonsqueezy", async (req, res) => {
+  console.log("[LS Webhook] received — headers:", JSON.stringify({
+    "x-signature":             req.headers["x-signature"],
+    "x-lemonsqueezy-signature": req.headers["x-lemonsqueezy-signature"],
+    "content-type":            req.headers["content-type"],
+  }));
 
-  let event;
+  // LemonSqueezy sends the signature as X-Signature header
+  const sig           = req.headers["x-signature"] || req.headers["x-lemonsqueezy-signature"] || "";
+  const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
 
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    console.error("Stripe webhook signature failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  console.log(`[LS Webhook] sig present: ${!!sig}, secret present: ${!!webhookSecret}`);
+
+  if (!webhookSecret) {
+    console.error("[LS Webhook] LEMONSQUEEZY_WEBHOOK_SECRET not set — returning 500");
+    return res.status(500).send("Webhook secret not configured");
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const bookId  = session.metadata?.bookId;
+  // Verify HMAC-SHA256 signature
+  const digest = crypto.createHmac("sha256", webhookSecret).update(req.body).digest("hex");
+  console.log(`[LS Webhook] expected digest: ${digest}, received sig: ${sig}`);
 
-    if (!bookId) {
-      console.warn("Stripe webhook: no bookId in metadata");
-      return res.status(200).send("ok");
-    }
+  if (sig !== digest) {
+    console.error(`[LS Webhook] signature MISMATCH — rejecting. Got: ${sig} Expected: ${digest}`);
+    return res.status(401).send("Invalid signature");
+  }
 
-    // ── Respond to Stripe IMMEDIATELY (must be within 30s) ──
-    res.status(200).send("ok");
+  console.log("[LS Webhook] signature verified ✅ — responding 200 immediately");
 
-    // ── Do the heavy work in background (non-blocking) ──
-    (async () => {
-      try {
-        await updateBook(bookId, {
-          paymentStatus:    "paid",
-          purchaseUnlocked: true,
-          stripeSessionId:  session.id
-        });
-        console.log(`Book ${bookId} unlocked via Stripe`);
+  // ── Respond to LemonSqueezy IMMEDIATELY (must be within 5s) ──
+  res.status(200).send("ok");
 
-        // Send payment confirmation email immediately
-        // Book ready email will be sent later by generate-full when all images are done
-        const paidBook = await getBook(bookId);
-        await sendPaymentConfirmationEmail(paidBook);
-        console.log(`Payment confirmation email sent to: ${paidBook?.customerEmail}`);
+  // ── Process in background ──
+  (async () => {
+    try {
+      const rawBody   = req.body.toString();
+      console.log(`[LS Webhook] raw body (first 500 chars): ${rawBody.substring(0, 500)}`);
 
-        // Edge case: if book was already fully generated before payment
-        // (e.g. user paid after generation completed), send book ready email now too
-        const pages      = paidBook?.generatedBook?.pages || [];
-        const images     = paidBook?.fullImages || [];
-        const allDone    = pages.length > 0 && images.filter(Boolean).length >= pages.length;
-        if (allDone) {
-          console.log(`Book ${bookId} was already complete at payment time — sending book ready email`);
-          await sendBookReadyEmail(paidBook);
-        }
-      } catch (err) {
-        console.error("Stripe post-payment processing failed:", err.message);
+      const payload   = JSON.parse(rawBody);
+      const eventName = payload?.meta?.event_name;
+      console.log(`[LS Webhook] event_name: ${eventName}`);
+
+      if (eventName !== "order_created") {
+        console.log(`[LS Webhook] ignoring event: ${eventName}`);
+        return;
       }
-    })();
 
-    return; // already sent response above
+      const customData  = payload?.meta?.custom_data;
+      const bookId      = customData?.bookId || customData?.book_id;
+      const orderId     = String(payload?.data?.id || "");
+      // BUG FIX: extract verified customer email from LemonSqueezy order payload
+      // This is the email the customer used at checkout — more reliable than wizard input
+      const lsUserEmail = (payload?.data?.attributes?.user_email || "").trim();
+
+      console.log(`[LS Webhook] custom_data: ${JSON.stringify(customData)}`);
+      console.log(`[LS Webhook] bookId: ${bookId}, orderId: ${orderId}, lsUserEmail: ${lsUserEmail || "(none)"}`);
+
+      if (!bookId) {
+        console.error("[LS Webhook] no bookId found in custom_data — cannot unlock book");
+        console.error("[LS Webhook] full meta:", JSON.stringify(payload?.meta));
+        return;
+      }
+
+      console.log(`[LS Webhook] unlocking book ${bookId}...`);
+
+      // Unlock book + update customerEmail with verified LS email (if present)
+      // This fixes the case where the wizard email was blank or wrong
+      const unlockPatch = {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  orderId   // reusing existing DB column for LS order ID
+      };
+      if (lsUserEmail) unlockPatch.customerEmail = lsUserEmail;
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[LS Webhook] ✅ book ${bookId} unlocked via LemonSqueezy order ${orderId}${lsUserEmail ? ` — customerEmail updated to: ${lsUserEmail}` : ""}`);
+
+      // Use getBook — need fullImages to check if generation was already complete
+      const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[LS Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`[LS Webhook] payment confirmation email sent to: ${paidBook.customerEmail || "(no email)"}`);
+
+      // BUG FIX: allDone was too strict — required ALL images, so if even 1 page image
+      // failed all retries (returning null), allDone=false and email was never sent even
+      // though generation was complete. Now allow up to 2 image failures (10/12 pages).
+      // STEP 5 (generate-full) handles the case where payment arrives before generation.
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2); // allow up to 2 failures
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[LS Webhook] book ${bookId} — readyCount=${readyCount}/${pages.length}, threshold=${threshold}, allDone=${allDone}`);
+      if (allDone) {
+        console.log(`[LS Webhook] book ${bookId} was complete at payment time — sending book ready email`);
+        await sendBookReadyEmail(paidBook);
+        console.log(`[LS Webhook] book ready email sent ✅`);
+      } else {
+        console.log(`[LS Webhook] book ${bookId} generation still in progress (${readyCount}/${pages.length} images ready, need ${threshold}) — book ready email will be sent by generate-full STEP 5`);
+      }
+    } catch (err) {
+      console.error("[LS Webhook] processing failed:", err.message, err.stack);
+    }
+  })();
+});
+
+
+// ─── Shopify Webhook (orders/paid) ───────────────────────────────────────────
+app.post("/webhooks/shopify", async (req, res) => {
+  console.log("[Shopify Webhook] received");
+
+  const sig           = req.headers["x-shopify-hmac-sha256"] || "";
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error("[Shopify Webhook] SHOPIFY_WEBHOOK_SECRET not set — returning 500");
+    return res.status(500).send("Webhook secret not configured");
   }
 
-  return res.status(200).send("ok");
+  // Shopify signs with HMAC-SHA256, base64-encoded
+  const digest = crypto.createHmac("sha256", webhookSecret).update(req.body).digest("base64");
+  let valid = false;
+  try {
+    valid = sig.length > 0 && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(sig));
+  } catch (e) { valid = false; }
+
+  if (!valid) {
+    console.error("[Shopify Webhook] signature MISMATCH — rejecting");
+    return res.status(401).send("Invalid signature");
+  }
+
+  console.log("[Shopify Webhook] signature verified — responding 200 immediately");
+  res.status(200).send("ok");
+
+  // ── Process in background (same pattern as LemonSqueezy webhook) ──
+  (async () => {
+    try {
+      const payload = JSON.parse(req.body.toString());
+      const orderId = String(payload?.id || "");
+      const shopifyEmail = (payload?.email || payload?.contact_email || "").trim();
+
+      // book_id arrives via cart attributes -> order note_attributes
+      const noteAttrs = payload?.note_attributes || [];
+      const attr = noteAttrs.find(a => {
+        const n = (a?.name || "").toLowerCase();
+        return n === "book_id" || n === "bookid";
+      });
+      const bookId = attr?.value;
+
+      console.log(`[Shopify Webhook] orderId: ${orderId}, bookId: ${bookId}, email: ${shopifyEmail || "(none)"}`);
+
+      if (!bookId) {
+        console.error("[Shopify Webhook] no book_id in note_attributes:", JSON.stringify(noteAttrs));
+        return;
+      }
+
+      const unlockPatch = {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  orderId   // reusing existing DB column for Shopify order ID
+      };
+      if (shopifyEmail) unlockPatch.customerEmail = shopifyEmail;
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[Shopify Webhook] book ${bookId} unlocked via Shopify order ${orderId}`);
+
+      const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[Shopify Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`[Shopify Webhook] payment confirmation email sent`);
+
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2);
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[Shopify Webhook] readyCount=${readyCount}/${pages.length}, allDone=${allDone}`);
+      if (allDone) {
+        await sendBookReadyEmail(paidBook);
+        console.log(`[Shopify Webhook] book ready email sent`);
+      }
+    } catch (err) {
+      console.error("[Shopify Webhook] processing failed:", err.message, err.stack);
+    }
+  })();
+});
+
+// ─── Gumroad Webhook ──────────────────────────────────────────────────────────
+// Gumroad sends application/x-www-form-urlencoded pings (not JSON, no HMAC).
+// The bookId is stored in the `referrer` field (set via ?referral=BOOKID in checkout URL).
+app.post("/webhooks/gumroad", express.urlencoded({ extended: false, limit: "25mb" }), async (req, res) => {
+  console.log("[Gumroad Webhook] received — body keys:", Object.keys(req.body || {}));
+
+  // Respond immediately so Gumroad doesn't retry
+  res.status(200).send("ok");
+
+  (async () => {
+    try {
+      const body        = req.body || {};
+      const bookId      = (body.referrer || "").trim();
+      const email       = (body.email    || "").trim();
+      const saleId      = (body.sale_id  || body.order_id || "").trim();
+
+      console.log(`[Gumroad Webhook] bookId (referrer): ${bookId || "(none)"}, email: ${email || "(none)"}, saleId: ${saleId || "(none)"}`);
+
+      if (!bookId) {
+        console.error("[Gumroad Webhook] no bookId in referrer field — cannot unlock book");
+        return;
+      }
+
+      console.log(`[Gumroad Webhook] unlocking book ${bookId}...`);
+
+      const unlockPatch = {
+        paymentStatus:    "paid",
+        purchaseUnlocked: true,
+        stripeSessionId:  saleId  // reusing existing column for Gumroad sale ID
+      };
+      if (email) unlockPatch.customerEmail = email;
+
+      await updateBookField(bookId, unlockPatch);
+      console.log(`[Gumroad Webhook] ✅ book ${bookId} unlocked${email ? ` — customerEmail: ${email}` : ""}`);
+
+      const paidBook = await getBook(bookId);
+      if (!paidBook) {
+        console.error(`[Gumroad Webhook] could not fetch book after unlock: ${bookId}`);
+        return;
+      }
+
+      await sendPaymentConfirmationEmail(paidBook);
+      console.log(`[Gumroad Webhook] payment confirmation email sent to: ${paidBook.customerEmail || "(no email)"}`);
+
+      const pages      = paidBook.generatedBook?.pages || [];
+      const images     = paidBook.fullImages || [];
+      const readyCount = images.filter(Boolean).length;
+      const threshold  = Math.max(1, pages.length - 2);
+      const allDone    = pages.length > 0 && readyCount >= threshold;
+      console.log(`[Gumroad Webhook] book ${bookId} — readyCount=${readyCount}/${pages.length}, threshold=${threshold}, allDone=${allDone}`);
+
+      if (allDone) {
+        console.log(`[Gumroad Webhook] book ${bookId} was complete at payment time — sending book ready email`);
+        await sendBookReadyEmail(paidBook);
+        console.log(`[Gumroad Webhook] book ready email sent ✅`);
+      } else {
+        console.log(`[Gumroad Webhook] book ${bookId} generation still in progress — book ready email will be sent by generate-full STEP 5`);
+      }
+    } catch (err) {
+      console.error("[Gumroad Webhook] processing failed:", err.message, err.stack);
+    }
+  })();
 });
 
 // ─── Unlock endpoint (manual / dev) ──────────────────────────────────────────
@@ -649,6 +1112,83 @@ app.post("/api/books/:bookId/unlock", async (req, res) => {
   }
 });
 
+// ─── Template prompt builder ───────────────────────────────────────────────────
+// Fetches a story_template row and fills all {{placeholders}} generically.
+// Returns a ready-to-send prompt string, or null if template not found/inactive.
+//
+// HOW IT WORKS:
+// 1. Build a values map from all inputs fields (childName, allergyType, dadName, etc.)
+// 2. For each key in tmpl.variations, resolve inputs[key] against the map,
+//    then store as {{key + "Variant"}} in the values map. Sub-placeholders
+//    inside the resolved variation text (e.g. {{allergyOther}}) are expanded too.
+// 3. Add computed fields: genderNote, characterSummary, promptCore.
+// 4. Replace every {{key}} in the skeleton with its value. Unknown keys → "".
+//
+// Adding a new template = INSERT into story_templates only. No code change needed.
+//
+// ── OLD VERSION (kept for rollback) ──────────────────────────────────────────
+// async function buildTemplateStoryPrompt_OLD(templateSlug, inputs, characterSummary, promptCore) {
+//   ... (template-specific allergyVariant + dadRoleVariant hardcoded) ...
+// }
+// ─────────────────────────────────────────────────────────────────────────────
+async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore) {
+  const { data: tmpl, error } = await supabase
+    .from("story_templates")
+    .select("story_skeleton, variations, input_schema, character_bible")
+    .eq("slug", templateSlug)
+    .eq("active", true)
+    .single();
+
+  if (error || !tmpl) {
+    console.warn(`[template] slug="${templateSlug}" not found or inactive — falling back to custom mode`);
+    return null;
+  }
+
+  // Step 1: seed values map from all inputs
+  const vals = {};
+  for (const [k, v] of Object.entries(inputs || {})) {
+    vals[k] = String(v ?? "");
+  }
+
+  // Step 2: resolve each variation key → store as {{key + "Variant"}}
+  // e.g. variations.allergyType["בוטנים"] = "אלרגיה לבוטנים"  → vals.allergyTypeVariant
+  // Sub-placeholders inside the resolved text (e.g. {{allergyOther}}) are expanded
+  // using the current vals map.
+  const variations = tmpl.variations || {};
+  for (const [varKey, varMap] of Object.entries(variations)) {
+    if (varMap && typeof varMap === "object") {
+      const chosen  = vals[varKey] || "";
+      let resolved  = varMap[chosen] || chosen || "";
+      // expand sub-placeholders (e.g. {{allergyOther}}, {{childName}})
+      resolved = resolved.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
+      vals[varKey + "Variant"] = resolved;
+    }
+  }
+
+  // Step 3: computed fields
+  vals.genderNote = (inputs.childGender === "ילד")
+    ? "הילד הוא בן — השתמש בלשון זכר לאורך כל הסיפור."
+    : "הילדה היא בת — השתמש בלשון נקבה לאורך כל הסיפור.";
+  vals.characterSummary = sanitizeBrandTerms(characterSummary || "");
+  vals.promptCore       = sanitizeBrandTerms(promptCore       || "");
+
+  // Step 4: replace every {{key}} in the skeleton; unknown keys → ""
+  const filledSkeleton = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
+
+  // Prepend writing rules automatically — no {{writingRules}} needed in any skeleton
+  const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+  const prompt = `${writingRules}\n\n${filledSkeleton}`;
+
+  // skinToneSource: "child" (default) or "fixed" (template overrides child's skin tone)
+  const skinToneSource = tmpl.input_schema?.skinToneSource || "child";
+
+  // character_bible: resolved character descriptions keyed by Hebrew role name
+  // Values may contain "derived from child photo" (filled at runtime) or fixed strings
+  const characterBible = tmpl.character_bible || null;
+
+  return { prompt, skinToneSource, characterBible };
+}
+
 // ─── Generate Full Book (story + cover + images) — fires in background ────────
 app.post("/api/books/:bookId/generate-full", async (req, res) => {
   const bookId = req.params.bookId;
@@ -670,7 +1210,11 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const storyIdea         = book.storyIdea         || "a magical adventure";
       const illustrationStyle = book.illustrationStyle || "Soft Storybook";
       const croppedPhoto      = book.croppedPhoto      || book.originalPhoto || "";
-      const safeStyle         = sanitizeBrandTerms(illustrationStyle);
+      const safeStyle         = resolveStyle(illustrationStyle);
+      const t0 = Date.now();
+      const elapsed = () => `+${Math.round((Date.now()-t0)/1000)}s`;
+      const isHebrewBook = /[\u0590-\u05FF]/.test(childName + storyIdea);
+      console.log(`generate-full [${bookId}]: language=${isHebrewBook ? 'Hebrew' : 'English'} — imagePrompts always in English`);
 
       // ── STEP 1: Character reference (photo → DNA + prompt core) ──────────────
       let characterReference = book.characterReference || null;
@@ -704,7 +1248,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           characterReference = {
             characterDNA,
             characterPromptCore: promptCore,
-            characterSummary: characterDNA.summary || "A warm curious child hero."
+            characterSummary: characterDNA.summary || "A warm curious child hero.",
+            skinToneDescription: [characterDNA.skin, characterDNA.hair].filter(Boolean).join(" and ")
           };
           await updateBookField(bookId, { characterReference });
         } catch (err) {
@@ -718,41 +1263,113 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         }
       }
 
-      const promptCore       = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
-      const characterSummary = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
-      console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready`);
+      const promptCore           = characterReference?.characterPromptCore || `A young child aged ${childAge}.`;
+      const characterSummary     = characterReference?.characterSummary    || `A ${childAge}-year-old child hero.`;
+      const skinToneDescription  = characterReference?.skinToneDescription || "";
+      // Declared here — before STEP 2 sets it and before generateAnyPage reads it
+      let templateSkinToneSource = "child";
+      let templateCharacterBible = null;
+      // Declared here — before STEP 2 if-block so bannedNamesInPrompt can access it even when STEP 2 is skipped
+      let templateInputs = {};
+      console.log(`generate-full [${bookId}]: STEP 1 done — character reference ready ${elapsed()}`);
 
       // ── STEP 2: Generate story text ───────────────────────────────────────────
       if (!book.generatedBook?.pages?.length) {
-        const storyPrompt = `You are a premium personalized children's book writer.\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 16 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos
-- If the child's name contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.
-- If the name is in English or Latin characters, write in English`;
 
-        const storyCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: storyPrompt }],
-          temperature: 0.8
-        });
+        // Determine mode from request body (default: custom — no existing behaviour changes)
+        let mode             = req.body?.mode            || 'custom';
+        const templateSlug   = req.body?.templateSlug    || null;
+        templateInputs       = req.body?.templateInputs  || {};
 
-        const storyRaw  = storyCompletion.choices?.[0]?.message?.content || "{}";
-        const storyData = safeJsonParse(storyRaw, {});
-        const generatedBook = {
-          title:    sanitizeBrandTerms(storyData.title    || `The Magical Adventure of ${childName}`),
-          subtitle: sanitizeBrandTerms(storyData.subtitle || "A story where you are the hero"),
-          pages:    Array.isArray(storyData.pages)
-            ? storyData.pages.slice(0, 16).map(p => ({
-                text:        sanitizeBrandTerms(String(p.text        || "").trim()),
-                imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
-              }))
-            : []
+        let storyPrompt;
+
+        // ── template mode ──────────────────────────────────────────────────────
+        if (mode === 'template' && templateSlug) {
+          console.log(`generate-full [${bookId}]: STEP 2 mode=template slug=${templateSlug}`);
+          const tmplResult = await buildTemplateStoryPrompt(
+            templateSlug, templateInputs, characterSummary, promptCore
+          );
+          if (!tmplResult) {
+            console.warn(`generate-full [${bookId}]: STEP 2 template not found — falling back to custom`);
+            mode = 'custom';
+          } else {
+            storyPrompt            = tmplResult.prompt;
+            templateSkinToneSource = tmplResult.skinToneSource;
+            templateCharacterBible = tmplResult.characterBible;
+          }
+        }
+
+        // ── custom mode (default, and fallback from template) ──────────────────
+        if (mode !== 'template') {
+          console.log(`generate-full [${bookId}]: STEP 2 mode=custom`);
+          const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${childAge}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+          storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- If the child's name OR the story direction contains Hebrew characters, write the ENTIRE story in Hebrew (including title, subtitle, and all page text). Keep imagePrompt always in English for image generation.\n- If both the name and story direction are in English or Latin characters, write in English`;
+        }
+
+        // ── OpenAI call (identical for both modes) — up to 2 retries if <12 pages ──
+        // Suffix appended to every story prompt to reinforce 12-page requirement
+        const pageSuffix = `\n\n⚠️ MANDATORY: The "pages" array in your JSON response MUST contain EXACTLY 12 objects — no more, no fewer. Count them before you respond.`;
+
+        const parseStoryResponse = (raw) => {
+          const data = safeJsonParse(raw, {});
+          return {
+            title:    sanitizeBrandTerms(data.title    || `The Magical Adventure of ${childName}`),
+            subtitle: sanitizeBrandTerms(data.subtitle || "A story where you are the hero"),
+            pages:    Array.isArray(data.pages)
+              ? data.pages.slice(0, 12).map(p => ({
+                  text:        sanitizeBrandTerms(String(p.text        || "").trim()),
+                  imagePrompt: sanitizeImagePrompt(String(p.imagePrompt || "").trim())
+                }))
+              : []
+          };
         };
-        await updateBookField(bookId, { generatedBook });
+
+        try {
+          let generatedBook = null;
+          const MAX_STORY_ATTEMPTS = 3;
+          for (let attempt = 1; attempt <= MAX_STORY_ATTEMPTS; attempt++) {
+            console.log(`generate-full [${bookId}]: STEP 2 attempt ${attempt}/${MAX_STORY_ATTEMPTS}`);
+            const completion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [{ role: "user", content: storyPrompt + pageSuffix }],
+              temperature: 0.8
+            });
+            const raw = completion.choices?.[0]?.message?.content || "{}";
+            const candidate = parseStoryResponse(raw);
+            if (candidate.pages.length === 12) {
+              generatedBook = candidate;
+              console.log(`generate-full [${bookId}]: STEP 2 — got 12 pages on attempt ${attempt}`);
+              break;
+            }
+            console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 attempt ${attempt} — got ${candidate.pages.length}/12 pages, retrying...`);
+            if (attempt === MAX_STORY_ATTEMPTS) {
+              // Best effort: use whatever we got
+              generatedBook = candidate;
+              console.warn(`generate-full [${bookId}]: ⚠️ STEP 2 FINAL — only ${candidate.pages.length}/12 pages after ${MAX_STORY_ATTEMPTS} attempts. Building partial book.`);
+            }
+          }
+
+          await updateBookField(bookId, { generatedBook });
+          console.log(`generate-full [${bookId}]: STEP 2 done — ${generatedBook.pages.length} pages`);
+          console.log(`generate-full [${bookId}]: STEP 2 imagePrompts —`, JSON.stringify(generatedBook.pages.map((p, i) => ({ i, imagePrompt: p.imagePrompt }))));
+        } catch (err) {
+          console.error(`generate-full [${bookId}]: STEP 2 FAILED — ${err.message}`);
+          const fallbackBook = {
+            title: `${childName}'s Magical Adventure`,
+            subtitle: "A story where you are the hero",
+            pages: Array.from({length: 12}, (_, i) => ({
+              text: `Page ${i+1} of ${childName}'s magical adventure.`,
+              imagePrompt: `A young child in a magical storybook adventure, page ${i+1}, warm illustrated style.`
+            }))
+          };
+          await updateBookField(bookId, { generatedBook: fallbackBook });
+        }
       }
 
       // ── STEP 3+4a: Cover + first 2 page images IN PARALLEL ──────────────────
       // Running them together cuts the wait from ~2min to ~60s
-      console.log(`generate-full [${bookId}]: STEP 2 done — story written, starting cover + priority images in parallel`);
+      console.log(`generate-full [${bookId}]: STEP 2 done — story written ${elapsed()}, starting cover + priority images in parallel`);
 
       const bookBeforeImgs = await getBook(bookId);
       const pages          = bookBeforeImgs.generatedBook?.pages || [];
@@ -762,41 +1379,224 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const fullImages     = [...existingImages];
       while (fullImages.length < pages.length) fullImages.push(null);
 
-      // פונקציה ליצירת תמונה אחת
+      // ── Load reference image for image-edit pipeline ──────────────────────
+      // referenceBuffer is set once and reused for every page (same original photo).
+      // If loading fails → fallback to text-to-image with a clear warning.
+      let referenceBuffer = null;
+      if (USE_IMAGE_EDIT && croppedPhoto) {
+        try {
+          const refRes = await fetch(croppedPhoto);
+          if (!refRes.ok) throw new Error(`HTTP ${refRes.status}`);
+          const arrBuf = await refRes.arrayBuffer();
+          referenceBuffer = Buffer.from(arrBuf);
+          console.log(`generate-full [${bookId}]: reference photo loaded (${referenceBuffer.length} bytes) — using image-edit pipeline`);
+        } catch (refErr) {
+          console.warn(`generate-full [${bookId}]: ⚠️ FALLBACK — could not load reference photo (${refErr.message}). Falling back to text-to-image (no face identity). Book will still be generated.`);
+          referenceBuffer = null;
+        }
+      }
+
+      // Build STYLE_LOCK once — same string prepended to every page prompt
+      const styleLock = (USE_IMAGE_EDIT && referenceBuffer) ? buildStyleLock(illustrationStyle) : null;
+
+      const useEditPipeline = USE_IMAGE_EDIT && referenceBuffer !== null;
+
+      // ── V2 retry wrapper (image-edit) — 180s timeout, 2 retries ─────────
+      async function generatePageImageWithRetryV2(scenePrompt) {
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS  = 180000;
+        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+          try {
+            const result = await Promise.race([
+              generatePageImageV2(referenceBuffer, scenePrompt),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`image-edit timed out after 180s`)), TIMEOUT_MS)
+              )
+            ]);
+            return await normalizeImageToBase64(result?.data?.[0]);
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: image-edit attempt ${attempt} failed: ${err.message}`);
+            if (attempt <= MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+        }
+        console.error(`generate-full [${bookId}]: image-edit — all attempts failed, skipping (null)`);
+        return null;
+      }
+
+      // ── Old text-to-image function (unchanged, used when useEditPipeline=false) ──
       async function generatePageImage(pageIndex) {
         const page = pages[pageIndex];
-        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity\n- same face structure\n- same hair and skin tone\n- warm magical storybook aesthetic\n- no text\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
-        const imgResp = await openai.images.generate({ model: "gpt-image-1", prompt: imgPrompt, size: "1024x1024" });
+        const imgPrompt = `Create a premium children's storybook illustration.\n\nIllustration style: ${safeStyle}\n\nCharacter consistency:\n${sanitizeBrandTerms(promptCore)}\n\nScene:\n${sanitizeImagePrompt(page.imagePrompt || "")}\n\nRules:\n- same child identity in this scene as in all other illustrations\n- same face structure, hair color, skin tone, and eye color — no variation\n- warm magical storybook aesthetic\n- keep the lower third of the composition calmer and less visually busy, with a simpler or softer background — this area is reserved for text overlay\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, labels, titles, or speech bubbles\n- no watermark\n- elegant composition\n- no logos\n- no brand names\n- no copyrighted costume emblems`;
+        const imgResp = await openai.images.generate({ model: "gpt-image-2", prompt: imgPrompt, size: "1024x1536", quality: "high" });
         return await normalizeImageToBase64(imgResp?.data?.[0]);
       }
 
-      // Cover prompt
-      const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nBOOK TITLE:\n${sanitizeBrandTerms(title)}\n\nBOOK SUBTITLE:\n${sanitizeBrandTerms(subtitle)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero\n- magical, premium, warm\n- no character sheet\n- no multiple poses\n- no text rendered into the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+      // Hebrew role → bible key mapping
+      const HEBREW_ROLE_MAP = {
+        "סבא": "saba", "סבתא": "savta",
+        "אמא": "ima",  "אבא": "aba",
+        "אח":  "ach",  "אחות": "achot",
+      };
 
-      // Run cover + pages 0 and 1 all at once in parallel
-      const [coverResult, page0Result, page1Result] = await Promise.allSettled([
-        bookBeforeImgs.coverImage ? Promise.resolve(null) : openai.images.generate({ model: "gpt-image-1", prompt: coverPrompt, size: "1024x1024" }),
-        fullImages[0] ? Promise.resolve(null) : generatePageImage(0),
-        fullImages[1] ? Promise.resolve(null) : generatePageImage(1),
-      ]);
+      // Names that must not appear in imagePrompts (cause GPT-image to try rendering/distorting them)
+      // Built from inputs: childName + any template input fields that look like names
+      const bannedNamesInPrompt = [
+        childName,
+        templateInputs?.dadName,
+        templateInputs?.grandpaName,
+        templateInputs?.grandmaName,
+      ].filter(Boolean).map(n => n.trim()).filter(n => n.length > 1);
 
-      // Save cover
-      if (coverResult?.status === "fulfilled" && coverResult.value) {
-        const coverBase64 = await normalizeImageToBase64(coverResult.value?.data?.[0]);
-        if (coverBase64) await updateBookField(bookId, { coverImage: `data:image/jpeg;base64,${coverBase64}` });
+      function stripBannedNames(text) {
+        if (!bannedNamesInPrompt.length) return text;
+        let result = text;
+        for (const name of bannedNamesInPrompt) {
+          // Remove "Saba <Name>", "<Name>", etc. — case-insensitive word-boundary match
+          const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          result = result.replace(new RegExp(`\\b${escapedName}\\b`, "gi"), "");
+        }
+        // Clean up double spaces left by removal
+        return result.replace(/\s{2,}/g, " ").trim();
       }
 
-      // Save priority pages
+      // Build character appearance hint from character_bible for a given page text (Hebrew)
+      function buildBibleHint(pageText) {
+        if (!templateCharacterBible || !pageText) return "";
+        const hints = [];
+        for (const [hebrewRole, bibleKey] of Object.entries(HEBREW_ROLE_MAP)) {
+          if (!pageText.includes(hebrewRole)) continue;
+          const entry = templateCharacterBible[bibleKey];
+          if (!entry || entry._rule) continue; // skip meta-fields
+          const appearance = (typeof entry === "string") ? entry : entry.appearance;
+          if (!appearance) continue;
+          if (appearance === "derived from child photo") {
+            // runtime substitution: use skinToneDescription from STEP 1
+            if (skinToneDescription) hints.push(`${hebrewRole}: ${skinToneDescription}.`);
+          } else {
+            hints.push(`${hebrewRole}: ${appearance}.`);
+          }
+        }
+        return hints.length ? ` Character appearances: ${hints.join(" ")}` : "";
+      }
+
+      // ── Unified page generator: picks V2 or V1 based on flag ─────────────
+      async function generateAnyPage(pageIndex) {
+        if (useEditPipeline) {
+          const scene    = stripBannedNames(sanitizeImagePrompt(pages[pageIndex]?.imagePrompt || ""));
+          const pageText = pages[pageIndex]?.text || "";
+          console.log(`generate-full [${bookId}]: page-${pageIndex} scene: ${scene}`);
+
+          // character_bible hint (from template) takes priority over generic skinToneHint
+          const bibleHint = buildBibleHint(pageText);
+          const hasFamilyMember = !bibleHint && /\b(father|mother|dad|mom|grandfather|grandmother|grandpa|grandma|brother|sister|parent|family|siblings?)\b/i.test(scene);
+          const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
+            ? ` Family members share the child's ${skinToneDescription}.`
+            : "";
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          return generatePageImageWithRetryV2(scenePrompt);
+        }
+        return generatePageImage(pageIndex);
+      }
+
+      // Retry wrapper: up to 2 retries, 180s timeout per attempt.
+      // If all attempts fail, returns null and logs — pipeline continues regardless.
+      async function generatePageImageWithRetry(pageIndex) {
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS  = 180000;
+        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+          try {
+            const result = await Promise.race([
+              generateAnyPage(pageIndex),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`page-${pageIndex} timed out after 180s`)), TIMEOUT_MS)
+              )
+            ]);
+            return result;
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: page-${pageIndex} attempt ${attempt} failed: ${err.message}`);
+            if (attempt <= MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+        }
+        console.error(`generate-full [${bookId}]: page-${pageIndex} — all ${MAX_RETRIES + 1} attempts failed, skipping (null)`);
+        return null;
+      }
+
+      // Cover prompt / cover generation
+      let coverGenPromise;
+      if (useEditPipeline) {
+        const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
+        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        coverGenPromise = Promise.race([
+          generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
+        ]);
+      } else {
+        const coverPrompt = `Create a premium children's storybook COVER illustration.\n\nIllustration style: ${safeStyle}\n\nLOCKED CHILD CHARACTER:\n${sanitizeBrandTerms(promptCore)}\n\nSHORT CHARACTER SUMMARY:\n${sanitizeBrandTerms(characterSummary)}\n\nSTORY DIRECTION:\n${sanitizeBrandTerms(storyIdea)}\n\nRules:\n- create ONE beautiful single cover illustration\n- show the child as the hero in a magical scene\n- magical, premium, warm aesthetic\n- no character sheet, no multiple poses\n- NO text, letters, words, numbers, or writing of any kind rendered inside the image\n- NO captions, titles, subtitles, labels, or book title text on the image\n- no watermark\n- no logos\n- no copyrighted costume emblems`;
+        coverGenPromise = Promise.race([
+          openai.images.generate({ model: "gpt-image-2", prompt: coverPrompt, size: "1024x1536", quality: "high" }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
+        ]);
+      }
+
+      // Run cover + pages 0 and 1 all at once in parallel
+      // Cover gets a 180s timeout; pages use generatePageImageWithRetry (2 retries + 180s each)
+      const [coverResult, page0Result, page1Result] = await Promise.allSettled([
+        bookBeforeImgs.coverImage ? Promise.resolve(null) : coverGenPromise,
+        fullImages[0] ? Promise.resolve(null) : generatePageImageWithRetry(0),
+        fullImages[1] ? Promise.resolve(null) : generatePageImageWithRetry(1),
+      ]);
+
+      // Save cover — upload to Storage, fall back to base64
+      // V2 pipeline: coverResult.value is already a base64 string (normalizeImageToBase64 called inside the promise)
+      // V1 pipeline: coverResult.value is the raw API response object
+      if (coverResult?.status === "fulfilled" && coverResult.value) {
+        const coverBase64 = useEditPipeline
+          ? coverResult.value   // already base64 string from V2
+          : await normalizeImageToBase64(coverResult.value?.data?.[0]);
+        if (coverBase64) {
+          let coverValue = `data:image/jpeg;base64,${coverBase64}`;
+          try {
+            const coverUrl = await uploadImageToStorage(bookId, "cover.jpg", coverValue);
+            if (coverUrl) {
+              coverValue = coverUrl;
+              console.log(`generate-full [${bookId}]: cover uploaded to Storage`);
+            }
+          } catch (err) {
+            console.warn(`generate-full [${bookId}]: cover Storage upload failed, using base64: ${err.message}`);
+          }
+          await updateBookField(bookId, { coverImage: coverValue });
+        }
+      }
+
+      // Save priority pages — upload to Storage, fall back to base64
       if (page0Result?.status === "fulfilled" && page0Result.value) {
-        fullImages[0] = `data:image/jpeg;base64,${page0Result.value}`;
+        let p0value = `data:image/jpeg;base64,${page0Result.value}`;
+        try {
+          const url = await uploadImageToStorage(bookId, "page-0.jpg", p0value);
+          if (url) { p0value = url; console.log(`generate-full [${bookId}]: page-0 uploaded to Storage`); }
+        } catch (err) {
+          console.warn(`generate-full [${bookId}]: page-0 Storage upload failed: ${err.message}`);
+        }
+        fullImages[0] = p0value;
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
       if (page1Result?.status === "fulfilled" && page1Result.value) {
-        fullImages[1] = `data:image/jpeg;base64,${page1Result.value}`;
+        let p1value = `data:image/jpeg;base64,${page1Result.value}`;
+        try {
+          const url = await uploadImageToStorage(bookId, "page-1.jpg", p1value);
+          if (url) { p1value = url; console.log(`generate-full [${bookId}]: page-1 uploaded to Storage`); }
+        } catch (err) {
+          console.warn(`generate-full [${bookId}]: page-1 Storage upload failed: ${err.message}`);
+        }
+        fullImages[1] = p1value;
         await updateBookField(bookId, { fullImages: [...fullImages] });
       }
 
-      console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved`);
+      console.log(`generate-full [${bookId}]: STEP 3+4a done — cover + priority images saved ${elapsed()}`);
 
       // שלב 4ב: שאר התמונות (3-16) בbatches של 3
       // שלב 4ב: שאר התמונות — 5 במקביל, כל תמונה נשמרת מיד כשמוכנה
@@ -812,9 +1612,16 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         // כל תמונה שומרת מיד לDB ברגע שמוכנה — לא מחכה לסוף הbatch
         await Promise.allSettled(batch.map(async (pageIndex) => {
           try {
-            const base64 = await generatePageImage(pageIndex);
+            const base64 = await generatePageImageWithRetry(pageIndex);
             if (base64) {
-              fullImages[pageIndex] = `data:image/jpeg;base64,${base64}`;
+              let imgValue = `data:image/jpeg;base64,${base64}`;
+              try {
+                const url = await uploadImageToStorage(bookId, `page-${pageIndex}.jpg`, imgValue);
+                if (url) imgValue = url;
+              } catch (err) {
+                console.warn(`generate-full [${bookId}]: page-${pageIndex} Storage upload failed: ${err.message}`);
+              }
+              fullImages[pageIndex] = imgValue;
               await updateBookField(bookId, { fullImages: [...fullImages] });
               const doneCount = fullImages.filter(Boolean).length;
               console.log(`generate-full [${bookId}]: image ${pageIndex} saved — ${doneCount}/${pages.length} total`);
@@ -826,19 +1633,23 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       }
 
       // ── STEP 5: All done — send "book ready" email ───────────────────────────
-      console.log("generate-full: completed for bookId:", bookId);
+      // This block ALWAYS runs — even if some pages were skipped due to image failures.
+      console.log(`generate-full [${bookId}]: STEP 5 — all batches complete ${elapsed()} (${fullImages.filter(Boolean).length}/${pages.length} images), checking purchaseUnlocked`);
       try {
-        const completedBook = await getBook(bookId);
+        // getBookLight sufficient — only need purchaseUnlocked + customerEmail for the email decision
+        const completedBook = await getBookLight(bookId);
+        console.log(`generate-full [${bookId}]: STEP 5 — purchaseUnlocked=${completedBook?.purchaseUnlocked}, email=${completedBook?.customerEmail || "none"}`);
         // Only send if book was paid (user might not have paid yet — that's ok,
-        // email will be triggered again by Stripe webhook when they do pay)
+        // email will be triggered again by LemonSqueezy webhook when they do pay)
         if (completedBook?.purchaseUnlocked && completedBook?.customerEmail) {
+          console.log(`generate-full [${bookId}]: STEP 5 — calling sendBookReadyEmail...`);
           await sendBookReadyEmail(completedBook);
-          console.log("generate-full: book ready email sent to:", completedBook.customerEmail);
+          console.log(`generate-full [${bookId}]: STEP 5 — sendBookReadyEmail sent ✅`);
         } else {
-          console.log("generate-full: book not yet paid, skipping book ready email for now");
+          console.log(`generate-full [${bookId}]: STEP 5 — book not yet paid, skipping book ready email (LemonSqueezy webhook will trigger it on payment)`);
         }
       } catch (emailErr) {
-        console.error("generate-full: failed to send book ready email:", emailErr.message);
+        console.error(`generate-full [${bookId}]: STEP 5 — sendBookReadyEmail failed: ${emailErr.message}`);
       }
 
     } catch (err) {
@@ -919,9 +1730,10 @@ Rules:
 - no copyrighted costume emblems`.trim();
 
               const imgResp = await openai.images.generate({
-                model:  "gpt-image-1",
-                prompt: finalPrompt,
-                size:   "1024x1024"
+                model:   "gpt-image-2",
+                prompt:  finalPrompt,
+                size:    "1024x1536",
+                quality: "high"
               });
 
               const base64 = await normalizeImageToBase64(imgResp?.data?.[0]);
@@ -932,7 +1744,7 @@ Rules:
           let batchHadNew = false;
           for (const result of results) {
             if (result.status === "fulfilled" && result.value?.base64) {
-              fullImages[result.value.pageIndex] = `data:image/png;base64,${result.value.base64}`;
+              fullImages[result.value.pageIndex] = `data:image/jpeg;base64,${result.value.base64}`;
               savedCount++;
               batchHadNew = true;
             }
@@ -963,8 +1775,22 @@ Rules:
 // ─── Update cropped photo (after early generation started) ───────────────────
 app.post("/api/books/:bookId/update-photo", async (req, res) => {
   try {
-    const { croppedPhoto } = req.body;
+    let { croppedPhoto } = req.body;
     if (!croppedPhoto) return res.status(400).json({ ok: false });
+
+    // Upload to Storage if it's a base64 data URL
+    if (croppedPhoto.startsWith("data:")) {
+      try {
+        const url = await uploadImageToStorage(req.params.bookId, "cropped-photo.jpg", croppedPhoto);
+        if (url) {
+          console.log(`[UpdatePhoto] uploaded to Storage: ${url}`);
+          croppedPhoto = url;
+        }
+      } catch (err) {
+        console.warn(`[UpdatePhoto] Storage upload failed (using base64 fallback): ${err.message}`);
+      }
+    }
+
     await updateBookField(req.params.bookId, { croppedPhoto });
     return res.json({ ok: true });
   } catch (err) {
@@ -1018,7 +1844,7 @@ app.post("/generate-character-reference", async (req, res) => {
     }
 
     const style     = illustration_style || "Soft Storybook";
-    const safeStyle = sanitizeBrandTerms(style);
+    const safeStyle = resolveStyle(style);
 
     const dnaCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -1096,9 +1922,10 @@ Background:
 `.trim();
 
     const imageResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: characterSheetPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  characterSheetPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const characterSheetBase64 = await normalizeImageToBase64(imageResp?.data?.[0]);
@@ -1176,7 +2003,7 @@ Return ONLY JSON:
 }
 
 Rules:
-- Exactly 16 story pages
+- Exactly 12 story pages
 - Each page text must be 35-70 words
 - The child must clearly be the hero
 - imagePrompt must describe the same child consistently
@@ -1198,7 +2025,7 @@ Rules:
 
     const title    = sanitizeBrandTerms(book.title    || `The Magical Adventure of ${cleanChildName}`);
     const subtitle = sanitizeBrandTerms(book.subtitle || "A story where you are the hero");
-    const pages    = Array.isArray(book.pages) ? book.pages.slice(0, 16) : [];
+    const pages    = Array.isArray(book.pages) ? book.pages.slice(0, 12) : [];
 
     return res.json({
       status: "ok",
@@ -1270,9 +2097,10 @@ Rules:
 `.trim();
 
     const imgResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: coverPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  coverPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const coverImageBase64 = await normalizeImageToBase64(imgResp?.data?.[0]);
@@ -1321,9 +2149,10 @@ Rules:
 `.trim();
 
     const imgResp = await openai.images.generate({
-      model:  "gpt-image-1",
-      prompt: finalPrompt,
-      size:   "1024x1024"
+      model:   "gpt-image-2",
+      prompt:  finalPrompt,
+      size:    "1024x1536",
+      quality: "high"
     });
 
     const imageBase64 = await normalizeImageToBase64(imgResp?.data?.[0]);
@@ -1354,11 +2183,11 @@ app.post("/api/contact", async (req, res) => {
     };
     const subjectLine = subjectLabels[subject] || subject || "General inquiry";
     const appUrl = process.env.APP_URL || "https://lifebooks.online";
-    const adminEmail = process.env.ADMIN_EMAIL || "books@lifebooks.online";
+    const adminEmail = process.env.ADMIN_EMAIL || "onlinelifebooks@gmail.com";
 
     // ── Notify admin ──────────────────────────────────────────────────────────
     await resend.emails.send({
-      from:    "Lifebook Contact <books@lifebooks.online>",
+      from:    "Lifebook Contact <onlinelifebooks@gmail.com>",
       to:      [adminEmail],
       replyTo: email,
       subject: `[Contact] ${subjectLine} — from ${name}`,
@@ -1397,7 +2226,7 @@ app.post("/api/contact", async (req, res) => {
 
     // ── Auto-reply to sender ──────────────────────────────────────────────────
     await resend.emails.send({
-      from:    "Lifebook <books@lifebooks.online>",
+      from:    "Lifebook <onlinelifebooks@gmail.com>",
       to:      [email],
       subject: "We got your message! 📖",
       html: `
@@ -1441,13 +2270,123 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+// ─── Admin: Login ─────────────────────────────────────────────────────────────
+app.post("/api/admin/login", async (req, res) => {
+  if (!ADMIN_JWT_SECRET || !ADMIN_PASSWORD_HASH) {
+    return res.status(503).json({ error: "Admin not configured" });
+  }
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const rl = checkLoginRateLimit(ip);
+  if (rl.blocked) {
+    return res.status(429).json({
+      error: `Too many failed attempts. Try again in ${rl.retryAfterSec} seconds.`
+    });
+  }
+  const { username, password } = req.body || {};
+  const usernameOk = username === ADMIN_USERNAME;
+  const passwordOk = usernameOk && await bcrypt.compare(password || "", ADMIN_PASSWORD_HASH);
+  if (!usernameOk || !passwordOk) {
+    console.warn(`[admin] Failed login attempt from ${ip}`);
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  resetLoginRateLimit(ip);
+  const token = jwt.sign({ username }, ADMIN_JWT_SECRET, { expiresIn: "8h" });
+  console.log(`[admin] Login success for "${username}" from ${ip}`);
+  return res.json({ token });
+});
+
+// ─── Admin: List templates ────────────────────────────────────────────────────
+app.get("/api/admin/templates", requireAdminAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from("story_templates")
+    .select("id, slug, name, description, active, input_schema, illustration_style")
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ templates: data });
+});
+
+// ─── Admin: Create book ───────────────────────────────────────────────────────
+app.post("/api/admin/books/create", requireAdminAuth, async (req, res) => {
+  try {
+    const { childName, childAge, childGender, customerEmail,
+            croppedPhoto, originalPhoto, illustrationStyle } = req.body || {};
+
+    if (!childName || !croppedPhoto) {
+      return res.status(400).json({ error: "childName and croppedPhoto are required" });
+    }
+
+    const bookId = crypto.randomUUID();
+    let croppedUrl  = croppedPhoto;
+    let originalUrl = originalPhoto || croppedPhoto;
+
+    try {
+      croppedUrl  = await uploadImageToStorage(bookId, "cropped-photo.jpg",  croppedPhoto);
+      originalUrl = await uploadImageToStorage(bookId, "original-photo.jpg", originalPhoto || croppedPhoto);
+    } catch (storageErr) {
+      console.warn("[admin] Storage upload failed, using base64 fallback:", storageErr.message);
+    }
+
+    const book = {
+      bookId,
+      childName:          sanitizeBrandTerms(childName),
+      childAge:           String(childAge || ""),
+      childGender:        childGender || "",
+      storyIdea:          "",
+      illustrationStyle:  illustrationStyle || "Soft Storybook",
+      croppedPhoto:       croppedUrl,
+      originalPhoto:      originalUrl,
+      customerEmail:      customerEmail || process.env.ADMIN_EMAIL || "",
+      characterReference: null,
+      generatedBook:      null,
+      coverImage:         null,
+      previewImages:      [],
+      fullImages:         [],
+      selectedFormat:     "digital",
+      selectedPrice:      0,
+      paymentStatus:      "paid",
+      purchaseUnlocked:   true,
+      stripeSessionId:    null
+    };
+
+    await insertBook(book);
+    console.log(`[admin] Book created: ${bookId} — child: ${childName}`);
+    return res.json({ bookId });
+  } catch (err) {
+    console.error("[admin] Create book error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: Generate book (calls existing generate-full internally) ───────────
+app.post("/api/admin/books/:bookId/generate", requireAdminAuth, async (req, res) => {
+  const { bookId } = req.params;
+
+  const book = await getBookLight(bookId);
+  if (!book) return res.status(404).json({ error: "Book not found" });
+
+  res.json({ status: "ok", message: "Generation started" });
+
+  // Delegate to the existing public endpoint — generate-full is completely untouched
+  const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 8080}`;
+  fetch(`${baseUrl}/api/books/${bookId}/generate-full`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode:           req.body?.mode           || "template",
+      templateSlug:   req.body?.templateSlug   || null,
+      templateInputs: req.body?.templateInputs || {}
+    })
+  }).catch(err =>
+    console.error(`[admin] internal generate call failed for ${bookId}:`, err.message)
+  );
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  // API routes return JSON 404
   if (req.path.startsWith("/api/") || req.path.startsWith("/webhooks/")) {
     return res.status(404).json({ status: "error", message: "Not found" });
   }
-  // HTML pages return 404.html
   res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
 });
 

@@ -74,29 +74,41 @@
   </div>
 </main>
 <script type="module">
-const API = window.location.origin;
-const params = new URLSearchParams(window.location.search);
-const bookId = params.get("bookId");
-const sessionId = params.get("session_id");
+const API    = window.location.origin;
+const bookId = new URLSearchParams(window.location.search).get("bookId");
 
-const openBtn   = document.getElementById("openBookBtn");
-const homeBtn   = document.getElementById("goHomeBtn");
-const statusEl  = document.getElementById("statusMsg");
-const coverImg  = document.getElementById("coverImg");
-const titleEl   = document.getElementById("bookTitle");
-const metaEl    = document.getElementById("bookMeta");
+const openBtn    = document.getElementById("openBookBtn");
+const homeBtn    = document.getElementById("goHomeBtn");
+const statusEl   = document.getElementById("statusMsg");
+const coverImg   = document.getElementById("coverImg");
+const titleEl    = document.getElementById("bookTitle");
+const metaEl     = document.getElementById("bookMeta");
+const resendBtn  = document.getElementById("resendEmailBtn");
+const resendWrap = document.getElementById("resendWrap");
 
 if (!bookId) { window.location.href = "wizard.html"; }
 
-// Always wire up the button immediately
-openBtn.onclick = () => {
-  window.location.href = "reader.html?bookId=" + encodeURIComponent(bookId);
-};
+// Button starts disabled — enabled only once purchaseUnlocked confirmed (or after timeout)
+openBtn.disabled      = true;
+openBtn.style.opacity = "0.6";
+openBtn.style.cursor  = "not-allowed";
+openBtn.textContent   = "⏳ Confirming payment...";
+
 homeBtn.onclick = () => { window.location.href = "index.html"; };
 
+function goToBook() {
+  window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId);
+}
+
+function enableOpenBtn() {
+  openBtn.disabled      = false;
+  openBtn.style.opacity = "1";
+  openBtn.style.cursor  = "pointer";
+  openBtn.textContent   = "📖 Open My Book";
+  openBtn.onclick       = goToBook;
+}
+
 // Resend email button
-const resendBtn  = document.getElementById("resendEmailBtn");
-const resendWrap = document.getElementById("resendWrap");
 if (resendBtn && bookId) {
   resendBtn.addEventListener("click", async function() {
     resendBtn.textContent = "Sending...";
@@ -117,46 +129,75 @@ async function loadBook() {
   return d.book;
 }
 
-async function unlockBook() {
-  // Try to unlock via session_id if payment not yet confirmed
-  await fetch(API + "/api/books/" + bookId + "/unlock", { method: "POST" });
-}
-
 async function init() {
   try {
     statusEl.textContent = "Confirming your payment...";
 
-    // Try to unlock (in case webhook hasn't fired yet)
-    if (sessionId) await unlockBook();
-
-    // Poll up to 10x for purchaseUnlocked
-    let book = null;
-    for (let i = 0; i < 10; i++) {
-      book = await loadBook();
-      if (book && book.purchaseUnlocked) break;
-      await new Promise(r => setTimeout(r, 2000));
-      statusEl.textContent = "Confirming payment... (" + (i+1) + "/10)";
+    // If redirected from Gumroad, call /unlock immediately (webhook may not have fired yet)
+    const source = new URLSearchParams(window.location.search).get("source");
+    if (source === "gumroad" && bookId) {
+      try {
+        console.log("[success] source=gumroad — calling /unlock for bookId:", bookId);
+        await fetch(API + "/api/books/" + bookId + "/unlock", { method: "POST" });
+      } catch (unlockErr) {
+        console.warn("[success] /unlock call failed:", unlockErr.message);
+      }
     }
 
-    if (!book) { statusEl.textContent = "Could not load book. Please contact support."; return; }
+    // Poll up to 30×2s = 60 seconds for purchaseUnlocked (waits for webhook)
+    let book     = null;
+    let unlocked = false;
+    for (let i = 0; i < 30; i++) {
+      book = await loadBook();
 
-    // Render book info
-    const title = (book.generatedBook && book.generatedBook.title) || "Your Magical Adventure";
-    titleEl.textContent = title;
-    metaEl.textContent  = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+      // Update UI with whatever data has arrived on this poll — title/cover may arrive
+      // before purchaseUnlocked (story is written during generation, not after payment)
+      if (book?.generatedBook?.title) {
+        titleEl.textContent = book.generatedBook.title;
+      }
+      if (book?.coverImage) {
+        coverImg.src = book.coverImage;
+      }
+      if (book?.childName !== undefined) {
+        metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+      }
+
+      if (book && book.purchaseUnlocked) { unlocked = true; break; }
+      await new Promise(r => setTimeout(r, 2000));
+      statusEl.textContent = "Confirming payment... (" + (i + 1) + "/30)";
+    }
+
+    if (!book) {
+      statusEl.textContent = "Could not load book — please contact support.";
+      enableOpenBtn(); // let them try anyway
+      return;
+    }
+
+    // Final render pass — ensures UI reflects last fetched state
+    if (book.generatedBook?.title) { titleEl.textContent = book.generatedBook.title; }
     if (book.coverImage) { coverImg.src = book.coverImage; }
+    metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
 
-    if (book.purchaseUnlocked) {
+    // Enable the button — always delivery.html
+    enableOpenBtn();
+
+    if (unlocked) {
       statusEl.textContent = "✅ Payment confirmed — your book is ready!";
       statusEl.style.color = "#2d7a2d";
       if (resendWrap) resendWrap.style.display = "block";
+      // Auto-redirect after 2s
+      setTimeout(goToBook, 2000);
     } else {
-      statusEl.textContent = "⚠ Still confirming payment. Your book will unlock shortly.";
+      // Webhook didn't fire in 60s — redirect anyway; delivery.html will handle unlocked state
+      statusEl.textContent = "Payment confirmed — opening your book...";
       statusEl.style.color = "#c8922a";
+      setTimeout(goToBook, 2500);
     }
 
   } catch(err) {
+    console.error("success page error:", err);
     statusEl.textContent = "Error: " + err.message;
+    enableOpenBtn(); // always let them try
   }
 }
 

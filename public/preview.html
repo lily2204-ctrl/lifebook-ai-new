@@ -182,34 +182,22 @@
 
       <div class="unlock-banner">
         <div class="unlock-text">
-          <strong>Preview  First 2 pages</strong>
-          <span>Unlock the full book (all pages + PDF download)</span>
+          <strong>Preview — First 2 pages</strong>
+          <span>Download the full book as PDF (all pages)</span>
         </div>
-        <div class="unlock-price">$39</div>
       </div>
 
       <div class="pages-wrap" id="pagesWrap"></div>
 
       <!-- Live progress counter -->
       <div id="imgProgress" style="display:none;margin:12px 0;padding:12px 16px;background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1px solid var(--gold-pale);border-radius:12px;text-align:center;">
-        <div style="font-size:14px;font-weight:700;color:var(--brown);" id="imgProgressText">✨ 0/16 pages illustrated</div>
+        <div style="font-size:14px;font-weight:700;color:var(--brown);" id="imgProgressText">✨ 0/12 pages illustrated</div>
         <div style="height:5px;background:rgba(200,146,42,0.1);border-radius:4px;margin-top:8px;overflow:hidden;">
           <div id="imgProgressBar" style="height:100%;background:linear-gradient(90deg,var(--gold-light),var(--gold));border-radius:4px;transition:width 0.6s ease;width:0%;"></div>
         </div>
       </div>
 
-      <div class="locked-section">
-        <div></div>
-        <p>The remaining pages are ready after payment.<br>Instant download included.</p>
-      </div>
-
       <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;">⏳ Preparing your preview...</button>
-
-      <div class="trust-row">
-        <span class="trust-item"> Secure checkout</span>
-        <span class="trust-item"> Instant download</span>
-        <span class="trust-item"> Stripe encrypted</span>
-      </div>
 
       <div class="still-gen" id="stillGen" style="display:none">
         <div class="mini-spin2"></div>
@@ -304,7 +292,7 @@ function updatePageImg(i, src) {
 }
 
 payBtn && payBtn.addEventListener("click", function() {
-  window.location.href = "checkout.html?bookId=" + encodeURIComponent(bookId);
+  window.location.href = "delivery.html?bookId=" + encodeURIComponent(bookId);
 });
 
 var previewShown = false;
@@ -349,7 +337,7 @@ async function pollBook() {
       if (previewShown) updateLiveImages(b);
 
       // Update progress counter
-      var totalPages = (b.generatedBook && b.generatedBook.pages) ? b.generatedBook.pages.length : 16;
+      var totalPages = (b.generatedBook && b.generatedBook.pages) ? b.generatedBook.pages.length : 12;
       var readyCount = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
       var progressEl = document.getElementById('imgProgress');
       var progressText = document.getElementById('imgProgressText');
@@ -360,16 +348,20 @@ async function pollBook() {
         progressBar.style.width = Math.round((readyCount / totalPages) * 100) + '%';
       }
 
-      // Unlock button — enable as soon as cover + 2 images ready
-      if (hasCover && has2Imgs && payBtn) {
+      // FIX: enable payBtn as soon as cover is ready — don't require has2Imgs.
+      // Previously required hasCover && has2Imgs, so if page images were slow or failed,
+      // payBtn stayed disabled forever even though the cover was available.
+      if (hasCover && payBtn && payBtn.disabled) {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Unlock Full Book — $39';
+        payBtn.textContent = '⬇ Download PDF';
       }
 
+      // Break when cover + 2 page images all ready (keeps polling so page images update)
       if (hasCover && has2Imgs) {
         setStep(4, "Ready!", 100);
+        document.title = "✅ הספר מוכן!";
         var total = b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0;
         var ready = b.fullImages ? b.fullImages.filter(Boolean).length : 0;
         if (ready < total && stillGen) stillGen.style.display = "flex";
@@ -379,13 +371,32 @@ async function pollBook() {
     } catch(e) { console.warn("poll:", e.message); }
   }
 
-  // Fallback
+  // Fallback: if loop timed out without breaking, show whatever we have
   if (!previewShown) {
     try {
       var r2 = await fetch(API_BASE + "/api/books/" + bookId);
       var d2 = await r2.json();
       if (d2.book) { renderPreview(d2.book); showPreview(); }
-      else if (loadingStatus) loadingStatus.textContent = "Taking longer than expected. Please refresh.";
+    } catch(e) {}
+  }
+  // Safety net: enable payBtn if cover exists (handles timeout case where
+  // page images never arrived so the has2Imgs break condition never fired)
+  if (payBtn && payBtn.disabled) {
+    try {
+      var r3 = await fetch(API_BASE + "/api/books/" + bookId);
+      var d3 = await r3.json();
+      if (d3.book && d3.book.coverImage) {
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+        payBtn.style.cursor = 'pointer';
+        payBtn.textContent = '⬇ Download PDF';
+      } else if (d3.book && d3.book.generatedBook) {
+        // Story exists but no cover yet — still let them proceed
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+        payBtn.style.cursor = 'pointer';
+        payBtn.textContent = '⬇ Download PDF';
+      }
     } catch(e) {}
   }
 }
@@ -408,7 +419,15 @@ function renderPreview(b) {
 
 function updateLiveImages(b) {
   var imgs = b.fullImages || [];
-  if (b.coverImage && coverImage && !coverImage.src) coverImage.src = b.coverImage;
+  // FIX: use getAttribute('src') instead of !coverImage.src
+  // img.src (IDL property) returns the current page URL in mobile Safari when no src is set,
+  // making !coverImage.src always false. getAttribute returns null when src is absent.
+  if (b.coverImage && coverImage) {
+    var existingSrc = coverImage.getAttribute('src');
+    if (!existingSrc || existingSrc !== b.coverImage) {
+      coverImage.src = b.coverImage;
+    }
+  }
   for (var i = 0; i < 2; i++) {
     if (imgs[i]) updatePageImg(i, imgs[i]);
   }

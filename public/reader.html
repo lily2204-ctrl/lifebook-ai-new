@@ -37,19 +37,19 @@
     .toggle-btn{padding:7px 16px;border-radius:50px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:'Lato',sans-serif;background:transparent;color:var(--text-muted);transition:all 0.2s}
     .toggle-btn.active{background:var(--white);color:var(--brown);box-shadow:0 2px 8px rgba(100,60,20,0.1)}
 
-    /* GRID VIEW  all pages at once */
-    .pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+    /* GRID VIEW — split layout per page */
+    .pages-grid{display:grid;grid-template-columns:1fr;gap:18px}
 
-    .page-card{background:var(--white);border-radius:22px;overflow:hidden;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;transition:transform 0.2s,box-shadow 0.2s}
-    .page-card:hover{transform:translateY(-4px);box-shadow:0 16px 50px rgba(100,60,20,0.14)}
-    .page-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
-    .page-num-badge{position:absolute;top:12px;left:12px;background:rgba(253,246,236,0.92);backdrop-filter:blur(4px);border:1px solid var(--parchment);border-radius:50px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;z-index:2}
-    .page-img-wrap{width:100%;aspect-ratio:1/1;background:var(--cream-deep);display:flex;align-items:center;justify-content:center;overflow:hidden}
-    .page-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
-    .page-img-loading{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;padding:20px}
-    .page-img-error{display:flex;align-items:center;justify-content:center;color:#a03020;font-size:13px;padding:20px;text-align:center}
-    .page-body{padding:16px 18px 18px}
-    .page-text{font-family:'Playfair Display',serif;font-size:16px;line-height:1.65;color:var(--brown)}
+    /* Each page: text panel (left, colored bg) + image panel (right, full bleed) */
+    .page-card{display:grid;grid-template-columns:1fr 1fr;border-radius:22px;overflow:hidden;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);min-height:300px;transition:transform 0.2s,box-shadow 0.2s}
+    .page-card:hover{transform:translateY(-3px);box-shadow:0 16px 50px rgba(100,60,20,0.14)}
+    .pc-text{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;position:relative}
+    .pc-text p{font-family:'Playfair Display',serif;font-size:clamp(14px,1.5vw,19px);line-height:1.85;width:100%}
+    .pc-text .pg-num{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;opacity:0.35;font-family:'Lato',sans-serif}
+    .pc-img{position:relative;min-height:300px;overflow:hidden;background:var(--cream-deep)}
+    .pc-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .pc-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);font-size:13px;padding:20px}
+    @media(max-width:640px){.page-card{grid-template-columns:1fr}.pc-img{min-height:220px}}
 
     /* SPINNER */
     .spinner{width:32px;height:32px;border-radius:50%;border:3px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.9s linear infinite}
@@ -86,7 +86,7 @@
 <nav>
   <button class="nav-back" id="backToPreviewBtn">Back</button>
   <a class="nav-brand" href="index.html">
-    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:44px;width:auto;display:block"/>
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
   <div style="width:80px"></div>
 </nav>
@@ -187,6 +187,18 @@ let pages = [];
 let images = [];
 let currentIndex = 0;
 
+const BOY_COLORS  = ['#E8F4FD','#E8F8F5','#EAF2FF','#FFF8E7','#F0F4FF'];
+const GIRL_COLORS = ['#FDE8F4','#F3E8FF','#FFF0E8','#E8FDF5','#FFFDE8'];
+const BOY_TEXT    = '#1a5276';
+const GIRL_TEXT   = '#7b1a5a';
+
+function pageColors(pageIndex) {
+  const gender = (book && book.childGender || '').toLowerCase();
+  const isBoy  = gender === 'boy' || gender === 'male' || gender === 'זכר' || gender === 'בן';
+  const pal    = isBoy ? BOY_COLORS : GIRL_COLORS;
+  return { bg: pal[pageIndex % pal.length], color: isBoy ? BOY_TEXT : GIRL_TEXT };
+}
+
 // Toggle view
 toggleGrid.addEventListener("click", function() {
   toggleGrid.classList.add("active");
@@ -222,37 +234,57 @@ function renderSinglePage(i) {
   if (!page) return;
   singlePageBadge.textContent = "Page " + (i+1);
   singleCounter.textContent = "Page " + (i+1) + " of " + pages.length;
-  singlePageText.textContent = page.text || "";
   prevBtn.disabled = i === 0;
   prevBtn.style.opacity = i === 0 ? "0.5" : "1";
   nextBtn.textContent = i === pages.length - 1 ? "Finish" : "Next";
 
-  var src = images[i];
-  if (src) {
-    singleImageWrap.innerHTML = '<img src="' + src + '" alt="Page ' + (i+1) + '"/>';
-  } else {
-    singleImageWrap.innerHTML = '<div class="page-img-loading"><div class="spinner"></div><span>Loading...</span></div>';
+  var colors = pageColors(i);
+  var text   = page.text || "";
+  var isHeb  = /[\u0590-\u05FF]/.test(text);
+
+  // Rebuild single view as split layout
+  var container = singleImageWrap.closest('.page-card') || document.querySelector('#singleView .page-card');
+  if (container) {
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = '1fr 1fr';
+    container.style.minHeight = '360px';
+    container.style.borderRadius = '22px';
+    container.style.overflow = 'hidden';
+    container.innerHTML =
+      '<div class="pc-text" style="background:' + colors.bg + '">' +
+        '<p style="color:' + colors.color + ';direction:' + (isHeb?'rtl':'ltr') + ';text-align:' + (isHeb?'right':'center') + '">' + text + '</p>' +
+        '<span class="pg-num" style="color:' + colors.color + '">' + (i+1) + '</span>' +
+      '</div>' +
+      '<div class="pc-img" id="single-img-panel">' +
+        (images[i]
+          ? '<img src="' + images[i] + '" alt="Page ' + (i+1) + '"/>'
+          : '<div class="pc-img-spin"><div class="spinner"></div><span>Illustrating...</span></div>') +
+      '</div>';
   }
 }
 
-// Build grid
+// Build grid — split layout: text left (colored bg) + image right (full bleed)
 function buildGrid() {
   pagesGrid.innerHTML = "";
   pages.forEach(function(page, i) {
+    var colors = pageColors(i);
+    var text   = page.text || "";
+    var isHeb  = /[\u0590-\u05FF]/.test(text);
+    var src    = images[i];
+
     var card = document.createElement("div");
     card.className = "page-card";
     card.id = "grid-page-" + i;
-
-    var src = images[i];
-    var imgHtml = src
-      ? '<img src="' + src + '" alt="Page ' + (i+1) + '"/>'
-      : '<div class="page-img-loading"><div class="spinner"></div><span>Illustrating...</span></div>';
-
     card.innerHTML =
-      '<div class="page-num-badge">Page ' + (i+1) + '</div>' +
-      '<div class="page-img-wrap" id="gimg-' + i + '">' + imgHtml + '</div>' +
-      '<div class="page-body"><p class="page-text">' + (page.text || "") + '</p></div>';
-
+      '<div class="pc-text" style="background:' + colors.bg + '">' +
+        '<p style="color:' + colors.color + ';direction:' + (isHeb?'rtl':'ltr') + ';text-align:' + (isHeb?'right':'center') + '">' + text + '</p>' +
+        '<span class="pg-num" style="color:' + colors.color + '">' + (i+1) + '</span>' +
+      '</div>' +
+      '<div class="pc-img" id="gimg-' + i + '">' +
+        (src
+          ? '<img src="' + src + '" alt="Page ' + (i+1) + '"/>'
+          : '<div class="pc-img-spin"><div class="spinner"></div><span>Illustrating...</span></div>') +
+      '</div>';
     pagesGrid.appendChild(card);
   });
 }

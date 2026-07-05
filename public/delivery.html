@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Your Book</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&family=Suez+One&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -77,6 +77,15 @@
     /* LOADING */
     .spread-loading{grid-column:1/3;text-align:center;padding:50px 20px;color:var(--text-muted)}
     .spread-loading .spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.9s linear infinite;margin:0 auto 12px}
+
+    /* SPLIT PAGE LAYOUT: text left (colored bg) + image right (full bleed) */
+    .text-panel{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;position:relative;min-height:380px}
+    .text-panel p{font-family:'Playfair Display',serif;font-size:clamp(13px,1.6vw,19px);line-height:1.85;width:100%}
+    .text-panel .pg-num{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;opacity:0.35;font-family:'Lato',sans-serif}
+    .image-panel{overflow:hidden;min-height:380px;position:relative}
+    .image-panel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .image-panel-spin{width:100%;height:100%;min-height:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--cream-deep)}
+    @media(max-width:480px){.text-panel,.image-panel{min-height:200px}.book-spread{grid-template-columns:1fr !important}.image-panel img{position:static;width:100%;height:220px}}
 
     /* NAV */
     .flipper-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px}
@@ -212,9 +221,22 @@ const $ = id => document.getElementById(id);
 
 function buildSpreads(pages) {
   const s = [{ type: 'cover' }];
-  for (let i = 0; i < pages.length; i += 2)
-    s.push({ type: 'spread', L: i, R: i + 1 < pages.length ? i + 1 : null });
+  for (let i = 0; i < pages.length; i++)
+    s.push({ type: 'spread', L: i, R: null });
   return s;
+}
+
+// Color palettes per gender
+const BOY_COLORS  = ['#E8F4FD','#E8F8F5','#EAF2FF','#FFF8E7','#F0F4FF'];
+const GIRL_COLORS = ['#FDE8F4','#F3E8FF','#FFF0E8','#E8FDF5','#FFFDE8'];
+const BOY_TEXT    = '#1a5276';
+const GIRL_TEXT   = '#7b1a5a';
+
+function pageColors(pageIndex) {
+  const gender = (book.childGender || '').toLowerCase();
+  const isBoy  = gender === 'boy' || gender === 'male' || gender === 'זכר' || gender === 'בן';
+  const pal    = isBoy ? BOY_COLORS : GIRL_COLORS;
+  return { bg: pal[pageIndex % pal.length], color: isBoy ? BOY_TEXT : GIRL_TEXT };
 }
 
 function renderSpread(i) {
@@ -236,24 +258,32 @@ function renderSpread(i) {
       </div>`;
     } else {
       $('spreadCounter').textContent = `Pages ${sp.L+1}${sp.R!==null?'–'+(sp.R+1):''} of ${pages.length}`;
+      // Left = text panel, Right = image panel
       el.style.gridTemplateColumns = '1fr 1fr';
 
-      const half = (pi, side) => {
+      const renderPage = (pi) => {
         if (pi === null || pi >= pages.length)
-          return `<div class="spread-${side} spread-blank"></div>`;
-        const img  = imgs[pi];
-        const text = pages[pi]?.text || '';
-        return `<div class="spread-${side} page-half">
-          <div class="page-img">${img
-            ? `<img src="${img}" alt="איור עמוד ${pi+1}: ${(text||'').substring(0,60).replace(/"/g,"'")}..."/>`
-            : `<div class="page-img-spin"><div class="mini-spin"></div><span>Illustrating...</span></div>`
-          }</div>
-          <div class="page-text"><p>${text}</p></div>
-          <span class="page-num">${pi+1}</span>
-        </div>`;
+          return `<div class="spread-blank"></div><div class="spread-blank"></div>`;
+        const img    = imgs[pi];
+        const text   = pages[pi]?.text || '';
+        const { bg, color } = pageColors(pi);
+        const isHeb  = /[\u0590-\u05FF]/.test(text);
+        const dir    = isHeb ? 'rtl' : 'ltr';
+        const align  = isHeb ? 'right' : 'center';
+        return `
+          <div class="spread-left text-panel" style="background:${bg}">
+            <p style="color:${color};direction:${dir};text-align:${align}">${text}</p>
+            <span class="pg-num" style="color:${color}">${pi+1}</span>
+          </div>
+          <div class="spread-right image-panel">${img
+            ? `<img src="${img}" alt="Page ${pi+1}"/>`
+            : `<div class="image-panel-spin"><div class="mini-spin"></div><span style="font-size:11px;color:var(--text-muted)">Illustrating...</span></div>`
+          }</div>`;
       };
 
-      el.innerHTML = half(sp.L,'left') + half(sp.R,'right');
+      // Each spread shows one page (text left + image right)
+      // If both L and R exist, show L page; R page is next spread
+      el.innerHTML = renderPage(sp.L);
     }
     el.classList.remove('flipping');
   }, 220);
@@ -367,7 +397,7 @@ async function init() {
       }
 
       // Update live progress bar
-      const totalPgs = (book.generatedBook?.pages?.length) || 16;
+      const totalPgs = (book.generatedBook?.pages?.length) || 12;
       const genProg = document.getElementById('genProgress');
       const genText = document.getElementById('genProgressText');
       const genBar  = document.getElementById('genProgressBar');
@@ -395,300 +425,422 @@ async function init() {
   $('dlBtn').onclick         = generatePDF;
 }
 
-// ── PDF GENERATOR ────────────────────────────────────────────────────────
+// ── PDF GENERATOR (canvas-based Hebrew rendering) ────────────────────────
+// Hebrew text is rendered via Canvas 2D (uses browser's native Heebo font
+// loaded via Google Fonts) then embedded as PNG — no jsPDF font encoding.
+// English text uses jsPDF Times directly (fast, crisp).
 async function generatePDF() {
   const prog = $('pdfProg');
   const st   = $('pdfSt');
   const fill = $('progFill');
   prog.classList.add('show');
-
-  const p = (pct, msg) => { fill.style.width=pct+'%'; st.textContent=msg; };
+  const p = (pct, msg) => { fill.style.width = pct + '%'; st.textContent = msg; };
 
   try {
     p(5, 'Loading book data...');
     book = await loadBook();
+    if (!book) { st.textContent = '❌ Book not found. Please try again.'; return; }
+    if (!book.generatedBook) { st.textContent = '❌ Book still generating. Please wait and try again.'; return; }
+
     const pages  = book.generatedBook?.pages || [];
     let   images = book.fullImages || [];
-    const title  = book.generatedBook?.title  || 'Your Magical Adventure';
-    const sub    = book.generatedBook?.subtitle || 'A Bedtime Journey to Dreamland';
+    const title  = book.generatedBook?.title    || 'Your Magical Adventure';
+    const sub    = book.generatedBook?.subtitle || '';
     const child  = book.childName || 'your child';
 
-    // ── Wait for images if not all ready (up to 3 min) ──────────────────────
-    const readyCount = images.filter(Boolean).length;
-    if (readyCount < pages.length) {
-      p(6, 'Waiting for illustrations (' + readyCount + '/' + pages.length + ')...');
+    // Wait up to 3 min for all images
+    if (images.filter(Boolean).length < pages.length) {
+      p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
       let waited = 0;
       while (waited < 180) {
-        await new Promise(r => setTimeout(r, 3000));
-        waited += 3;
+        await new Promise(r => setTimeout(r, 3000)); waited += 3;
         const fresh = await loadBook();
-        images = fresh.fullImages || [];
-        book   = fresh;
-        const now = images.filter(Boolean).length;
-        p(6, 'Waiting for illustrations (' + now + '/' + pages.length + ')...');
-        if (now >= pages.length) break;
+        if (fresh) { images = fresh.fullImages || []; book = fresh; }
+        p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
+        if (images.filter(Boolean).length >= pages.length) break;
       }
     }
 
-    p(12, 'Loading PDF engine...');
+    p(10, 'Loading PDF engine...');
     if (!window.jspdf) {
-      await new Promise((res,rej) => {
+      await new Promise((res, rej) => {
         const s = document.createElement('script');
-        s.src   = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         s.onload = res; s.onerror = rej;
         document.head.appendChild(s);
       });
     }
 
-    const {jsPDF} = window.jspdf;
-    const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=210, H=297, M=14;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, H = 297;
 
-    // ── Image loader (works for base64 data URLs and https URLs) ──
+    p(13, 'Preparing text renderer...');
+
+    // ── Canvas Hebrew renderer ────────────────────────────────────────────
+    // Renders Hebrew RTL text onto a canvas using the browser's native Heebo
+    // font, then returns a PNG data URL + height in mm for pdf.addImage().
+    // opts: { align: 'center'|'right', shadow: true|false, font: 'fontFamily string' }
+    function renderHebrewCanvas(text, widthMm, fontSizePt, hexColor, opts) {
+      const align      = (opts && opts.align)  || 'right';
+      const shadow     = (opts && opts.shadow) || false;
+      const fontFamily = (opts && opts.font)   || 'Heebo, Arial';
+      const PX_PER_MM = 4;   // 96dpi base
+      const RETINA    = 2;   // 2× for crispness
+      const widthPx   = Math.round(widthMm * PX_PER_MM * RETINA);
+      const fontPx    = Math.round(fontSizePt * (4 / 3) * RETINA); // pt→px at 96dpi, scaled
+      const lineH     = Math.round(fontPx * 1.75);
+
+      // Measure-based word wrap
+      const tmp = document.createElement('canvas');
+      tmp.width = widthPx; tmp.height = 1;
+      const tCtx = tmp.getContext('2d');
+      tCtx.font = `${fontPx}px ${fontFamily}`;
+      const lines = [];
+      let cur = '';
+      for (const w of text.split(' ')) {
+        const trial = cur ? cur + ' ' + w : w;
+        if (tCtx.measureText(trial).width > widthPx - fontPx && cur) {
+          lines.push(cur); cur = w;
+        } else { cur = trial; }
+      }
+      if (cur) lines.push(cur);
+
+      const pad = Math.round(fontPx * 0.3);
+      const cH  = lineH * lines.length + pad;
+      const c   = document.createElement('canvas');
+      c.width = widthPx; c.height = cH;
+      const ctx = c.getContext('2d');
+      ctx.direction = 'rtl';
+      ctx.textAlign = align === 'center' ? 'center' : 'right';
+      ctx.font      = `${fontPx}px ${fontFamily}`;
+      ctx.fillStyle = hexColor || '#3a2810';
+      if (shadow) {
+        ctx.shadowColor   = 'rgba(0,0,0,0.88)';
+        ctx.shadowBlur    = Math.round(fontPx * 0.28);
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = Math.round(fontPx * 0.06);
+      }
+      const xPos = align === 'center' ? widthPx / 2 : widthPx - 4;
+      lines.forEach((line, i) => ctx.fillText(line, xPos, fontPx + i * lineH));
+
+      return {
+        dataUrl:  c.toDataURL('image/png'),
+        heightMm: cH / RETINA / PX_PER_MM
+      };
+    }
+
+    // ── Image loader ──────────────────────────────────────────────────────
     const loadB64 = src => new Promise(res => {
       if (!src) { res(null); return; }
-      // Already base64
       if (src.startsWith('data:')) { res(src); return; }
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const c = document.createElement('canvas');
         c.width = img.naturalWidth; c.height = img.naturalHeight;
-        c.getContext('2d').drawImage(img,0,0);
-        res(c.toDataURL('image/jpeg',0.88));
+        c.getContext('2d').drawImage(img, 0, 0);
+        res(c.toDataURL('image/jpeg', 0.90));
       };
       img.onerror = () => res(null);
       img.src = src;
     });
 
-    // ── Cream page background with gold bar top/bottom ──
-    const drawPageBg = () => {
-      pdf.setFillColor(253,246,236);
-      pdf.rect(0,0,W,H,'F');
-      // Gold top bar
-      pdf.setFillColor(200,146,42);
-      pdf.rect(0,0,W,3,'F');
-      // Gold bottom bar
-      pdf.rect(0,H-3,W,3,'F');
-    };
-
-    // ── Draw a centered gold rule ──
-    const goldRule = (y, leftPad=30) => {
-      pdf.setFillColor(200,146,42);
-      pdf.rect(leftPad, y, W-leftPad*2, 0.6,'F');
-    };
-
-    // ── Centered multi-line text helper ──
-    const centeredText = (text, x, y, maxW, opts={}) => {
-      const lines = pdf.splitTextToSize(text, maxW);
-      pdf.text(lines, x, y, {align:'center', ...opts});
-      return lines.length;
-    };
-
-    // Draw open-book symbol using lines (no emoji)
-    const drawBookSymbol = (cx, cy, size) => {
-      const s = size * 0.5;
-      pdf.setDrawColor(200,146,42);
-      pdf.setLineWidth(1.2);
-      // Left page
-      pdf.line(cx-s, cy+s*0.3, cx-s, cy-s*0.6);
-      pdf.line(cx-s, cy-s*0.6, cx, cy-s*0.2);
-      pdf.line(cx, cy-s*0.2, cx, cy+s*0.5);
-      pdf.line(cx, cy+s*0.5, cx-s, cy+s*0.3);
-      // Right page
-      pdf.line(cx+s, cy+s*0.3, cx+s, cy-s*0.6);
-      pdf.line(cx+s, cy-s*0.6, cx, cy-s*0.2);
-      // Spine curve hint
-      pdf.setLineWidth(0.4);
-      pdf.line(cx-s*0.3, cy-s*0.5, cx+s*0.3, cy-s*0.5);
-    };
-
-    // Draw a small diamond ornament instead of ✦
-    const drawDiamond = (cx, cy, r) => {
-      pdf.setFillColor(200,146,42);
-      pdf.triangle(cx, cy-r, cx+r, cy, cx, cy+r, 'F');
-      pdf.triangle(cx, cy-r, cx-r, cy, cx, cy+r, 'F');
-    };
-
-    // ══════════════════════════════════════════════
-    // COVER PAGE
-    // ══════════════════════════════════════════════
-    p(16, 'Building cover page...');
-
-    const coverB64 = await loadB64(book.coverImage);
-
-    if (coverB64) {
-      // Full-bleed cover image top 62% of page
-      pdf.addImage(coverB64,'JPEG',0,0,W,H*0.62);
-      // Cream fade at bottom of image
-      pdf.setFillColor(253,246,236);
-      pdf.rect(0,H*0.58,W,H*0.42,'F');
-    } else {
-      // Dark cover fallback with geometric design
-      pdf.setFillColor(50,28,10);
-      pdf.rect(0,0,W,H*0.62,'F');
-      // Gold circle dots as stars
-      pdf.setFillColor(200,146,42);
-      [[W*0.25,H*0.12],[W*0.75,H*0.08],[W*0.5,H*0.22],[W*0.15,H*0.3],[W*0.82,H*0.25],
-       [W*0.35,H*0.18],[W*0.65,H*0.28]].forEach(([sx,sy])=>{
-        pdf.circle(sx,sy,1.0,'F');
+    // ── SVG logo → PNG base64 (for embedding in jsPDF) ───────────────────
+    // Loads assets/branding/logo.svg into a canvas and exports as PNG.
+    // Returns { dataUrl, wMm, hMm } sized to fit targetWidthMm.
+    async function loadLogoPng(targetWidthMm) {
+      return new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+          const aspect = img.naturalWidth / img.naturalHeight;
+          const PX_PER_MM = 4;
+          const wPx = Math.round(targetWidthMm * PX_PER_MM * 2);
+          const hPx = Math.round(wPx / aspect);
+          const c = document.createElement('canvas');
+          c.width = wPx; c.height = hPx;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, wPx, hPx);
+          const hMm = targetWidthMm / aspect;
+          res({ dataUrl: c.toDataURL('image/png'), wMm: targetWidthMm, hMm });
+        };
+        img.onerror = () => res(null);
+        img.src = 'assets/branding/lifebook new logo .webp';
       });
-      // Book symbol
-      drawBookSymbol(W/2, H*0.33, 22);
     }
 
-    // Gold bar at top of cover
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,0,W,3,'F');
+    // ── Palette & drawing helpers ─────────────────────────────────────────
+    const GOLD  = [200, 146,  42];
+    const CREAM = [253, 246, 236];
+    const BROWN = [ 58,  40,  16];
+    const DARK  = [ 26,  10,   0];
+    const PALE  = [245, 217, 138];
+    const MUTED = [122,  96,  72];
 
-    // Cream panel at bottom
-    pdf.setFillColor(253,246,236);
-    pdf.rect(0,H*0.60,W,H*0.40,'F');
+    const fill_    = ([r,g,b]) => pdf.setFillColor(r,g,b);
+    const text_    = ([r,g,b]) => pdf.setTextColor(r,g,b);
+    const goldBar  = (y,h,lp,rp) => { fill_(GOLD); pdf.rect(lp||0,y,W-(lp||0)-(rp||0),h||1.2,'F'); };
+    const goldRule = (y,lp,rp) => goldBar(y,0.7,lp||14,rp||14);
+    const diamond  = (cx,cy,r) => {
+      fill_(GOLD);
+      pdf.triangle(cx,cy-r,cx+r,cy,cx,cy+r,'F');
+      pdf.triangle(cx,cy-r,cx-r,cy,cx,cy+r,'F');
+    };
+    const drawWave = wY => {
+      const R=7, num=Math.ceil(W/(R*2))+2;
+      fill_(CREAM);
+      for (let b=0; b<=num; b++) pdf.circle(b*R*2-R,wY,R,'F');
+      pdf.rect(0,wY,W,H-wY,'F');
+    };
+    const cornerL = (x,y,dx,dy) => { fill_(GOLD); pdf.rect(x,y,dx*12,0.8,'F'); pdf.rect(x,y,0.8,dy*12,'F'); };
 
-    // Gold separator rule
-    goldRule(H*0.635, 16);
+    const isHeb = str => /[\u0590-\u05FF]/.test(str);
 
-    // Title
-    pdf.setFont('helvetica','bold');
-    pdf.setFontSize(26);
-    pdf.setTextColor(92,61,30);
-    let coverY = H*0.672;
-    const titleLines = pdf.splitTextToSize(title, W-M*2);
-    pdf.text(titleLines, W/2, coverY, {align:'center'});
-    coverY += titleLines.length * 10;
-
-    // Subtitle
-    if (sub) {
-      pdf.setFont('helvetica','italic');
-      pdf.setFontSize(12);
-      pdf.setTextColor(122,96,72);
-      coverY += 3;
-      pdf.text(sub, W/2, coverY, {align:'center'});
-      coverY += 9;
+    function setEngFont(size) {
+      pdf.setFontSize(size);
+      pdf.setFont('times', 'normal');
     }
 
-    // "A personalized story for NAME"
-    coverY += 4;
-    pdf.setFont('helvetica','normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(160,130,100);
-    pdf.text('A personalized story for ' + child, W/2, coverY, {align:'center'});
+    // ══════════════════════════════════════════════════════════════════════
+    // COVER PAGE — full-bleed image, floating title overlay, logo footer
+    // ══════════════════════════════════════════════════════════════════════
+    p(16, 'Building cover page...');
+    const coverB64  = await loadB64(book.coverImage);
+    const logoPng   = await loadLogoPng(38);
 
-    // Branding at very bottom
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(180,155,120);
-    pdf.text('Created with Lifebook AI', W/2, H-6, {align:'center'});
+    // Full-bleed image (or dark fallback)
+    if (coverB64) {
+      pdf.addImage(coverB64, 'JPEG', 0, 0, W, H);
+    } else {
+      fill_(DARK); pdf.rect(0, 0, W, H, 'F');
+    }
 
-    // Gold bottom bar
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,H-3,W,3,'F');
+    // Smooth gradient scrim via canvas PNG — no banding
+    {
+      const sc = document.createElement('canvas');
+      sc.width = 4; sc.height = 300;
+      const sCtx = sc.getContext('2d');
+      const sg = sCtx.createLinearGradient(0, 0, 0, 300);
+      sg.addColorStop(0,    'rgba(0,0,0,0)');
+      sg.addColorStop(0.30, 'rgba(10,5,2,0.45)');
+      sg.addColorStop(0.60, 'rgba(10,5,2,0.80)');
+      sg.addColorStop(1,    'rgba(10,5,2,0.97)');
+      sCtx.fillStyle = sg;
+      sCtx.fillRect(0, 0, 4, 300);
+      const coverScrimH = H * 0.54;
+      pdf.addImage(sc.toDataURL('image/png'), 'PNG', 0, H - coverScrimH, W, coverScrimH);
+    }
 
-    // ══════════════════════════════════════════════
-    // STORY PAGES — one page per story beat
-    // ══════════════════════════════════════════════
-    for (let i=0; i<pages.length; i++) {
-      const pct = 16 + Math.round(((i+1)/pages.length)*76);
-      p(pct, 'Page ' + (i+1) + ' of ' + pages.length + '...');
+    // Title block: child name LARGE, book title smaller — both centered
+    // Compute total block height first so we can vertically center it in scrim
+    const coverScrimStartY = H * 0.46;
+    const coverNameFontPt  = 44;
+    const coverTitleFontPt = 15;
+    // Estimate heights (actual mm from renderHebrewCanvas)
+    let cY = H * 0.52; // default starting Y
 
+    // Child name — very large, white, centered — Suez One display font
+    if (isHeb(child)) {
+      const { dataUrl, heightMm } = renderHebrewCanvas(child, W - 24, coverNameFontPt, '#ffffff', { align: 'center', font: '"Suez One", Heebo, Arial' });
+      cY = H * 0.52;
+      pdf.addImage(dataUrl, 'PNG', 12, cY, W - 24, heightMm);
+      cY += heightMm + 6;
+    } else {
+      setEngFont(coverNameFontPt); pdf.setFont('times','bold'); pdf.setTextColor(255, 255, 255);
+      cY = H * 0.52;
+      pdf.text(child, W/2, cY + 18, { align: 'center' });
+      cY += 24;
+    }
+
+    // Book title — smaller, gold, centered
+    if (isHeb(title)) {
+      const { dataUrl, heightMm } = renderHebrewCanvas(title, W - 28, coverTitleFontPt, '#f5e6a3', { align: 'center' });
+      pdf.addImage(dataUrl, 'PNG', 14, cY, W - 28, heightMm);
+      cY += heightMm + 4;
+    } else {
+      setEngFont(coverTitleFontPt); pdf.setFont('times','normal'); pdf.setTextColor(245, 230, 163);
+      const tLines = pdf.splitTextToSize(title, W - 28);
+      tLines.forEach((line, li) => {
+        pdf.text(line, W/2, cY + 6 + li*8, { align: 'center' });
+      });
+      cY += tLines.length * 8 + 4;
+    }
+
+    // Gold rule under title
+    goldRule(cY + 2, W*0.25, W*0.25);
+
+    // Lifebook logo at bottom center
+    if (logoPng) {
+      const lx = (W - logoPng.wMm) / 2;
+      pdf.addImage(logoPng.dataUrl, 'PNG', lx, H - logoPng.hMm - 5, logoPng.wMm, logoPng.hMm);
+    } else {
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
+      pdf.text('Life Book', W/2, H - 11, { align: 'center' });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STORY PAGES — split layout: left = colored bg + text, right = image
+    // Matches the viewer spread layout exactly.
+    // ══════════════════════════════════════════════════════════════════════
+    // Build page scrim gradient PNG once — reused for all story pages
+    // soft3d images tend to be brighter/more vivid → slightly stronger scrim for legibility
+    const isSoft3d = (book.illustrationStyle || '').toLowerCase() === 'soft3d';
+    const pageScrimH = H * 0.42;
+    const pageScrimDataUrl = (() => {
+      const sc = document.createElement('canvas');
+      sc.width = 4; sc.height = 300;
+      const sCtx = sc.getContext('2d');
+      const sg = sCtx.createLinearGradient(0, 0, 0, 300);
+      sg.addColorStop(0,    'rgba(0,0,0,0)');
+      sg.addColorStop(0.45, isSoft3d ? 'rgba(0,0,0,0.58)' : 'rgba(0,0,0,0.48)');
+      sg.addColorStop(1,    isSoft3d ? 'rgba(0,0,0,0.90)' : 'rgba(0,0,0,0.80)');
+      sCtx.fillStyle = sg;
+      sCtx.fillRect(0, 0, 4, 300);
+      return sc.toDataURL('image/png');
+    })();
+
+    for (let i = 0; i < pages.length; i++) {
+      const pct     = 16 + Math.round(((i+1)/pages.length)*76);
+      const pageNum = i+1;
+      p(pct, 'Page '+pageNum+' of '+pages.length+'...');
       pdf.addPage();
-      drawPageBg();
 
-      const iTop = 8;      // image top margin
-      const iH   = H*0.55; // image height — 55% of page
-      const iW   = W-M*2;  // image width
+      const imgB64   = await loadB64(images[i]);
+      const pageText = pages[i]?.text || '';
+      const pgHeb    = isHeb(pageText);
 
-      // ── Illustration ──
-      const imgB64 = await loadB64(images[i]);
+      // Full-bleed illustration (or warm fallback)
       if (imgB64) {
-        // Thin parchment border behind image
-        pdf.setFillColor(237,224,200);
-        pdf.rect(M-0.8, iTop+0.5, iW+1.6, iH+0.2,'F');
-        pdf.addImage(imgB64,'JPEG', M, iTop+0.8, iW, iH-0.8);
+        pdf.addImage(imgB64, 'JPEG', 0, 0, W, H);
       } else {
-        // Placeholder with small diamond
-        pdf.setFillColor(237,224,200);
-        pdf.rect(M, iTop, iW, iH,'F');
-        drawDiamond(W/2, iTop+iH/2, 4);
+        fill_([237,224,200]); pdf.rect(0, 0, W, H, 'F');
+        diamond(W/2, H/2, 12);
       }
 
-      // Gold rule below image
-      goldRule(iTop+iH+5, M+10);
+      // Gradient scrim — smooth bottom overlay for text legibility
+      pdf.addImage(pageScrimDataUrl, 'PNG', 0, H - pageScrimH, W, pageScrimH);
 
-      // Page number (small, centered, above rule)
-      pdf.setFont('helvetica','normal');
-      pdf.setFontSize(7.5);
-      pdf.setTextColor(180,155,120);
-      pdf.text(String(i+1), W/2, iTop+iH+3.2, {align:'center'});
+      // Text overlay — white bold, centered, with shadow (via canvas)
+      const tPad = 18, tW = W - tPad * 2;
+      const bottomMargin = 28; // mm from page bottom — raised for comfortable reading
 
-      // ── Story text ──
-      const text = pages[i].text || '';
-      pdf.setFont('helvetica','normal');
-      pdf.setFontSize(13);
-      pdf.setTextColor(58,40,16);
-      const textY = iTop + iH + 14;
-      const textLines = pdf.splitTextToSize(text, iW-6);
-      pdf.text(textLines, W/2, textY, {align:'center', lineHeightFactor: 1.72});
+      if (pgHeb) {
+        const { dataUrl, heightMm } = renderHebrewCanvas(pageText, tW, 15, '#ffffff', { align: 'center', shadow: true });
+        const tY = H - heightMm - bottomMargin;
+        pdf.addImage(dataUrl, 'PNG', tPad, tY, tW, heightMm);
+      } else {
+        setEngFont(14); pdf.setFont('times', 'bold');
+        const lines = pdf.splitTextToSize(pageText, tW);
+        const lineH = 14 * 0.3528 * 1.85;
+        const blockH = lines.length * lineH;
+        const tY = H - blockH - bottomMargin;
+        // Shadow pass (dark offset)
+        pdf.setTextColor(0, 0, 0);
+        for (let li = 0; li < lines.length; li++) {
+          pdf.text(lines[li], W/2 + 0.4, tY + li*lineH + 0.4, {align:'center'});
+        }
+        // White text
+        pdf.setTextColor(255, 255, 255);
+        for (let li = 0; li < lines.length; li++) {
+          pdf.text(lines[li], W/2, tY + li*lineH, {align:'center'});
+        }
+      }
 
-      // Small diamond footer ornament
-      drawDiamond(W/2, H-6, 2.5);
+      // Page number — subtle, bottom center
+      setEngFont(8); pdf.setTextColor(210, 210, 210);
+      pdf.text(String(pageNum), W/2, H - 6, {align:'center'});
     }
 
-    // ══════════════════════════════════════════════
-    // BACK COVER
-    // ══════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════
+    // DEDICATION PAGE (second to last)
+    // ══════════════════════════════════════════════════════════════════════
+    p(92, 'Adding dedication page...');
+    pdf.addPage();
+    // Cream background
+    fill_([253, 246, 236]); pdf.rect(0, 0, W, H, 'F');
+    // Gold border frame
+    pdf.setDrawColor(201, 168, 76); pdf.setLineWidth(0.8);
+    pdf.rect(10, 10, W-20, H-20, 'S');
+    pdf.setLineWidth(0.3);
+    pdf.rect(12.5, 12.5, W-25, H-25, 'S');
+    // Dedication text — centered, all via canvas for Hebrew
+    const dedLine1 = isHeb(child) ? '\u05E1\u05E4\u05E8 \u05D6\u05D4 \u05E0\u05DB\u05EA\u05D1 \u05D1\u05DE\u05D9\u05D5\u05D7\u05D3 \u05E2\u05D1\u05D5\u05E8' : 'This book was created especially for';
+    const dedLine2 = child;
+    const dedLine3 = isHeb(child) ? '\u05E9\u05DB\u05DC \u05D4\u05E8\u05E4\u05EA\u05E7\u05D4 \u05DE\u05EA\u05D7\u05D9\u05DC\u05D4 \u05DE\u05DE\u05DA' : 'may every adventure begin with you';
+    if (isHeb(child)) {
+      const { dataUrl: d1, heightMm: h1 } = renderHebrewCanvas(dedLine1, W-40, 15, '#7a6048', { align: 'center' });
+      pdf.addImage(d1, 'PNG', 20, H*0.33, W-40, h1);
+      const { dataUrl: d2, heightMm: h2 } = renderHebrewCanvas(dedLine2, W-40, 30, '#2c1a0e', { align: 'center', font: '"Suez One", Heebo, Arial' });
+      pdf.addImage(d2, 'PNG', 20, H*0.33+h1+5, W-40, h2);
+      const { dataUrl: d3, heightMm: h3 } = renderHebrewCanvas(dedLine3, W-40, 14, '#9b8060', { align: 'center' });
+      pdf.addImage(d3, 'PNG', 20, H*0.33+h1+h2+10, W-40, h3);
+    } else {
+      setEngFont(14); pdf.setTextColor(122, 96, 72);
+      pdf.text(dedLine1, W/2, H*0.36, { align: 'center' });
+      setEngFont(26); pdf.setFont('times','bold'); pdf.setTextColor(44, 26, 14);
+      pdf.text(dedLine2, W/2, H*0.46, { align: 'center' });
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(155, 128, 96);
+      pdf.text(dedLine3, W/2, H*0.54, { align: 'center' });
+    }
+    // Gold rule
+    goldRule(H*0.62, W*0.28, W*0.28);
+    // Lifebook logo — centered, visible
+    if (logoPng) {
+      const dedLogoW = 44;
+      const dedLogoH = logoPng.hMm * (dedLogoW / logoPng.wMm);
+      pdf.addImage(logoPng.dataUrl, 'PNG', (W - dedLogoW)/2, H*0.68, dedLogoW, dedLogoH);
+    } else {
+      setEngFont(13); pdf.setFont('times','italic'); pdf.setTextColor(201,168,76);
+      pdf.text('Life Book', W/2, H*0.72, { align: 'center' });
+    }
+
+    // BACK COVER — warm cream, centered branding
+    // ══════════════════════════════════════════════════════════════════════
     p(94, 'Adding back cover...');
     pdf.addPage();
+    fill_([250, 244, 232]); pdf.rect(0, 0, W, H, 'F');
+    goldBar(0, 4); goldBar(H - 4, 4);
 
-    // Dark warm background
-    pdf.setFillColor(40,22,7);
-    pdf.rect(0,0,W,H,'F');
+    // Lifebook logo centered
+    if (logoPng) {
+      const bcLogoW = 52;
+      const bcLogoH = logoPng.hMm * (bcLogoW / logoPng.wMm);
+      pdf.addImage(logoPng.dataUrl, 'PNG', (W - bcLogoW)/2, H*0.34, bcLogoW, bcLogoH);
+    } else {
+      pdf.setFont('times','italic'); pdf.setFontSize(28); text_(GOLD);
+      pdf.text('Life Book', W/2, H*0.42, {align:'center'});
+    }
 
-    // Starfield — gold circles
-    pdf.setFillColor(200,146,42);
-    const stars = [
-      [W*0.18,H*0.22],[W*0.82,H*0.18],[W*0.55,H*0.12],[W*0.3,H*0.78],
-      [W*0.72,H*0.75],[W*0.1,H*0.5],[W*0.9,H*0.55],[W*0.5,H*0.88],
-      [W*0.42,H*0.32],[W*0.65,H*0.42],[W*0.2,H*0.6],[W*0.78,H*0.38]
-    ];
-    stars.forEach(([sx,sy])=>{ pdf.circle(sx,sy,0.7,'F'); });
+    // Gold rule
+    goldRule(H*0.52, W*0.3, W*0.3);
 
-    // Gold top/bottom bars
-    pdf.setFillColor(200,146,42);
-    pdf.rect(0,0,W,3.5,'F');
-    pdf.rect(0,H-3.5,W,3.5,'F');
+    // "A magical story created just for [child name]"
+    // Hebrew name rendered via canvas to avoid RTL garble
+    if (isHeb(child)) {
+      setEngFont(11); pdf.setTextColor(120, 96, 72);
+      pdf.text('A magical story created just for', W/2, H*0.58, {align:'center'});
+      const { dataUrl: bcName, heightMm: bcNameH } = renderHebrewCanvas(child, W - 50, 14, '#7a5030', { align: 'center', font: '"Suez One", Heebo, Arial' });
+      pdf.addImage(bcName, 'PNG', 25, H*0.62, W - 50, bcNameH);
+    } else {
+      setEngFont(11); pdf.setTextColor(120, 96, 72);
+      pdf.text('A magical story created just for ' + child, W/2, H*0.58, {align:'center'});
+    }
 
-    // Center book symbol
-    const bY = H/2;
-    drawBookSymbol(W/2, bY-24, 20);
+    setEngFont(9); pdf.setTextColor(160, 130, 100);
+    pdf.text('lifebooksil.com', W/2, H*0.72, {align:'center'});
 
-    pdf.setFont('helvetica','bold');
-    pdf.setFontSize(28);
-    pdf.setTextColor(245,217,138);
-    pdf.text('lifebook', W/2, bY, {align:'center'});
-
-    pdf.setFont('helvetica','italic');
-    pdf.setFontSize(12);
-    pdf.setTextColor(180,150,110);
-    pdf.text('AI-powered personalized storybooks', W/2, bY+13, {align:'center'});
-
-    goldRule(bY+23, 40);
-
-    pdf.setFont('helvetica','normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(160,130,100);
-    pdf.text('A magical story created just for ' + child, W/2, bY+35, {align:'center'});
-
-    // ── SAVE ──
-    p(98,'Saving PDF...');
-    const safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase();
-    pdf.save(`${safe}_lifebook.pdf`);
-
-    p(100,'✅ PDF downloaded!');
-    setTimeout(()=>prog.classList.remove('show'), 4000);
+    // ── SAVE ──────────────────────────────────────────────────────────────
+    p(98, 'Saving PDF...');
+    let safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase().replace(/_+/g,'_').replace(/^_|_$/g,'');
+    if (!safe) safe = bookId ? bookId.substring(0,8) : 'story';
+    pdf.save(safe+'_lifebook.pdf');
+    p(100, '✅ PDF downloaded!');
+    setTimeout(() => { prog.classList.remove('show'); }, 4000);
 
   } catch(err) {
-    st.textContent = '❌ Error: '+err.message;
-    console.error('PDF error:',err);
+    st.textContent = '❌ Error: ' + err.message;
+    console.error('PDF error:', err);
   }
 }
 

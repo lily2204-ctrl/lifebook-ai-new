@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook — Terms, Refund &amp; Privacy Policy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream:       #fdf6ec;
+      --cream-deep:  #f5e9d4;
+      --parchment:   #ede0c8;
+      --gold:        #c8922a;
+      --gold-light:  #e8b84b;
+      --gold-pale:   #f5d98a;
+      --brown:       #5c3d1e;
+      --text:        #3a2810;
+      --text-muted:  #7a6048;
+      --white:       #ffffff;
+      --shadow-warm: 0 8px 40px rgba(100,60,20,0.12);
+      --shadow-gold: 0 4px 24px rgba(200,146,42,0.22);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Lato', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(253,246,236,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--parchment);
+      padding: 0 5vw; height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-brand-name { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--gold); letter-spacing: 0.5px; }
+    .nav-back {
+      background: var(--white); color: var(--brown);
+      border: 1.5px solid var(--parchment); border-radius: 50px;
+      padding: 9px 22px; font-family: 'Lato', sans-serif;
+      font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
+    }
+    .nav-back:hover { border-color: var(--gold-light); }
+
+    /* ── LAYOUT ── */
+    .shell { width: min(780px, 94vw); margin: 0 auto; padding: 56px 0 90px; }
+
+    .page-header { text-align: center; margin-bottom: 48px; }
+    .step-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: linear-gradient(135deg, #fff8ed, #fdf0d5);
+      border: 1px solid var(--gold-pale); border-radius: 50px;
+      padding: 5px 16px; font-size: 12px; color: var(--gold);
+      font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      margin-bottom: 16px; box-shadow: 0 2px 12px rgba(200,146,42,0.12);
+    }
+    .page-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(28px, 4vw, 44px);
+      color: var(--brown); line-height: 1.1; margin-bottom: 12px;
+    }
+    .page-sub { font-size: 16px; color: var(--text-muted); line-height: 1.7; font-weight: 300; max-width: 520px; margin: 0 auto; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white); border-radius: 24px; padding: 36px 40px;
+      box-shadow: var(--shadow-warm); border: 1px solid var(--parchment);
+      position: relative; overflow: hidden; margin-bottom: 24px;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: linear-gradient(90deg, var(--gold-light), var(--gold));
+    }
+
+    /* ── SECTION HEADERS ── */
+    .section-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
+    }
+    .section-icon {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg, #fff8ed, #fdf0d5);
+      border: 1px solid var(--gold-pale);
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif; font-size: 22px; color: var(--brown);
+    }
+
+    /* ── CONTENT BLOCKS ── */
+    .policy-body { display: grid; gap: 16px; }
+
+    .policy-body p {
+      font-size: 15px; color: var(--text-muted); line-height: 1.75;
+    }
+
+    .policy-body strong { color: var(--brown); }
+
+    .highlight-box {
+      background: var(--cream-deep); border-radius: 14px;
+      border: 1px solid var(--parchment);
+      padding: 18px 22px;
+    }
+    .highlight-box p { font-size: 15px; color: var(--text); line-height: 1.7; }
+
+    .callout {
+      background: linear-gradient(135deg, #fff8ed, #fdf0d5);
+      border: 1px solid var(--gold-pale); border-radius: 14px;
+      padding: 18px 22px; display: flex; gap: 14px; align-items: flex-start;
+    }
+    .callout-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .callout p { font-size: 15px; color: var(--brown); line-height: 1.7; }
+    .callout strong { color: var(--brown); }
+
+    .policy-list {
+      list-style: none; display: grid; gap: 10px;
+      padding: 0; margin: 0;
+    }
+    .policy-list li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 15px; color: var(--text-muted); line-height: 1.6;
+    }
+    .policy-list li::before {
+      content: '✓'; color: var(--gold); font-weight: 700;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    .divider { height: 1px; background: var(--parchment); margin: 20px 0; }
+
+    /* ── CONTACT STRIP ── */
+    .contact-strip {
+      background: linear-gradient(135deg, #1a1008, #5c3d1e);
+      border-radius: 20px; padding: 32px 36px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 20px; flex-wrap: wrap;
+    }
+    .contact-strip-text { }
+    .contact-strip-text p:first-child {
+      font-family: 'Playfair Display', serif; font-size: 20px; color: var(--gold-pale);
+      margin-bottom: 6px;
+    }
+    .contact-strip-text p:last-child { font-size: 14px; color: #c4a87a; }
+    .contact-strip a {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      color: var(--white); text-decoration: none;
+      border-radius: 50px; padding: 13px 30px;
+      font-size: 15px; font-weight: 700;
+      box-shadow: var(--shadow-gold); transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .contact-strip a:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,146,42,0.45); }
+
+    /* ── LAST UPDATED ── */
+    .last-updated {
+      text-align: center; font-size: 12px; color: var(--text-muted);
+      opacity: 0.6; margin-top: 32px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #120b04; padding: 36px 8vw;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-copy { font-size: 13px; color: var(--parchment); opacity: 0.4; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: var(--gold-light); text-decoration: none; font-weight: 700; opacity: 0.85; }
+    .footer-links a:hover { opacity: 1; }
+
+    @media(max-width:640px) {
+      .shell { padding: 32px 16px 60px; }
+      .card { padding: 28px 22px; }
+      .contact-strip { flex-direction: column; text-align: center; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <button class="nav-back" onclick="history.back()">← Back</button>
+  <a class="nav-brand" href="index.html">
+    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
+    <span class="nav-brand-name">lifebook</span>
+  </a>
+  <div style="width:80px"></div>
+</nav>
+
+<main class="shell">
+
+  <div class="page-header">
+    <div class="step-badge">📄 Legal</div>
+    <h1 class="page-title">Terms, Refund &amp; Privacy Policy</h1>
+    <p class="page-sub">Everything you need to know about how we handle your order, your photos, and your data.</p>
+  </div>
+
+  <!-- ── REFUND POLICY ── -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon">💳</div>
+      <h2 class="section-title">Refund Policy</h2>
+    </div>
+    <div class="policy-body">
+      <div class="callout">
+        <div class="callout-icon">⚠️</div>
+        <p><strong>No refunds once book generation begins.</strong> Because each book is uniquely generated for your child using AI, the creation process starts immediately after your order and cannot be reversed.</p>
+      </div>
+      <p>Each personalized storybook is created on demand — the story is written, the illustrations are generated, and the PDF is assembled specifically for your child's name, photo, and story idea. This process consumes significant AI compute resources the moment your order is placed.</p>
+      <p>For this reason, <strong>all sales are final once book generation has started</strong>, which happens immediately after a successful payment is processed.</p>
+      <div class="divider"></div>
+      <p><strong>Exceptions we'll always honor:</strong></p>
+      <ul class="policy-list">
+        <li>Your payment was charged but no book was created (technical failure on our end)</li>
+        <li>You were charged more than once for the same book</li>
+        <li>The book was generated but is completely unreadable or blank</li>
+      </ul>
+      <div class="highlight-box">
+        <p>If any of the above applies, email us at <strong><a href="mailto:onlinelifebooks@gmail.com" style="color:var(--gold);">onlinelifebooks@gmail.com</a></strong> within 7 days of your purchase with your order details and we will make it right promptly.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRIVACY POLICY ── -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon">🔒</div>
+      <h2 class="section-title">Privacy Policy</h2>
+    </div>
+    <div class="policy-body">
+      <p>We take the privacy of your family seriously. Here is exactly what we collect, how we use it, and when it is deleted.</p>
+
+      <div class="divider"></div>
+
+      <p><strong>What we collect</strong></p>
+      <ul class="policy-list">
+        <li>The child's photo you upload for the book</li>
+        <li>The child's first name, age, and gender (used only for the story)</li>
+        <li>Your email address (to send you the book and receipt)</li>
+        <li>Payment information — processed securely by LemonSqueezy; we never see or store your card details</li>
+      </ul>
+
+      <div class="divider"></div>
+
+      <p><strong>Photos are deleted after book creation</strong></p>
+      <div class="callout">
+        <div class="callout-icon">🗑️</div>
+        <p>The photo you upload is used exclusively to generate your child's character for the storybook illustrations. <strong>Once your book has been created, your photo is permanently deleted from our servers.</strong> We do not keep, share, sell, or use it for any other purpose.</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <p><strong>How we use your data</strong></p>
+      <ul class="policy-list">
+        <li>Your email is used to deliver your book and receipt — nothing else</li>
+        <li>We do not sell, rent, or share your personal information with third parties</li>
+        <li>We do not use your data for advertising or marketing without your consent</li>
+        <li>Story content and child details are used only to generate your specific book</li>
+      </ul>
+
+      <div class="divider"></div>
+
+      <p><strong>Third-party services</strong></p>
+      <p>We use the following services to operate Lifebook. Each has their own privacy policy:</p>
+      <ul class="policy-list">
+        <li><strong>OpenAI</strong> — AI story and image generation. Input data (photo, story details) is sent to OpenAI solely to produce your book.</li>
+        <li><strong>LemonSqueezy</strong> — Payment processing. Your card and billing details go directly to LemonSqueezy; we never see them.</li>
+        <li><strong>Resend</strong> — Email delivery. Used only to send you your book and order confirmation.</li>
+        <li><strong>Supabase</strong> — Secure cloud database and file storage, hosted in the EU/US.</li>
+      </ul>
+
+      <div class="divider"></div>
+
+      <p><strong>Your rights</strong></p>
+      <ul class="policy-list">
+        <li>You may request deletion of your data at any time by emailing us</li>
+        <li>You may request a copy of any personal data we hold about you</li>
+        <li>You may opt out of any future email communications at any time</li>
+      </ul>
+
+      <div class="highlight-box">
+        <p>For any privacy-related requests, email <strong><a href="mailto:onlinelifebooks@gmail.com" style="color:var(--gold);">onlinelifebooks@gmail.com</a></strong> and we will respond within 5 business days.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GENERAL TERMS ── -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon">📋</div>
+      <h2 class="section-title">General Terms of Use</h2>
+    </div>
+    <div class="policy-body">
+      <ul class="policy-list">
+        <li>Lifebook is intended for personal, non-commercial use. Books are for the private enjoyment of the purchasing family.</li>
+        <li>You must own or have the right to use any photo you upload. By uploading a photo, you confirm you have this right.</li>
+        <li>Generated books may not be resold, redistributed, or used for commercial purposes without our written permission.</li>
+        <li>We reserve the right to refuse service for content that is inappropriate, harmful, or violates the rights of others.</li>
+        <li>Lifebook is not responsible for AI-generated content that may not meet your expectations — each book is unique and results may vary.</li>
+        <li>These terms may be updated from time to time. Continued use of the service constitutes acceptance of the current terms.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── CONTACT STRIP ── -->
+  <div class="contact-strip">
+    <div class="contact-strip-text">
+      <p>Have a question about your order or privacy?</p>
+      <p>We're a small team and reply within 24 hours on business days.</p>
+    </div>
+    <a href="mailto:onlinelifebooks@gmail.com">✉️ onlinelifebooks@gmail.com</a>
+  </div>
+
+  <p class="last-updated">Last updated: April 2026 · Lifebook</p>
+
+</main>
+
+<footer>
+  <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
+  <div class="footer-copy">© 2026 Lifebook. All rights reserved.</div>
+  <div class="footer-links">
+    <a href="terms.html">Terms &amp; Privacy</a>
+    <a href="contact.html">Contact Us</a>
+  </div>
+</footer>
+
+<script src="accessibility.js"></script>
+</body>
+</html>

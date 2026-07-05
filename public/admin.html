@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifebook — ממשק עבודה</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #fdf6ec;
+      --gold:  #c9a84c;
+      --dark:  #2c1a0e;
+      --card-bg: #fff;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--dark);
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 600; }
+    #logoutBtn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    #logoutBtn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Screens ── */
+    .screen { display: none; padding: 40px 32px; max-width: 960px; margin: 0 auto; }
+    .screen.active { display: block; }
+
+    /* ── Login ── */
+    #loginScreen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 0;
+      max-width: unset;
+    }
+    #loginScreen.active { display: flex; }
+    .login-box {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 40px 48px;
+      width: 380px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      text-align: center;
+    }
+    .login-box h2 { margin-bottom: 28px; font-size: 1.4rem; }
+    .login-box input {
+      width: 100%;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      direction: ltr;
+      text-align: left;
+    }
+    .login-box input:focus { outline: 2px solid var(--gold); border-color: transparent; }
+    .btn-primary {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 13px 32px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; filter: none; }
+    #loginError {
+      color: #c0392b;
+      font-size: 0.88rem;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    /* ── Catalog ── */
+    #catalogScreen h2 { font-size: 1.5rem; margin-bottom: 28px; }
+    .templates-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .template-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: 2px solid transparent;
+    }
+    .template-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+      border-color: var(--gold);
+    }
+    .template-card h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    .template-card p  { font-size: 0.88rem; color: #666; line-height: 1.5; }
+    #catalogError { color: #c0392b; margin-top: 16px; }
+
+    /* ── Wizard ── */
+    #wizardScreen h2 { font-size: 1.4rem; margin-bottom: 8px; }
+    #wizardSubtitle  { color: #666; margin-bottom: 32px; font-size: 0.95rem; }
+
+    .wizard-steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 36px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid #e0d6c8;
+    }
+    .step-tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 0.85rem;
+      background: #f5ede0;
+      color: #999;
+      border: none;
+      font-family: inherit;
+      cursor: default;
+    }
+    .step-tab.active { background: var(--gold); color: #fff; font-weight: 600; }
+    .step-tab.done   { background: #e8dcc8; color: var(--dark); }
+
+    .wizard-panel { display: none; }
+    .wizard-panel.active { display: block; }
+
+    /* photo step */
+    #photoDropzone {
+      border: 2px dashed var(--gold);
+      border-radius: var(--radius);
+      padding: 48px;
+      text-align: center;
+      cursor: pointer;
+      background: #fffdf7;
+      transition: background 0.2s;
+    }
+    #photoDropzone:hover { background: #fff8e8; }
+    #photoDropzone p { color: #888; margin-top: 8px; font-size: 0.9rem; }
+    #photoInput { display: none; }
+
+    /* crop canvas */
+    #cropContainer { display: none; text-align: center; }
+    #cropCanvas {
+      border-radius: 50%;
+      cursor: crosshair;
+      width: 280px;
+      height: 280px;
+      display: block;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 0 3px var(--gold);
+    }
+    #zoomSlider { width: 200px; margin: 0 auto 16px; display: block; }
+
+    /* fields step */
+    .field-group { margin-bottom: 20px; }
+    .field-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.92rem; }
+    .field-group input,
+    .field-group select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    .field-group input:focus,
+    .field-group select:focus { outline: 2px solid var(--gold); border-color: transparent; }
+    .field-hidden { display: none !important; }
+
+    /* nav buttons */
+    .wizard-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 32px;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      border-radius: 8px;
+      padding: 11px 28px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background: #fdf3de; }
+    #generateBtn {
+      background: var(--gold);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 13px 36px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #generateBtn:disabled { opacity: 0.5; cursor: default; }
+    #wizardError { color: #c0392b; font-size: 0.88rem; margin-top: 12px; }
+
+    /* generating step */
+    #panel2 { text-align: center; padding: 40px 0; }
+    #panel2 .gen-icon { font-size: 3rem; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<header id="appHeader" style="display:none">
+  <h1>📚 Lifebook — ממשק עבודה</h1>
+  <button id="logoutBtn">התנתק</button>
+</header>
+
+<!-- ── Login ── -->
+<div id="loginScreen" class="screen active">
+  <div class="login-box">
+    <h2>כניסה לממשק</h2>
+    <input type="text"     id="usernameInput" placeholder="שם משתמש" autocomplete="username">
+    <input type="password" id="passwordInput" placeholder="סיסמה"     autocomplete="current-password">
+    <button class="btn-primary" id="loginBtn">כניסה</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- ── Catalog ── -->
+<div id="catalogScreen" class="screen">
+  <h2>בחרי תבנית סיפור</h2>
+  <div class="templates-grid" id="templatesGrid"></div>
+  <div id="catalogError"></div>
+</div>
+
+<!-- ── Wizard ── -->
+<div id="wizardScreen" class="screen">
+  <h2 id="wizardTitle"></h2>
+  <p id="wizardSubtitle"></p>
+
+  <div class="wizard-steps">
+    <button class="step-tab active" id="tab0">📸 תמונה</button>
+    <button class="step-tab"        id="tab1">📝 פרטים</button>
+    <button class="step-tab"        id="tab2">✨ ייצור</button>
+  </div>
+
+  <!-- Step 0: Photo + Crop -->
+  <div class="wizard-panel active" id="panel0">
+    <div id="photoDropzone">
+      <div style="font-size:2.5rem">📷</div>
+      <p>לחצי להעלאת תמונה של הילד/ה</p>
+      <input type="file" id="photoInput" accept="image/*">
+    </div>
+    <div id="cropContainer">
+      <canvas id="cropCanvas" width="280" height="280"></canvas>
+      <input type="range" id="zoomSlider" min="0.5" max="3" step="0.01" value="1">
+      <p style="text-align:center;color:#888;font-size:0.85rem;margin-bottom:16px">גרירה לכיוון ומחוון הזום</p>
+    </div>
+    <div class="wizard-nav">
+      <button class="btn-secondary" id="backToCatalogBtn">← חזרה</button>
+      <button class="btn-primary" id="nextToFieldsBtn" disabled style="width:auto;padding:11px 32px">המשך →</button>
+    </div>
+  </div>
+
+  <!-- Step 1: Dynamic Fields -->
+  <div class="wizard-panel" id="panel1">
+    <div id="fieldsContainer"></div>
+    <div class="wizard-nav">
+      <button class="btn-secondary" id="backToPhotoBtn">← חזרה</button>
+      <button id="generateBtn" disabled>✨ ייצר ספר</button>
+    </div>
+    <div id="wizardError"></div>
+  </div>
+
+  <!-- Step 2: Generating -->
+  <div class="wizard-panel" id="panel2">
+    <div class="gen-icon">⏳</div>
+    <h3 id="genStatusTitle" style="font-size:1.2rem;margin-bottom:8px">מייצר את הספר...</h3>
+    <p id="genStatusMsg" style="color:#888;font-size:0.9rem">תהליך זה אורך כ-3 דקות. אל תסגרי את הדף.</p>
+    <p id="genBookLink" style="margin-top:24px"></p>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let token           = sessionStorage.getItem("adminToken") || null;
+let currentTemplate = null;
+let croppedBase64   = null;
+
+// crop state
+let cropImg      = null;
+let cropScale    = 1;
+let cropOffsetX  = 0;
+let cropOffsetY  = 0;
+let cropDragging = false;
+let cropDragStart = { x: 0, y: 0 };
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+(function boot() {
+  if (token) { showScreen("catalog"); loadTemplates(); }
+  else        { showScreen("login"); }
+})();
+
+// ── Screen helpers ─────────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(name + "Screen").classList.add("active");
+  document.getElementById("appHeader").style.display = (name === "login") ? "none" : "flex";
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────────
+document.getElementById("loginBtn").addEventListener("click", doLogin);
+document.getElementById("passwordInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+async function doLogin() {
+  const username = document.getElementById("usernameInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+  const errEl    = document.getElementById("loginError");
+  const btn      = document.getElementById("loginBtn");
+  errEl.textContent = "";
+  btn.disabled = true;
+  try {
+    const res  = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || "שגיאת התחברות"; return; }
+    token = data.token;
+    sessionStorage.setItem("adminToken", token);
+    showScreen("catalog");
+    loadTemplates();
+  } catch {
+    errEl.textContent = "שגיאת רשת — נסי שוב";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Logout ─────────────────────────────────────────────────────────────────────
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  token = null;
+  sessionStorage.removeItem("adminToken");
+  showScreen("login");
+});
+
+// ── Catalog ────────────────────────────────────────────────────────────────────
+async function loadTemplates() {
+  const grid  = document.getElementById("templatesGrid");
+  const errEl = document.getElementById("catalogError");
+  grid.innerHTML = "<p style='color:#888'>טוען תבניות...</p>";
+  errEl.textContent = "";
+  try {
+    const res  = await apiFetch("/api/admin/templates");
+    const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 401) { handleExpiredToken(); return; }
+      errEl.textContent = data.error || "שגיאה בטעינה";
+      return;
+    }
+    grid.innerHTML = "";
+    (data.templates || []).forEach(tmpl => {
+      const card = document.createElement("div");
+      card.className = "template-card";
+      card.innerHTML = `<h3>${tmpl.name}</h3><p>${tmpl.description || ""}</p>`;
+      card.addEventListener("click", () => openWizard(tmpl));
+      grid.appendChild(card);
+    });
+    if (!data.templates?.length) {
+      grid.innerHTML = "<p style='color:#888'>אין תבניות פעילות כרגע.</p>";
+    }
+  } catch {
+    errEl.textContent = "שגיאת רשת בטעינת תבניות";
+  }
+}
+
+function handleExpiredToken() {
+  token = null;
+  sessionStorage.removeItem("adminToken");
+  showScreen("login");
+  document.getElementById("loginError").textContent = "פג תוקף ה-session — התחברי מחדש";
+}
+
+// ── Wizard ─────────────────────────────────────────────────────────────────────
+function openWizard(tmpl) {
+  currentTemplate = tmpl;
+  croppedBase64   = null;
+  document.getElementById("wizardTitle").textContent    = tmpl.name;
+  document.getElementById("wizardSubtitle").textContent = tmpl.description || "";
+  buildFields(tmpl.input_schema?.fields || []);
+  resetCrop();
+  showWizardPanel(0);
+  showScreen("wizard");
+}
+
+document.getElementById("backToCatalogBtn").addEventListener("click", () => showScreen("catalog"));
+document.getElementById("backToPhotoBtn").addEventListener("click",   () => showWizardPanel(0));
+
+function showWizardPanel(idx) {
+  document.querySelectorAll(".wizard-panel").forEach((p, i) => p.classList.toggle("active", i === idx));
+  document.querySelectorAll(".step-tab").forEach((t, i) => {
+    t.classList.remove("active", "done");
+    if (i < idx)  t.classList.add("done");
+    if (i === idx) t.classList.add("active");
+  });
+}
+
+// ── Photo / Crop ───────────────────────────────────────────────────────────────
+document.getElementById("photoDropzone").addEventListener("click", () => {
+  document.getElementById("photoInput").click();
+});
+document.getElementById("photoInput").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => initCrop(ev.target.result);
+  reader.readAsDataURL(file);
+});
+
+function initCrop(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    cropImg     = img;
+    cropScale   = Math.max(280 / img.width, 280 / img.height);
+    cropOffsetX = (280 - img.width  * cropScale) / 2;
+    cropOffsetY = (280 - img.height * cropScale) / 2;
+    document.getElementById("zoomSlider").value = cropScale;
+    document.getElementById("cropContainer").style.display = "block";
+    document.getElementById("photoDropzone").style.display = "none";
+    drawCrop();
+    captureCrop();
+    document.getElementById("nextToFieldsBtn").disabled = false;
+  };
+  img.src = dataUrl;
+}
+
+function resetCrop() {
+  cropImg = null; cropScale = 1; cropOffsetX = 0; cropOffsetY = 0;
+  document.getElementById("cropContainer").style.display = "none";
+  document.getElementById("photoDropzone").style.display = "block";
+  document.getElementById("photoInput").value = "";
+  document.getElementById("nextToFieldsBtn").disabled = true;
+}
+
+function drawCrop() {
+  if (!cropImg) return;
+  const canvas = document.getElementById("cropCanvas");
+  const ctx    = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 280, 280);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(140, 140, 140, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(cropImg, cropOffsetX, cropOffsetY, cropImg.width * cropScale, cropImg.height * cropScale);
+  ctx.restore();
+}
+
+function captureCrop() {
+  croppedBase64 = document.getElementById("cropCanvas").toDataURL("image/jpeg", 0.9);
+}
+
+// Drag (mouse)
+const cropCanvas = document.getElementById("cropCanvas");
+cropCanvas.addEventListener("mousedown",   e => { cropDragging = true;  cropDragStart = { x: e.clientX, y: e.clientY }; });
+cropCanvas.addEventListener("mousemove",   e => {
+  if (!cropDragging) return;
+  cropOffsetX += e.clientX - cropDragStart.x;
+  cropOffsetY += e.clientY - cropDragStart.y;
+  cropDragStart = { x: e.clientX, y: e.clientY };
+  drawCrop(); captureCrop();
+});
+cropCanvas.addEventListener("mouseup",    () => { cropDragging = false; });
+cropCanvas.addEventListener("mouseleave", () => { cropDragging = false; });
+
+// Drag (touch)
+cropCanvas.addEventListener("touchstart", e => {
+  cropDragging = true;
+  cropDragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  e.preventDefault();
+}, { passive: false });
+cropCanvas.addEventListener("touchmove", e => {
+  if (!cropDragging) return;
+  cropOffsetX += e.touches[0].clientX - cropDragStart.x;
+  cropOffsetY += e.touches[0].clientY - cropDragStart.y;
+  cropDragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  drawCrop(); captureCrop();
+  e.preventDefault();
+}, { passive: false });
+cropCanvas.addEventListener("touchend", () => { cropDragging = false; });
+
+// Zoom
+document.getElementById("zoomSlider").addEventListener("input", e => {
+  cropScale = parseFloat(e.target.value);
+  drawCrop(); captureCrop();
+});
+
+document.getElementById("nextToFieldsBtn").addEventListener("click", () => {
+  captureCrop();
+  showWizardPanel(1);
+});
+
+// ── Dynamic Fields ─────────────────────────────────────────────────────────────
+function buildFields(fields) {
+  const container = document.getElementById("fieldsContainer");
+  container.innerHTML = "";
+  fields.forEach(field => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "field-group";
+    wrapper.dataset.fieldKey = field.key;
+
+    const label = document.createElement("label");
+    label.textContent = field.label + (field.required ? " *" : "");
+    label.htmlFor = "field_" + field.key;
+    wrapper.appendChild(label);
+
+    let input;
+    if (field.type === "select") {
+      input = document.createElement("select");
+      input.innerHTML = `<option value="">— בחרי —</option>`;
+      (field.options || []).forEach(opt => {
+        const o = document.createElement("option");
+        // support both plain string options and {value, label} objects
+        if (opt && typeof opt === "object") {
+          o.value = opt.value; o.textContent = opt.label;
+        } else {
+          o.value = opt; o.textContent = opt;
+        }
+        input.appendChild(o);
+      });
+      input.addEventListener("change", () => updateShowIf(fields));
+    } else {
+      input = document.createElement("input");
+      input.type = field.type === "number" ? "number" : "text";
+      if (field.min != null) input.min = field.min;
+      if (field.max != null) input.max = field.max;
+    }
+
+    input.id = "field_" + field.key;
+    input.addEventListener("input",  updateGenerateBtn);
+    input.addEventListener("change", updateGenerateBtn);
+    wrapper.appendChild(input);
+    container.appendChild(wrapper);
+  });
+
+  updateShowIf(fields);
+  updateGenerateBtn();
+}
+
+function updateShowIf(fields) {
+  fields.forEach(field => {
+    if (!field.showIf) return;
+    const wrapper   = document.querySelector(`[data-field-key="${field.key}"]`);
+    const controlEl = document.getElementById("field_" + field.showIf.field);
+    const show      = controlEl && controlEl.value === field.showIf.value;
+    wrapper?.classList.toggle("field-hidden", !show);
+    if (!show) {
+      const inp = document.getElementById("field_" + field.key);
+      if (inp) inp.value = "";
+    }
+  });
+  updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+  if (!currentTemplate) return;
+  const fields   = currentTemplate.input_schema?.fields || [];
+  const allValid = fields.every(field => {
+    if (!field.required) return true;
+    const wrapper = document.querySelector(`[data-field-key="${field.key}"]`);
+    if (wrapper?.classList.contains("field-hidden")) return true;
+    const val = document.getElementById("field_" + field.key)?.value?.trim();
+    return val && val !== "" && val !== "— בחרי —";
+  });
+  document.getElementById("generateBtn").disabled = !allValid;
+}
+
+// ── Generate ───────────────────────────────────────────────────────────────────
+document.getElementById("generateBtn").addEventListener("click", doGenerate);
+
+async function doGenerate() {
+  const errEl = document.getElementById("wizardError");
+  errEl.textContent = "";
+  document.getElementById("generateBtn").disabled = true;
+
+  // Collect field values
+  const fields = currentTemplate.input_schema?.fields || [];
+  const templateInputs = {};
+  fields.forEach(field => {
+    const wrapper = document.querySelector(`[data-field-key="${field.key}"]`);
+    if (wrapper?.classList.contains("field-hidden")) return;
+    templateInputs[field.key] = document.getElementById("field_" + field.key)?.value?.trim() || "";
+  });
+
+  const childName   = templateInputs.childName   || "";
+  const childAge    = templateInputs.childAge    || "";
+  const childGender = templateInputs.childGender || "";
+
+  if (!croppedBase64) { errEl.textContent = "חסרה תמונה"; document.getElementById("generateBtn").disabled = false; return; }
+  if (!childName)     { errEl.textContent = "חסר שם";     document.getElementById("generateBtn").disabled = false; return; }
+
+  showWizardPanel(2);
+
+  try {
+    // 1. Create book record
+    const createRes = await apiFetch("/api/admin/books/create", {
+      method: "POST",
+      body: JSON.stringify({
+        childName, childAge, childGender,
+        croppedPhoto:      croppedBase64,
+        originalPhoto:     croppedBase64,
+        illustrationStyle: templateInputs.illustrationStyle || currentTemplate.illustration_style || "Soft Storybook"
+      })
+    });
+    if (createRes.status === 401) { handleExpiredToken(); return; }
+    const createData = await createRes.json();
+    if (!createRes.ok) throw new Error(createData.error || "שגיאה ביצירת הספר");
+
+    const bookId = createData.bookId;
+
+    // 2. Start generation
+    const genRes = await apiFetch(`/api/admin/books/${bookId}/generate`, {
+      method: "POST",
+      body: JSON.stringify({
+        mode:           "template",
+        templateSlug:   currentTemplate.slug,
+        templateInputs
+      })
+    });
+    if (genRes.status === 401) { handleExpiredToken(); return; }
+    if (!genRes.ok) {
+      const genData = await genRes.json();
+      throw new Error(genData.error || "שגיאה בהפעלת הייצור");
+    }
+
+    // 3. Show progress link
+    document.getElementById("genStatusTitle").textContent = "הספר בייצור!";
+    document.getElementById("genStatusMsg").textContent   = "תהליך זה אורך כ-3 דקות. הקישור כבר פעיל — פתחי לעקוב אחרי ההתקדמות.";
+    document.getElementById("genBookLink").innerHTML =
+      `<a href="preview.html?bookId=${bookId}" target="_blank"
+          style="color:var(--gold);font-weight:700;font-size:1.05rem;text-decoration:none">
+        ← פתח דף מעקב לספר
+      </a>
+      <br><br>
+      <button class="btn-secondary" onclick="showScreen('catalog');loadTemplates()" style="margin-top:8px">
+        ← יצירת ספר נוסף
+      </button>`;
+  } catch (err) {
+    document.getElementById("genStatusTitle").textContent = "שגיאה";
+    document.getElementById("genStatusMsg").textContent   = err.message;
+    document.getElementById("genBookLink").innerHTML =
+      `<button class="btn-secondary" onclick="showWizardPanel(1)">← חזרה לתיקון</button>`;
+  }
+}
+
+// ── API helper (always sends Bearer token) ─────────────────────────────────────
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      ...(options.headers || {})
+    }
+  });
+}
+</script>
+
+<script src="accessibility.js"></script>
+</body>
+</html>
