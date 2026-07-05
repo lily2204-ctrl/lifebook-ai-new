@@ -43,6 +43,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
   }
 
+  var SHOPIFY_STORE   = "https://lifebooksil.com";
+  var SHOPIFY_VARIANT = "51011956375798"; // custom full-personalization story
+  var payBtn = document.getElementById("shopifyPayBtn");
+  if (payBtn) {
+    payBtn.href = SHOPIFY_STORE + "/cart/" + SHOPIFY_VARIANT + ":1?attributes[book_id]=" + encodeURIComponent(bookId);
+  }
+
   try {
     var book = await loadBook();
     renderBook(book);
