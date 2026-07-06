@@ -472,12 +472,12 @@ async function sendPaymentConfirmationEmail(book) {
     await resend.emails.send({
       from:    "Lifebook <lifebooks@lifebooksil.com>",
       to:      book.customerEmail,
-      subject: `✅ Payment confirmed — ${childName}'s book is being created!`,
+      subject: `✅ קיבלנו את התשלום שלך — הספר של ${childName} בדרך!`,
       html: `
 <!DOCTYPE html>
-<html>
+<html dir="rtl">
 <head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#fdf6ec;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#fdf6ec;font-family:Assistant,Arial,sans-serif;direction:rtl;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;padding:40px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(100,60,20,0.12);border:1px solid #ede0c8;">
@@ -485,37 +485,37 @@ async function sendPaymentConfirmationEmail(book) {
         <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#1a1008,#5c3d1e);padding:36px;text-align:center;">
-            <div style="font-family:Georgia,serif;font-size:28px;color:#f5d98a;letter-spacing:0.5px;">lifebook</div>
-            <div style="font-size:11px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">AI Children's Storybooks</div>
+            <img src="https://lifebooksil.com/assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block;margin:0 auto 10px;" />
+            <div style="font-size:11px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">ספרי ילדים מותאמים אישית</div>
           </td>
         </tr>
 
         <!-- Body -->
         <tr>
-          <td style="padding:36px 40px;">
-            <p style="font-family:Georgia,serif;font-size:26px;color:#3a2810;margin:0 0 12px;line-height:1.2;">
-              Payment confirmed! ✅
+          <td style="padding:36px 40px;direction:rtl;text-align:right;">
+            <p style="font-family:Assistant,Arial,sans-serif;font-size:26px;color:#3a2810;margin:0 0 12px;line-height:1.2;font-weight:700;">
+              קיבלנו את התשלום! ✅
             </p>
             <p style="font-size:15px;color:#7a6048;line-height:1.7;margin:0 0 24px;">
-              We received your payment and <strong>${childName}'s</strong> personalized storybook is now being created.
-              Our AI is writing the story and illustrating every page — this usually takes <strong>5–10 minutes</strong>.
+              התשלום התקבל בהצלחה והספר המותאם אישית של <strong>${childName}</strong> נמצא כעת בייצור.
+              הבינה המלאכותית שלנו כותבת את הסיפור ומאיירת כל עמוד — בדרך כלל לוקח <strong>5–10 דקות</strong>.
             </p>
 
             <!-- Status box -->
             <table cellpadding="0" cellspacing="0" width="100%" style="background:#fdf6ec;border-radius:14px;border:1px solid #ede0c8;margin-bottom:24px;">
               <tr>
-                <td style="padding:18px 22px;">
-                  <p style="font-family:Georgia,serif;font-size:17px;color:#5c3d1e;margin:0 0 6px;">"${bookTitle}"</p>
-                  <p style="font-size:13px;color:#8a6240;margin:0 0 14px;">A personalized story for ${childName}</p>
+                <td style="padding:18px 22px;direction:rtl;text-align:right;">
+                  <p style="font-family:Assistant,Arial,sans-serif;font-size:17px;color:#5c3d1e;margin:0 0 6px;">"${bookTitle}"</p>
+                  <p style="font-size:13px;color:#8a6240;margin:0 0 14px;">סיפור מותאם אישית עבור ${childName}</p>
                   <table cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="padding-right:28px;">
-                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Status</span><br/>
-                        <span style="font-size:14px;color:#3a2810;">Creating illustrations...</span>
+                      <td style="padding-left:28px;">
+                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">סטטוס</span><br/>
+                        <span style="font-size:14px;color:#3a2810;">יוצר איורים...</span>
                       </td>
                       <td>
-                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Est. time</span><br/>
-                        <span style="font-size:14px;color:#3a2810;">5–10 minutes</span>
+                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">זמן משוער</span><br/>
+                        <span style="font-size:14px;color:#3a2810;">5–10 דקות</span>
                       </td>
                     </tr>
                   </table>
@@ -524,15 +524,15 @@ async function sendPaymentConfirmationEmail(book) {
             </table>
 
             <p style="font-size:14px;color:#7a6048;line-height:1.7;margin:0;">
-              You'll receive a second email as soon as your book is ready to read and download.
-              No need to keep this page open — we'll come to you! 📬
+              תקבלו מייל נוסף ברגע שהספר מוכן לקריאה והורדה.
+              אין צורך להשאיר את הדף פתוח — נגיע אליכם! 📬
             </p>
 
             <hr style="border:none;border-top:1px solid #f0e4d0;margin:24px 0 18px;" />
 
             <p style="font-size:12px;color:#b09070;line-height:1.6;margin:0;">
-              Questions? Just reply to this email and we'll help right away.<br/>
-              Thank you for creating with Lifebook 💛
+              יש שאלות? פשוט ענו למייל הזה ונשמח לעזור.<br/>
+              תודה שיצרתם עם Lifebook 💛
             </p>
           </td>
         </tr>
@@ -541,7 +541,7 @@ async function sendPaymentConfirmationEmail(book) {
         <tr>
           <td style="background:#fdf6ec;border-top:1px solid #ede0c8;padding:16px 40px;text-align:center;">
             <p style="font-size:11px;color:#c4a87a;margin:0;">
-              © 2026 Lifebook · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">Contact Us</a>
+              © 2026 Lifebook · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">צור קשר</a>
             </p>
           </td>
         </tr>
@@ -574,12 +574,12 @@ async function sendBookReadyEmail(book) {
     await resend.emails.send({
       from: "Lifebook <lifebooks@lifebooksil.com>",
       to:   book.customerEmail,
-      subject: `✨ ${childName}'s book is ready! "${bookTitle}"`,
+      subject: `✨ הספר של ${childName} מוכן! "${bookTitle}"`,
       html: `
 <!DOCTYPE html>
-<html>
+<html dir="rtl">
 <head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#fdf6ec;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#fdf6ec;font-family:Assistant,Arial,sans-serif;direction:rtl;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;padding:40px 0;">
     <tr><td align="center">
       <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(100,60,20,0.12);border:1px solid #ede0c8;">
@@ -588,35 +588,35 @@ async function sendBookReadyEmail(book) {
         <tr>
           <td style="background:linear-gradient(135deg,#1a1008,#5c3d1e);padding:40px;text-align:center;">
             <div style="font-size:36px;margin-bottom:10px;">📖</div>
-            <div style="font-family:Georgia,serif;font-size:30px;color:#f5d98a;letter-spacing:0.5px;">lifebook</div>
-            <div style="font-size:12px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">AI Children's Storybooks</div>
+            <img src="https://lifebooksil.com/assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block;margin:0 auto 10px;" />
+            <div style="font-size:12px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">ספרי ילדים מותאמים אישית</div>
           </td>
         </tr>
 
         <!-- Hero message -->
         <tr>
-          <td style="padding:40px 44px 28px;">
-            <p style="font-family:Georgia,serif;font-size:28px;color:#3a2810;margin:0 0 14px;line-height:1.2;">
-              🎉 ${childName}'s book is ready!
+          <td style="padding:40px 44px 28px;direction:rtl;text-align:right;">
+            <p style="font-family:Assistant,Arial,sans-serif;font-size:28px;color:#3a2810;margin:0 0 14px;line-height:1.2;font-weight:700;">
+              🎉 הספר של ${childName} מוכן!
             </p>
             <p style="font-size:16px;color:#7a6048;line-height:1.7;margin:0 0 28px;">
-              Your personalized storybook has been beautifully crafted and is waiting for you.
+              הספר המותאם אישית שלכם נוצר בקפידה ומחכה לכם.
             </p>
 
             <!-- Book info box -->
             <table cellpadding="0" cellspacing="0" width="100%" style="background:#fdf6ec;border-radius:16px;border:1px solid #ede0c8;margin-bottom:28px;">
               <tr>
-                <td style="padding:20px 24px;">
-                  <p style="font-family:Georgia,serif;font-size:20px;color:#5c3d1e;margin:0 0 4px;">"${bookTitle}"</p>
+                <td style="padding:20px 24px;direction:rtl;text-align:right;">
+                  <p style="font-family:Assistant,Arial,sans-serif;font-size:20px;color:#5c3d1e;margin:0 0 4px;">"${bookTitle}"</p>
                   <p style="font-size:14px;color:#8a6240;margin:0 0 14px;font-style:italic;">${bookSub}</p>
                   <table cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="padding-right:24px;">
-                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Pages</span><br/>
-                        <span style="font-size:15px;color:#3a2810;">${pageCount} illustrated pages</span>
+                      <td style="padding-left:24px;">
+                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;">עמודים</span><br/>
+                        <span style="font-size:15px;color:#3a2810;">${pageCount} עמודים מאוירים</span>
                       </td>
                       <td>
-                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Hero</span><br/>
+                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;">הגיבור</span><br/>
                         <span style="font-size:15px;color:#3a2810;">${childName}</span>
                       </td>
                     </tr>
@@ -630,14 +630,14 @@ async function sendBookReadyEmail(book) {
               <tr>
                 <td style="background:linear-gradient(135deg,#e8b84b,#c8922a);border-radius:50px;padding:16px 40px;box-shadow:0 6px 24px rgba(200,146,42,0.35);">
                   <a href="${downloadUrl}"
-                     style="font-family:Arial,sans-serif;font-size:17px;font-weight:700;color:#ffffff;text-decoration:none;display:block;white-space:nowrap;">
-                    Read &amp; Download My Book →
+                     style="font-family:Assistant,Arial,sans-serif;font-size:17px;font-weight:700;color:#ffffff;text-decoration:none;display:block;white-space:nowrap;">
+                    קריאה והורדת הספר →
                   </a>
                 </td>
               </tr>
             </table>
 
-            <p style="font-size:13px;color:#b09070;line-height:1.6;margin:0 0 8px;">Or copy this link:</p>
+            <p style="font-size:13px;color:#b09070;line-height:1.6;margin:0 0 8px;">או העתיקו את הקישור:</p>
             <p style="font-size:12px;color:#c8922a;word-break:break-all;margin:0 0 32px;background:#fdf6ec;padding:10px 14px;border-radius:10px;border:1px solid #ede0c8;">
               ${downloadUrl}
             </p>
@@ -645,8 +645,8 @@ async function sendBookReadyEmail(book) {
             <hr style="border:none;border-top:1px solid #f0e4d0;margin:0 0 20px;" />
 
             <p style="font-size:13px;color:#b09070;line-height:1.7;margin:0;">
-              Questions or issues? Just reply to this email and we'll help right away.<br/>
-              Thank you for creating with Lifebook 💛
+              שאלות או בעיות? פשוט ענו למייל הזה ונשמח לעזור.<br/>
+              תודה שיצרתם עם Lifebook 💛
             </p>
           </td>
         </tr>
@@ -655,7 +655,7 @@ async function sendBookReadyEmail(book) {
         <tr>
           <td style="background:#fdf6ec;border-top:1px solid #ede0c8;padding:18px 44px;text-align:center;">
             <p style="font-size:12px;color:#c4a87a;margin:0;">
-              © 2026 Lifebook · AI Children's Storybooks · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">Contact Us</a>
+              © 2026 Lifebook · ספרי ילדים מותאמים אישית · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">צור קשר</a>
             </p>
           </td>
         </tr>
