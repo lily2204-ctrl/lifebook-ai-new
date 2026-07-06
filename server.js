@@ -945,7 +945,8 @@ app.post("/webhooks/shopify", async (req, res) => {
   }
 
   // Shopify signs with HMAC-SHA256, base64-encoded
-  const digest = crypto.createHmac("sha256", webhookSecret).update(req.body).digest("base64");
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
+  const digest = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
   let valid = false;
   try {
     valid = sig.length > 0 && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(sig));
@@ -962,7 +963,7 @@ app.post("/webhooks/shopify", async (req, res) => {
   // ── Process in background (same pattern as LemonSqueezy webhook) ──
   (async () => {
     try {
-      const payload = JSON.parse(req.body.toString());
+      const payload = JSON.parse(rawBody.toString());
       const orderId = String(payload?.id || "");
       const shopifyEmail = (payload?.email || payload?.contact_email || "").trim();
 
