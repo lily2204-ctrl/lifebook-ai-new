@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -128,7 +128,7 @@
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
     <span class="nav-brand-name">lifebook</span>
   </a>
-  <button class="nav-lang" id="langToggle" type="button" onclick="toggleLang()">🌐 עברית</button>
+  <button class="nav-lang" id="langToggle" type="button" onclick="toggleLang()">🌐 English</button>
 </nav>
 
 <main class="wizard-shell" id="mainShell">
@@ -342,10 +342,11 @@ const EN = {
   mtip3: 'One child only in the photo',
 };
 
-let currentLang = 'en';
+let currentLang = localStorage.getItem('lifebook_lang') || 'he';
 
 function toggleLang() {
   currentLang = currentLang === 'en' ? 'he' : 'en';
+  localStorage.setItem('lifebook_lang', currentLang);
   applyLang();
 }
 
@@ -401,6 +402,9 @@ function applyLang() {
     if (val) el.textContent = val;
   });
 }
+
+// Apply language on first load
+applyLang();
 </script>
 
 <script type="module" src="./wizard.js"></script>
