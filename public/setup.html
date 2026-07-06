@@ -37,12 +37,13 @@
     @media(max-width:640px){nav{padding:0 4vw}.shell{padding:24px 14px 60px}.btn-primary,.btn-secondary{width:100%}.actions{flex-direction:column}}
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="js/i18n.js"></script>
 </head>
 <body>
 <nav>
   <button class="nav-back" id="backToCropBtn">Back</button>
   <a class="nav-brand" href="index.html"><img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/></a>
-  <div style="width:80px"></div>
+  <button id="langToggleBtn" onclick="i18nToggle()" style="background:none;border:1.5px solid #c8922a;color:#c8922a;border-radius:50px;padding:6px 16px;font-family:'Assistant',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">English</button>
 </nav>
 <main class="shell">
   <div class="step-badge">Step 2 of 3</div>

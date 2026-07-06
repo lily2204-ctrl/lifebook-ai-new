@@ -1,0 +1,142 @@
+// public/js/i18n.js — Centralized i18n dictionary and helpers
+const I18N = {
+  he: {
+    // Nav
+    navCta: 'צרו ספר עכשיו',
+    langToggle: 'English',
+    // Wizard
+    wizardTitle: 'בואו ניצור את הספר של הילד שלכם',
+    wizardSubtitle: 'ספרו לנו קצת על הילד',
+    childNameLabel: 'שם הילד/ה',
+    childNamePlaceholder: 'למשל: מיה',
+    childAgeLabel: 'גיל',
+    childGenderLabel: 'מין',
+    genderBoy: 'ילד',
+    genderGirl: 'ילדה',
+    storyIdeaLabel: 'רעיון לסיפור',
+    storyPlaceholder: 'למשל: הרפתקה ביער קסום, גיבור אמיץ, מסע שינה בין הכוכבים...',
+    illustrationStyleLabel: 'סגנון איור',
+    continueBtn: 'המשך',
+    uploadPhotoBtn: 'העלו תמונה',
+    // Crop
+    cropTitle: 'חתכו את התמונה',
+    cropSubtitle: 'מרכזו את פני הילד/ה בעיגול',
+    cropConfirmBtn: 'אשרו ותמשיכו',
+    // Preview / Generate
+    previewTitle: 'הספר שלכם נוצר...',
+    previewStep1: 'מנתחים את התמונה',
+    previewStep2: 'כותבים את הסיפור',
+    previewStep3: 'מאיירים את הדפים',
+    previewStep4: 'מכינים את הספר',
+    previewReady: 'הספר מוכן!',
+    previewCta: 'לתשלום ולהורדה — 89 ₪',
+    // Checkout
+    checkoutTitle: 'סיכום הזמנה',
+    checkoutCta: 'לתשלום מאובטח — 89 ₪',
+    checkoutPrice: '89 ₪',
+    checkoutSecure: 'תשלום מאובטח',
+    // Success
+    successTitle: 'תודה! ✨',
+    successSubtitle: 'הספר שלכם מוכן להורדה',
+    successCta: 'פתחו את הספר',
+    // Delivery
+    deliveryTitle: 'הספר שלכם מוכן',
+    deliveryDownloadBtn: 'הורדת הספר (PDF)',
+    deliveryReadBtn: 'קריאה מקוונת',
+    // Contact
+    contactTitle: 'צרו קשר',
+    contactEmail: 'lifebooks@lifebooksil.com',
+    // General
+    footerRights: '© 2025 Lifebook. כל הזכויות שמורות.',
+    // Homepage extras
+    magicTitle: 'מהתמונה שלכם — לדמות בסיפור קסום',
+    magicCta: 'נסו עכשיו — התוצאה תפתיע אתכם',
+  },
+  en: {
+    navCta: 'Create a Book Now',
+    langToggle: 'עברית',
+    wizardTitle: "Let's create your child's book",
+    wizardSubtitle: 'Tell us about the child',
+    childNameLabel: "Child's name",
+    childNamePlaceholder: 'e.g. Maya',
+    childAgeLabel: 'Age',
+    childGenderLabel: 'Gender',
+    genderBoy: 'Boy',
+    genderGirl: 'Girl',
+    storyIdeaLabel: 'Story idea',
+    storyPlaceholder: 'e.g. adventure in a magical forest...',
+    illustrationStyleLabel: 'Illustration style',
+    continueBtn: 'Continue',
+    uploadPhotoBtn: 'Upload Photo',
+    cropTitle: 'Crop the photo',
+    cropSubtitle: 'Center the face in the circle',
+    cropConfirmBtn: 'Confirm & Continue',
+    previewTitle: 'Creating your book...',
+    previewStep1: 'Analyzing the photo',
+    previewStep2: 'Writing the story',
+    previewStep3: 'Illustrating the pages',
+    previewStep4: 'Preparing your book',
+    previewReady: 'Book ready!',
+    previewCta: 'Checkout — ₪89',
+    checkoutTitle: 'Order Summary',
+    checkoutCta: 'Secure Checkout — ₪89',
+    checkoutPrice: '₪89',
+    checkoutSecure: 'Secure Payment',
+    successTitle: 'Thank you! ✨',
+    successSubtitle: 'Your book is ready to download',
+    successCta: 'Open My Book',
+    deliveryTitle: 'Your Book is Ready',
+    deliveryDownloadBtn: 'Download PDF',
+    deliveryReadBtn: 'Read Online',
+    contactTitle: 'Contact Us',
+    contactEmail: 'lifebooks@lifebooksil.com',
+    footerRights: '© 2025 Lifebook. All rights reserved.',
+    magicTitle: 'From your photo — to a character in a magical story',
+    magicCta: 'Try now — the result will surprise you',
+  }
+};
+
+function i18nGetLang() {
+  return localStorage.getItem('lifebook_lang') || 'he';
+}
+
+function i18nSetLang(lang) {
+  localStorage.setItem('lifebook_lang', lang);
+}
+
+function i18nT(key) {
+  const lang = i18nGetLang();
+  return (I18N[lang] && I18N[lang][key]) || (I18N['he'][key]) || key;
+}
+
+function i18nApply() {
+  const lang = i18nGetLang();
+  const dict = I18N[lang];
+  // Update all elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  // Update placeholders
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (dict[key] !== undefined) el.placeholder = dict[key];
+  });
+  // Update lang toggle button
+  const toggleBtn = document.getElementById('langToggleBtn');
+  if (toggleBtn) toggleBtn.textContent = dict.langToggle || (lang === 'he' ? 'English' : 'עברית');
+  // RTL: apply to content elements only, never html/body/header
+  const rtlTargets = document.querySelectorAll('main, section, .card, .page-content, .wizard-content, .checkout-content, .preview-content, .delivery-content');
+  rtlTargets.forEach(el => {
+    el.dir = lang === 'he' ? 'rtl' : 'ltr';
+  });
+}
+
+function i18nToggle() {
+  const current = i18nGetLang();
+  i18nSetLang(current === 'he' ? 'en' : 'he');
+  i18nApply();
+}
+
+// Auto-apply on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', i18nApply);

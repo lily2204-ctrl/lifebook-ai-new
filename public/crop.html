@@ -156,6 +156,7 @@
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="js/i18n.js"></script>
 </head>
 <body class="crop-body">
 
@@ -166,15 +167,17 @@
   <div class="wizard-brand">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </div>
-  <div class="wizard-topbar-right"></div>
+  <div class="wizard-topbar-right">
+    <button id="langToggleBtn" onclick="i18nToggle()" style="background:none;border:1.5px solid #c8922a;color:#c8922a;border-radius:50px;padding:6px 16px;font-family:'Assistant',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">English</button>
+  </div>
 </header>
 
 <main class="crop-shell">
   <section class="crop-card">
     <div class="crop-head">
       <div class="wizard-step-label">Step 2 of 3</div>
-      <h1>Adjust the photo</h1>
-      <p>Center the face inside the circle. When you tap Continue, we'll start creating the book automatically.</p>
+      <h1 data-i18n="cropTitle">Adjust the photo</h1>
+      <p data-i18n="cropSubtitle">Center the face inside the circle. When you tap Continue, we'll start creating the book automatically.</p>
     </div>
 
     <div class="crop-layout">
@@ -206,7 +209,7 @@
 
         <div class="crop-action-row">
           <button class="secondary-btn" id="chooseNewPhotoBtn" type="button">Choose Another Photo</button>
-          <button class="continue-btn" id="continueAfterCrop" type="button">✨ Create My Book</button>
+          <button class="continue-btn" id="continueAfterCrop" type="button" data-i18n="cropConfirmBtn">✨ Create My Book</button>
         </div>
       </div>
 
