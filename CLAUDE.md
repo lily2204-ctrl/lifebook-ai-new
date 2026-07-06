@@ -1,9 +1,9 @@
 # Lifebook AI — Project Context & Status
-*Last updated: May 6, 2026 (session 13 — full debug, Hebrew PDF fix, internal tool mode)*
+*Last updated: June 25, 2026 (session 14 — design unification: Assistant font, logo rename, Hebrew emails, email cleanup)*
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
-- `public/assets/branding/logo.svg` — viewBox `430 466 639 514`, transparent bg
-- All HTML: `<img src="assets/branding/logo.svg" style="height:54px;width:auto;display:block"/>` — NO mix-blend-mode, NO logo.png
+- `public/assets/branding/lifebook-logo.webp` — main logo (renamed from "lifebook new logo .webp")
+- All HTML: `<img src="assets/branding/lifebook-logo.webp" style="height:54px;width:auto;display:block"/>` — NO mix-blend-mode, NO logo.svg, NO logo.png
 - `public/accessibility.js` — on ALL pages via `<script src="accessibility.js"></script>` before `</body>`
 - `public/404.html` — Hebrew error page
 - `server.js` two-email system — `sendPaymentConfirmationEmail` + `sendBookReadyEmail` — DO NOT TOUCH
@@ -12,6 +12,11 @@
 - `public/preview.html` — step tracker loading screen, all English, DO NOT REVERT
 - `server.js` `uploadImageToStorage()` — uploads to Supabase Storage bucket "book-images" — DO NOT CHANGE
 - `server.js` LemonSqueezy webhook middleware — `express.raw()` runs BEFORE `express.json()` is explicitly skipped for `/webhooks/` — DO NOT REORDER
+- **Font**: Assistant (Google Fonts, wght 300–800) everywhere. Playfair Display and Lato removed from all HTML/CSS.
+- **Logo**: `public/assets/branding/lifebook-logo.webp` (renamed from "lifebook new logo .webp"). All HTML files updated.
+- **Sender email**: `lifebooks@lifebooksil.com` — used in server.js Resend calls and all public/ HTML files.
+- **Email templates**: `sendPaymentConfirmationEmail` + `sendBookReadyEmail` — both in Hebrew, `dir="rtl"`, Assistant font, logo from `https://lifebooksil.com/assets/branding/lifebook-logo.webp`.
+- **RTL rule**: `dir="rtl"` on `<html>` in email templates only. In HTML pages: `dir="rtl"` on content elements (`<section>`, `<main>`, cards) — NEVER on html/body/header.
 
 ## ⚠️ CRITICAL DB RULES
 ```javascript
@@ -42,14 +47,14 @@ Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image
 
 ---
 
-## Payment Status — INTERNAL TOOL MODE
-- **No payment wall** — site is now an internal tool, PDF downloads directly
+## Payment Status — Shopify Active
+- **Shopify** is the active payment provider. Webhook: `orders/paid` at `POST /webhooks/shopify` — verified working.
 - Stripe: completely removed from server.js, package.json, and all HTML
-- LemonSqueezy: webhook still in server.js (for legacy orders) but checkout flow bypassed
-- Gumroad: webhook added to server.js (`POST /webhooks/gumroad`) for legacy Gumroad sales
-- checkout.html: now shows email + WhatsApp contact form — no payment buttons
-- preview.html button: "⬇ Download PDF" → goes directly to delivery.html
-- Contact email everywhere: `onlinelifebooks@gmail.com`
+- LemonSqueezy: webhook still in server.js (`POST /webhooks/lemonsqueezy`) for legacy orders — UI no longer points to it
+- Gumroad: webhook still in server.js (`POST /webhooks/gumroad`) for legacy Gumroad sales — UI no longer points to it
+- checkout.html: uses Shopify checkout button — manual contact block removed
+- preview.html button: goes to checkout.html
+- Contact email everywhere: `lifebooks@lifebooksil.com`
 
 ## Railway Env Vars
 ```
@@ -58,7 +63,7 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY
 APP_URL=https://lifebooks.online
-ADMIN_EMAIL=onlinelifebooks@gmail.com
+ADMIN_EMAIL=lifebooks@lifebooksil.com
 LEMONSQUEEZY_API_KEY
 LEMONSQUEEZY_WEBHOOK_SECRET
 LEMONSQUEEZY_STORE_ID=347433
