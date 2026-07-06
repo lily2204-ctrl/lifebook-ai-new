@@ -116,7 +116,7 @@
 <nav>
   <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם">← Back</button>
   <a class="nav-brand" href="index.html">
-    <img src="assets/branding/logo.svg" alt="Lifebook" style="height:54px;width:auto;display:block"/>
+    <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
   <div style="width:80px"></div>
 </nav>
@@ -547,7 +547,7 @@ async function generatePDF() {
     });
 
     // ── SVG logo → PNG base64 (for embedding in jsPDF) ───────────────────
-    // Loads assets/branding/logo.svg into a canvas and exports as PNG.
+    // Loads assets/branding/lifebook-logo.webp into a canvas and exports as PNG.
     // Returns { dataUrl, wMm, hMm } sized to fit targetWidthMm.
     async function loadLogoPng(targetWidthMm) {
       return new Promise(res => {
@@ -565,7 +565,7 @@ async function generatePDF() {
           res({ dataUrl: c.toDataURL('image/png'), wMm: targetWidthMm, hMm });
         };
         img.onerror = () => res(null);
-        img.src = 'assets/branding/lifebook new logo .webp';
+        img.src = 'assets/branding/lifebook-logo.webp';
       });
     }
 
