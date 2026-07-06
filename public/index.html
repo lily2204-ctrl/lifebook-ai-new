@@ -2,1190 +2,221 @@
 <html lang="he-IL">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>Lifebook — Personalized AI Storybooks for Children</title>
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lifebook — ספרי ילדים בהתאמה אישית</title>
+  <meta name="description" content="ספר ילדים מאויר בהתאמה אישית עם הילד שלכם כגיבור — מוכן תוך דקות. 89 ₪ בלבד."/>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="js/i18n.js"></script>
+  <link rel="stylesheet" href="styles.css"/>
   <style>
-    :root {
-      --cream:       #fdf6ec;
-      --cream-deep:  #f5e9d4;
-      --parchment:   #ede0c8;
-      --gold:        #c8922a;
-      --gold-light:  #e8b84b;
-      --gold-pale:   #f5d98a;
-      --gold-glow:   rgba(232,184,75,0.18);
-      --brown:       #5c3d1e;
-      --brown-light: #8a6240;
-      --text:        #3a2810;
-      --text-muted:  #7a6048;
-      --white:       #ffffff;
-      --shadow-warm: 0 8px 40px rgba(100,60,20,0.12);
-      --shadow-gold: 0 4px 24px rgba(200,146,42,0.22);
-    }
-
-```
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-html { scroll-behavior: smooth; }
-
-body {
-  font-family: 'Assistant', sans-serif;
-  background: var(--cream);
-  color: var(--text);
-  overflow-x: hidden;
-}
-
-/* ─── DECORATIVE STARFIELD CANVAS ─── */
-#stars-canvas {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.35;
-}
-
-/* ─── NAV ─── */
-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(253,246,236,0.92);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--parchment);
-  padding: 0 5vw;
-  height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-}
-
-.nav-brand-icon {
-  font-size: 28px;
-  filter: drop-shadow(0 2px 6px rgba(200,146,42,0.5));
-}
-
-.nav-brand-name {
-  font-family: 'Assistant', sans-serif;
-  font-size: 24px;
-  color: var(--gold);
-  letter-spacing: 0.5px;
-}
-
-.nav-cta {
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--white);
-  border: none;
-  border-radius: 50px;
-  padding: 10px 24px;
-  font-family: 'Assistant', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-  box-shadow: var(--shadow-gold);
-  letter-spacing: 0.3px;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.nav-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 28px rgba(200,146,42,0.35);
-}
-
-/* ─── HERO ─── */
-.hero {
-  position: relative;
-  z-index: 1;
-  min-height: 92vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 40px;
-  padding: 60px 8vw 80px;
-  overflow: hidden;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 70% 60% at 80% 40%, rgba(232,184,75,0.10) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 50% at 20% 70%, rgba(200,146,42,0.07) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.hero-text { position: relative; z-index: 2; }
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: linear-gradient(135deg, #fff8ed, #fdf0d5);
-  border: 1px solid var(--gold-pale);
-  border-radius: 50px;
-  padding: 6px 16px;
-  font-size: 13px;
-  color: var(--gold);
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  margin-bottom: 22px;
-  box-shadow: 0 2px 12px rgba(200,146,42,0.12);
-}
-
-.hero-title {
-  font-family: 'Assistant', sans-serif;
-  font-size: clamp(36px, 5vw, 62px);
-  line-height: 1.15;
-  color: var(--brown);
-  margin-bottom: 20px;
-}
-
-.hero-title em {
-  font-style: italic;
-  color: var(--gold);
-}
-
-.hero-subtitle {
-  font-size: 18px;
-  line-height: 1.7;
-  color: var(--text-muted);
-  max-width: 480px;
-  margin-bottom: 36px;
-  font-weight: 300;
-}
-
-.hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--white);
-  border: none;
-  border-radius: 50px;
-  padding: 16px 36px;
-  font-size: 17px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 28px rgba(200,146,42,0.35);
-  transition: all 0.25s;
-  letter-spacing: 0.3px;
-  font-family: 'Assistant', sans-serif;
-  text-decoration: none;
-  display: inline-block;
-}
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 36px rgba(200,146,42,0.45);
-}
-
-.hero-proof {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.stars-row { color: var(--gold-light); font-size: 16px; letter-spacing: 1px; }
-
-.hero-visual {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.hero-book-wrap {
-  position: relative;
-  width: 340px;
-  height: 400px;
-}
-
-.hero-book-glow {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, rgba(232,184,75,0.22) 0%, transparent 70%);
-  border-radius: 50%;
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; transform: translate(-50%,-50%) scale(1); }
-  50%       { opacity: 1;   transform: translate(-50%,-50%) scale(1.08); }
-}
-
-.hero-book-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 20px 50px rgba(100,60,20,0.28));
-  animation: float-book 4s ease-in-out infinite;
-}
-
-@keyframes float-book {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-14px); }
-}
-
-.hero-sparkles {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none;
-}
-
-.sparkle {
-  position: absolute;
-  width: 6px; height: 6px;
-  background: var(--gold-light);
-  border-radius: 50%;
-  animation: sparkle-twinkle 2.5s ease-in-out infinite;
-}
-
-@keyframes sparkle-twinkle {
-  0%, 100% { opacity: 0; transform: scale(0.5); }
-  50%       { opacity: 1; transform: scale(1.2); }
-}
-
-/* ─── TRUST BAR ─── */
-.trust-bar {
-  position: relative;
-  z-index: 1;
-  background: linear-gradient(135deg, var(--brown), #3a2010);
-  padding: 22px 8vw;
-  display: flex;
-  justify-content: center;
-  gap: clamp(24px, 5vw, 80px);
-  flex-wrap: wrap;
-}
-
-.trust-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--parchment);
-}
-
-.trust-icon { font-size: 22px; }
-
-.trust-text-wrap { display: flex; flex-direction: column; }
-
-.trust-number {
-  font-family: 'Assistant', sans-serif;
-  font-size: 20px;
-  color: var(--gold-light);
-  font-weight: 700;
-}
-
-.trust-label {
-  font-size: 12px;
-  color: var(--parchment);
-  opacity: 0.75;
-  letter-spacing: 0.5px;
-}
-
-/* ─── SECTION BASE ─── */
-.section {
-  position: relative;
-  z-index: 1;
-  padding: 90px 8vw;
-}
-
-.section-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 14px;
-}
-
-.section-title {
-  font-family: 'Assistant', sans-serif;
-  font-size: clamp(28px, 3.5vw, 46px);
-  color: var(--brown);
-  line-height: 1.2;
-  margin-bottom: 16px;
-}
-
-.section-sub {
-  font-size: 17px;
-  color: var(--text-muted);
-  max-width: 520px;
-  line-height: 1.7;
-  font-weight: 300;
-}
-
-/* ─── HOW IT WORKS ─── */
-.how-section {
-  background: linear-gradient(180deg, var(--cream) 0%, #fef8ee 100%);
-}
-
-.how-header { text-align: center; margin-bottom: 64px; }
-.how-header .section-sub { margin: 0 auto; }
-
-.steps-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.step-card {
-  background: var(--white);
-  border-radius: 24px;
-  padding: 36px 28px 32px;
-  text-align: center;
-  box-shadow: var(--shadow-warm);
-  border: 1px solid var(--parchment);
-  transition: transform 0.3s, box-shadow 0.3s;
-  position: relative;
-  overflow: hidden;
-}
-
-.step-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--gold-light), var(--gold));
-}
-
-.step-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 50px rgba(100,60,20,0.14);
-}
-
-.step-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px; height: 38px;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--white);
-  border-radius: 50%;
-  font-family: 'Assistant', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 18px;
-  box-shadow: var(--shadow-gold);
-}
-
-.step-illustration {
-  font-size: 56px;
-  margin-bottom: 18px;
-  display: block;
-  filter: drop-shadow(0 4px 8px rgba(200,146,42,0.2));
-}
-
-.step-title {
-  font-family: 'Assistant', sans-serif;
-  font-size: 20px;
-  color: var(--brown);
-  margin-bottom: 10px;
-}
-
-.step-desc {
-  font-size: 14px;
-  color: var(--text-muted);
-  line-height: 1.7;
-}
-
-/* ─── PHOTO TIPS ─── */
-.tips-section {
-  background: linear-gradient(135deg, var(--brown) 0%, #2e1a09 100%);
-  color: var(--cream);
-}
-
-.tips-inner {
-  max-width: 860px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.tips-inner .section-title { color: var(--cream-deep); }
-.tips-inner .section-sub { color: var(--parchment); opacity: 0.8; margin: 0 auto 48px; }
-
-.tips-divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 40px;
-}
-
-.tips-divider-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold-pale), transparent);
-}
-
-.tips-divider-text {
-  font-family: 'Assistant', sans-serif;
-  font-size: 22px;
-  color: var(--gold-light);
-  letter-spacing: 3px;
-  text-transform: uppercase;
-}
-
-.tips-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.tip-item {
-  position: relative;
-  border-radius: 20px;
-  overflow: hidden;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(232,184,75,0.18);
-  padding: 24px 16px 20px;
-  transition: transform 0.25s;
-}
-
-.tip-item:hover { transform: translateY(-4px); }
-
-.tip-avatar {
-  width: 90px; height: 90px;
-  border-radius: 50%;
-  margin: 0 auto 14px;
-  object-fit: cover;
-  display: block;
-  border: 3px solid rgba(255,255,255,0.1);
-}
-
-.tip-avatar-placeholder {
-  width: 90px; height: 90px;
-  border-radius: 50%;
-  margin: 0 auto 14px;
-  background: rgba(255,255,255,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38px;
-  border: 3px solid rgba(255,255,255,0.1);
-}
-
-.tip-item.good .tip-avatar-placeholder { border-color: #4caf50; background: rgba(76,175,80,0.12); }
-.tip-item.bad  .tip-avatar-placeholder { border-color: #e53935; background: rgba(229,57,53,0.10); }
-
-.tip-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  font-size: 16px;
-  margin-bottom: 10px;
-}
-
-.tip-item.good .tip-badge { background: #4caf50; }
-.tip-item.bad  .tip-badge { background: #e53935; }
-
-.tip-label {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.tip-item.good .tip-label { color: #81c784; }
-.tip-item.bad  .tip-label { color: #ef9a9a; }
-
-.tip-desc {
-  font-size: 12px;
-  color: var(--parchment);
-  opacity: 0.65;
-  margin-top: 5px;
-  line-height: 1.5;
-}
-
-/* ─── SAMPLE BOOKS ─── */
-.samples-section {
-  background: var(--cream-deep);
-}
-
-.samples-header { margin-bottom: 56px; }
-
-.samples-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-  max-width: 960px;
-}
-
-.sample-card {
-  background: var(--white);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: var(--shadow-warm);
-  border: 1px solid var(--parchment);
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.sample-card:hover {
-  transform: translateY(-6px) rotate(0.5deg);
-  box-shadow: 0 20px 60px rgba(100,60,20,0.16);
-}
-
-.sample-cover {
-  width: 100%;
-  aspect-ratio: 3/4;
-  object-fit: cover;
-  display: block;
-  background: linear-gradient(135deg, var(--parchment), var(--cream-deep));
-}
-
-.sample-cover-placeholder {
-  width: 100%;
-  aspect-ratio: 3/4;
-  background: linear-gradient(135deg, #1a2a4a, #0d1528);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--gold-light);
-}
-
-.sample-cover-placeholder .book-emoji { font-size: 52px; }
-
-.sample-cover-placeholder .sample-title-text {
-  font-family: 'Assistant', sans-serif;
-  font-size: 16px;
-  color: var(--gold-pale);
-  text-align: center;
-  padding: 0 16px;
-}
-
-.sample-info {
-  padding: 18px 20px;
-}
-
-.sample-name {
-  font-family: 'Assistant', sans-serif;
-  font-size: 17px;
-  color: var(--brown);
-  margin-bottom: 4px;
-}
-
-.sample-meta {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ─── TESTIMONIALS ─── */
-.reviews-section {
-  background: var(--cream);
-}
-
-.reviews-header { text-align: center; margin-bottom: 56px; }
-.reviews-header .section-sub { margin: 0 auto; }
-
-.reviews-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.review-card {
-  background: var(--white);
-  border-radius: 20px;
-  padding: 28px 24px;
-  box-shadow: var(--shadow-warm);
-  border: 1px solid var(--parchment);
-  position: relative;
-}
-
-.review-card::before {
-  content: '"';
-  position: absolute;
-  top: 16px; right: 22px;
-  font-family: 'Assistant', sans-serif;
-  font-size: 64px;
-  color: var(--gold-pale);
-  line-height: 1;
-}
-
-.review-stars { color: var(--gold-light); font-size: 15px; margin-bottom: 12px; }
-
-.review-text {
-  font-size: 15px;
-  color: var(--text-muted);
-  line-height: 1.75;
-  margin-bottom: 20px;
-  font-style: italic;
-}
-
-.reviewer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.reviewer-avatar {
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--gold-pale), var(--parchment));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.reviewer-name {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--brown);
-}
-
-.reviewer-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* ─── PRICING / CTA ─── */
-.cta-section {
-  background: linear-gradient(135deg, #1a1008 0%, var(--brown) 60%, #1a1008 100%);
-  text-align: center;
-  padding: 100px 8vw;
-  position: relative;
-  overflow: hidden;
-}
-
-.cta-section::before {
-  content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(232,184,75,0.12) 0%, transparent 65%);
-  pointer-events: none;
-}
-
-.cta-section .section-title {
-  color: var(--cream);
-  margin-bottom: 16px;
-  position: relative;
-}
-
-.cta-section .section-sub {
-  color: var(--parchment);
-  opacity: 0.8;
-  margin: 0 auto 50px;
-  position: relative;
-}
-
-.pricing-card {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(232,184,75,0.3);
-  border-radius: 28px;
-  padding: 48px 40px;
-  max-width: 420px;
-  margin: 0 auto;
-  position: relative;
-  backdrop-filter: blur(10px);
-}
-
-.pricing-badge {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--white);
-  padding: 6px 20px;
-  border-radius: 50px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.pricing-price {
-  font-family: 'Assistant', sans-serif;
-  font-size: 64px;
-  color: var(--gold-light);
-  font-weight: 700;
-  line-height: 1;
-  margin-bottom: 6px;
-}
-
-.pricing-price sup {
-  font-size: 28px;
-  vertical-align: super;
-}
-
-.pricing-desc {
-  color: var(--parchment);
-  font-size: 15px;
-  margin-bottom: 28px;
-  opacity: 0.75;
-}
-
-.pricing-features {
-  list-style: none;
-  text-align: left;
-  margin-bottom: 32px;
-}
-
-.pricing-features li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--parchment);
-  font-size: 15px;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-.pricing-features li:last-child { border-bottom: none; }
-
-.check-icon {
-  width: 22px; height: 22px;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  flex-shrink: 0;
-  color: white;
-}
-
-.btn-cta-big {
-  width: 100%;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--white);
-  border: none;
-  border-radius: 50px;
-  padding: 18px 36px;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 8px 32px rgba(200,146,42,0.4);
-  transition: all 0.25s;
-  font-family: 'Assistant', sans-serif;
-  letter-spacing: 0.3px;
-}
-
-.btn-cta-big:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 42px rgba(200,146,42,0.55);
-}
-
-.cta-note {
-  margin-top: 16px;
-  font-size: 13px;
-  color: var(--parchment);
-  opacity: 0.55;
-}
-
-/* ─── FOOTER ─── */
-footer {
-  background: #120b04;
-  padding: 40px 8vw;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.footer-brand {
-  font-family: 'Assistant', sans-serif;
-  font-size: 22px;
-  color: var(--gold-light);
-}
-
-.footer-copy {
-  font-size: 13px;
-  color: var(--parchment);
-  opacity: 0.4;
-}
-
-/* ─── ANIMATIONS ─── */
-.fade-in {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-}
-
-.fade-in.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.fade-in-delay-1 { transition-delay: 0.1s; }
-.fade-in-delay-2 { transition-delay: 0.2s; }
-.fade-in-delay-3 { transition-delay: 0.3s; }
-
-/* ─── RESPONSIVE ─── */
-@media (max-width: 900px) {
-  .hero { grid-template-columns: 1fr; padding: 40px 6vw 60px; min-height: auto; }
-  .hero-visual { display: none; }
-  .steps-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
-  .tips-grid { grid-template-columns: repeat(2, 1fr); }
-  .samples-grid { grid-template-columns: 1fr 1fr; }
-  .reviews-grid { grid-template-columns: 1fr; max-width: 480px; }
-}
-
-@media (max-width: 600px) {
-  .tips-grid { grid-template-columns: repeat(2, 1fr); }
-  .samples-grid { grid-template-columns: 1fr; max-width: 360px; margin: 0 auto; }
-  .trust-bar { gap: 20px; }
-}
-```
-
-  
-    /* ── MOBILE IMPROVEMENTS ── */
-    @media (max-width: 640px) {
-      nav { padding: 0 4vw; height: 58px; }
-      .nav-cta { padding: 8px 18px; font-size: 14px; }
-      .hero { padding: 32px 4vw 50px; }
-      .hero-title { font-size: clamp(32px, 9vw, 52px); }
-      .hero-subtitle { font-size: 15px; }
-      .hero-actions { flex-direction: column; gap: 12px; }
-      .btn-primary { width: 100%; text-align: center; padding: 16px 24px; font-size: 16px; }
-      .trust-bar { gap: 18px; padding: 16px 4vw; flex-wrap: wrap; justify-content: center; }
-      .trust-item { min-width: 110px; }
-      .section { padding: 50px 4vw; }
-      .section-title { font-size: clamp(24px, 7vw, 38px); }
-      .pricing-card { padding: 28px 20px; }
-      .btn-cta-big { font-size: 17px; padding: 16px 28px; }
-      footer { flex-direction: column; text-align: center; padding: 28px 4vw; gap: 10px; }
-      .samples-grid { grid-template-columns: 1fr; max-width: 280px; }
-      .hero-visual { display: none; }
-    }
-    @media (max-width: 380px) {
-      .hero-title { font-size: 28px; }
-      .trust-bar { gap: 10px; }
-      .trust-number { font-size: 16px; }
+    /* Navigation */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Assistant', sans-serif; background: #fdf6ec; color: #3a2810; overflow-x: hidden; }
+    header { position: sticky; top: 0; z-index: 100; background: rgba(253,246,236,0.96); backdrop-filter: blur(12px); box-shadow: 0 2px 16px rgba(100,60,20,0.08); border-bottom: 1px solid #ede0c8; }
+    .nav-main { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:64px; }
+    .btn-nav-cta { background:#c9a84c; color:#fff; font-family:'Assistant',sans-serif; font-weight:700; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:15px; }
+    #langToggleBtn { background:none; border:1.5px solid #c8922a; color:#c8922a; border-radius:50px; padding:6px 16px; font-family:'Assistant',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
+
+    /* Hero */
+    .hero-section { position:relative; }
+    .hero-img { width:100%; display:block; }
+    .hero-image-wrap { position:relative; overflow:hidden; }
+    .hero-overlay-bar { position:absolute; bottom:0; left:0; right:0; height:80px; background:#fdf6ec; }
+    .hero-delivery-strip { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-family:'Assistant',sans-serif; font-size:14px; color:#7a6048; }
+    .hero-cta-wrap { text-align:center; padding:32px 16px 16px; }
+    .btn-primary-xl { display:inline-block; background:linear-gradient(135deg,#e8b84b,#c8922a); color:#fff; font-family:'Assistant',sans-serif; font-weight:800; font-size:20px; padding:18px 40px; border-radius:12px; text-decoration:none; margin-bottom:16px; box-shadow:0 8px 32px rgba(200,146,42,0.4); transition:all 0.2s; }
+    .btn-primary-xl:hover { transform:translateY(-2px); box-shadow:0 12px 42px rgba(200,146,42,0.55); }
+    .trust-row { font-family:'Assistant',sans-serif; font-size:13px; color:#7a6048; margin:0; }
+
+    /* Sections */
+    section { padding:64px 24px; max-width:1100px; margin:0 auto; }
+    h2 { font-family:'Assistant',sans-serif; font-size:clamp(24px,4vw,36px); color:#5c3d1e; text-align:center; margin-bottom:28px; }
+    .magic-card img, .inside-card img { width:100%; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.10); }
+    .magic-desc { font-family:'Assistant',sans-serif; font-size:16px; color:#5a4030; text-align:center; margin:16px 0 24px; line-height:1.6; }
+    .btn-secondary { display:inline-block; border:2px solid #c9a84c; color:#c9a84c; font-family:'Assistant',sans-serif; font-weight:700; padding:12px 28px; border-radius:8px; text-decoration:none; transition:all 0.2s; }
+    .btn-secondary:hover { background:#c9a84c; color:#fff; }
+    .magic-section { text-align:center; }
+
+    /* Carousel */
+    .carousel { position:relative; overflow:hidden; }
+    .carousel-track { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:8px; scrollbar-width:none; }
+    .carousel-track::-webkit-scrollbar { display:none; }
+    .carousel-card { flex:0 0 80%; scroll-snap-align:start; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,0.08); }
+    .carousel-card img { width:100%; display:block; }
+    .carousel-card p { padding:12px 16px; font-family:'Assistant',sans-serif; font-weight:600; color:#3a2810; }
+    .btn-card { display:block; margin:0 16px 16px; background:#c9a84c; color:#fff; font-family:'Assistant',sans-serif; font-weight:700; padding:10px; border-radius:8px; text-decoration:none; text-align:center; transition:background 0.2s; }
+    .btn-card:hover { background:#b8832a; }
+    .carousel-prev, .carousel-next { position:absolute; top:40%; transform:translateY(-50%); background:rgba(255,255,255,0.9); border:none; border-radius:50%; width:40px; height:40px; font-size:22px; cursor:pointer; z-index:2; box-shadow:0 2px 8px rgba(0,0,0,0.12); }
+    .carousel-prev { left:8px; }
+    .carousel-next { right:8px; }
+    .carousel-dots { display:flex; justify-content:center; gap:8px; margin-top:12px; }
+    .carousel-dot { width:8px; height:8px; border-radius:50%; background:#ddd; cursor:pointer; border:none; padding:0; transition:background 0.2s; }
+    .carousel-dot.active { background:#c9a84c; }
+
+    /* How it works */
+    .howitworks-section picture { display:block; margin:0 auto; max-width:900px; }
+    .howitworks-section img { width:100%; border-radius:16px; }
+
+    /* Features */
+    .features-row { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-top:24px; }
+    .feature-item { display:flex; align-items:center; gap:8px; font-family:'Assistant',sans-serif; font-size:15px; color:#5a4030; background:#fff; border-radius:12px; padding:12px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+
+    /* Closing CTA */
+    .closing-cta-section { background:#f5ede0; border-radius:24px; text-align:center; }
+    .closing-quote { font-family:'Assistant',sans-serif; font-size:clamp(18px,3vw,22px); font-weight:700; color:#2c1a0e; margin-bottom:24px; line-height:1.4; }
+    .footer-links { margin-top:20px; }
+    .footer-links a { font-family:'Assistant',sans-serif; font-size:13px; color:#7a6048; text-decoration:none; }
+    .footer-links a:hover { color:#c9a84c; }
+
+    /* Footer */
+    footer { text-align:center; padding:32px 16px; background:#2c1a0e; color:#f5ede0; }
+    footer a { color:#c9a84c; text-decoration:none; }
+    footer p { font-family:'Assistant',sans-serif; font-size:13px; margin:6px 0; }
+
+    /* Mobile */
+    @media (max-width:640px) {
+      .btn-primary-xl { font-size:17px; padding:16px 28px; }
+      .carousel-card { flex:0 0 90%; }
+      .nav-main { padding:0 12px; }
+      section { padding:48px 16px; }
     }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 
-<canvas id="stars-canvas"></canvas>
-
-<!-- NAV -->
-
-<nav>
-  <a class="nav-brand" href="#">
-    <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
-  </a>
-  <button class="nav-cta" onclick="document.getElementById('cta').scrollIntoView({behavior:'smooth'})">
-    Create Your Book ✨
-  </button>
-</nav>
+<!-- NAVIGATION -->
+<header>
+  <nav class="nav-main">
+    <button id="langToggleBtn" onclick="i18nToggle()">English</button>
+    <a href="index.html"><img src="assets/branding/lifebook-logo.webp" height="44" alt="Lifebook" style="display:block;width:auto;"/></a>
+    <a href="wizard.html" class="btn-nav-cta" data-i18n="navCta">צרו ספר עכשיו</a>
+  </nav>
+</header>
 
 <!-- HERO -->
-
-<section class="hero">
-  <div class="hero-text">
-    <div class="hero-badge">✨ AI-Powered · Personalized · Magical</div>
-    <h1 class="hero-title">
-      Your child becomes the<br>
-      <em>hero of their own story</em>
-    </h1>
-    <p class="hero-subtitle">
-      Upload a photo, tell us about your child, and our AI creates a fully personalized storybook — ready to download in minutes.
-    </p>
-    <div class="hero-actions">
-      <a class="btn-primary" href="#cta">Create Our Book →</a>
-      <div class="hero-proof">
-        <span class="stars-row">★★★★★</span>
-        <span>Loved by 2,000+ families</span>
-      </div>
-    </div>
+<section class="hero-section" style="padding:0;max-width:100%;" dir="rtl">
+  <div class="hero-image-wrap">
+    <img src="assets/marketing/hero-main.png" alt="ספר ילדים בהתאמה אישית" class="hero-img" loading="eager"/>
+    <div class="hero-overlay-bar"></div>
+    <div class="hero-delivery-strip">מוכן תוך דקות · PDF להורדה ולהדפסה</div>
   </div>
-
-  <div class="hero-visual">
-    <div class="hero-book-wrap">
-      <div class="hero-book-glow"></div>
-      <!-- Replace src with: assets/books/sample-cover.png -->
-      <img src="assets/hero/family-reading.png" alt="Family reading a Lifebook personalized storybook" style="width:100%;height:100%;object-fit:cover;border-radius:20px;display:block"/>
-      <div class="hero-sparkles">
-        <div class="sparkle" style="top:12%;left:18%;animation-delay:0s"></div>
-        <div class="sparkle" style="top:25%;right:14%;animation-delay:0.5s"></div>
-        <div class="sparkle" style="top:60%;left:8%;animation-delay:1s"></div>
-        <div class="sparkle" style="bottom:18%;right:20%;animation-delay:0.7s"></div>
-        <div class="sparkle" style="top:40%;left:50%;animation-delay:1.3s"></div>
-        <div class="sparkle" style="bottom:8%;left:30%;animation-delay:0.3s"></div>
-      </div>
-    </div>
+  <div class="hero-cta-wrap">
+    <a href="wizard.html" class="btn-primary-xl">צרו את הספר שלכם — 89 ₪</a>
+    <p class="trust-row">★★★★★ אלפי משפחות כבר יצרו · תשלום מאובטח · מוכן תוך דקות</p>
   </div>
 </section>
 
-<!-- TRUST BAR -->
-
-<div class="trust-bar">
-  <div class="trust-item">
-    <span class="trust-icon">📚</span>
-    <div class="trust-text-wrap">
-      <span class="trust-number">5,000+</span>
-      <span class="trust-label">Books Created</span>
-    </div>
+<!-- BEFORE / AFTER MAGIC -->
+<section class="magic-section" dir="rtl">
+  <h2 data-i18n="magicTitle">מהתמונה שלכם — לדמות בסיפור קסום</h2>
+  <div class="magic-card">
+    <img src="assets/marketing/before-after-magic.png" loading="lazy" alt="לפני ואחרי — הפיכת תמונת ילד לדמות בספר"/>
   </div>
-  <div class="trust-item">
-    <span class="trust-icon">⭐</span>
-    <div class="trust-text-wrap">
-      <span class="trust-number">4.9 / 5</span>
-      <span class="trust-label">Average Rating</span>
-    </div>
-  </div>
-  <div class="trust-item">
-    <span class="trust-icon">⚡</span>
-    <div class="trust-text-wrap">
-      <span class="trust-number">5 Minutes</span>
-      <span class="trust-label">To Your Book</span>
-    </div>
-  </div>
-  <div class="trust-item">
-    <span class="trust-icon">🔒</span>
-    <div class="trust-text-wrap">
-      <span class="trust-number">100% Secure</span>
-      <span class="trust-label">Secure Payment</span>
-    </div>
-  </div>
-</div>
+  <p class="magic-desc">הבינה המלאכותית שלנו שומרת על הדמות של הילד לאורך כל הספר — אותו חיוך, באותו קסם.</p>
+  <a href="wizard.html" class="btn-secondary" data-i18n="magicCta">נסו עכשיו — התוצאה תפתיע אתכם</a>
+</section>
 
 <!-- HOW IT WORKS -->
+<section class="howitworks-section" dir="rtl">
+  <h2>איך זה עובד?</h2>
+  <picture>
+    <source media="(max-width: 640px)" srcset="assets/marketing/howitworks-vertical-1.png"/>
+    <img src="assets/marketing/howitworks-wide.png" loading="lazy" alt="שלבי יצירת ספר ילדים"/>
+  </picture>
+</section>
 
-<section class="section how-section">
-  <div class="how-header fade-in">
-    <div class="section-label">Simple Process</div>
-    <h2 class="section-title">Three steps to magic</h2>
-    <p class="section-sub">From a single photo to a fully illustrated personalized storybook — it's that simple.</p>
+<!-- COLLECTIONS CAROUSEL -->
+<section class="collections-section" dir="rtl">
+  <h2>לכל רגע יש סיפור</h2>
+  <div class="carousel" id="collectionsCarousel">
+    <div class="carousel-track">
+      <div class="carousel-card">
+        <img src="assets/marketing/banner-kids-collection.png" loading="lazy" alt="ספרי ילדים בהתאמה אישית"/>
+        <p>ספרי ילדים בהתאמה אישית</p>
+        <a href="wizard.html" class="btn-card">צרו עכשיו</a>
+      </div>
+      <div class="carousel-card">
+        <img src="assets/marketing/banner-couples.png" loading="lazy" alt="ספרים לזוגות"/>
+        <p>ספרים לבן/בת הזוג</p>
+        <a href="wizard.html" class="btn-card">צרו עכשיו</a>
+      </div>
+      <div class="carousel-card">
+        <img src="assets/marketing/banner-kids-single.png" loading="lazy" alt="סיפורים לילדים">
+        <p>סיפורים שמעצבים ילדים מבפנים</p>
+        <a href="wizard.html" class="btn-card">צרו עכשיו</a>
+      </div>
+    </div>
+    <button class="carousel-prev" onclick="carouselMove(-1)" aria-label="הקודם">‹</button>
+    <button class="carousel-next" onclick="carouselMove(1)" aria-label="הבא">›</button>
   </div>
+  <div class="carousel-dots" id="carouselDots"></div>
+</section>
 
-  <div class="fade-in" style="max-width:960px;margin:0 auto;text-align:center">
-    <img src="assets/how-it-works/how-it-works-full.png"
-         alt="How it works: Upload photo, Shape the story, AI Creates your book, Receive and enjoy"
-         style="width:100%;max-width:960px;height:auto;display:block;margin:0 auto;border-radius:20px"/>
+<!-- INSIDE THE BOOK -->
+<section class="inside-section" dir="rtl">
+  <h2>מה מחכה בתוך הספר?</h2>
+  <div class="inside-card">
+    <img src="assets/marketing/grid-inside-the-book.png" loading="lazy" alt="תצוגה מקדימה של עמודי הספר"/>
+  </div>
+  <div class="features-row">
+    <div class="feature-item">📄 <span>קובץ PDF איכותי</span></div>
+    <div class="feature-item">⚡ <span>מוכן תוך דקות</span></div>
+    <div class="feature-item">📱 <span>קריאה בכל מכשיר</span></div>
+    <div class="feature-item">🎁 <span>מתנה בלתי נשכחת</span></div>
   </div>
 </section>
 
-<!-- PHOTO TIPS -->
-
-<section class="section tips-section">
-  <div class="tips-inner">
-    <div class="section-label" style="color: var(--gold-light)">For Best Results</div>
-    <h2 class="section-title">Photo Tips</h2>
-    <p class="section-sub">The quality of your photo directly affects how magically your child appears in their story.</p>
-
-```
-<div class="tips-divider">
-  <div class="tips-divider-line"></div>
-  <span class="tips-divider-text">Photo Tips</span>
-  <div class="tips-divider-line"></div>
-</div>
-
-<!-- Replace placeholder emojis with real photo images from assets/photo-tips/ -->
-<div class="fade-in" style="max-width:860px;margin:0 auto;text-align:center">
-    <img src="assets/photo-tips/photo-tips.png"
-         alt="Photo tips: clear face, avoid dark photos, group photos, and funny faces"
-         style="width:100%;max-width:860px;height:auto;display:block;margin:0 auto;border-radius:20px"/>
-  </div>
-    <div class="tip-badge">✗</div>
-    <div class="tip-label">Funny Face</div>
-    <p class="tip-desc">Extreme expressions alter likeness</p>
-  </div>
-</div>
-```
-
-  </div>
-</section>
-
-<!-- SAMPLE BOOKS -->
-
-<section class="section samples-section">
-  <div class="samples-header fade-in">
-    <div class="section-label">Real Examples</div>
-    <h2 class="section-title">Books created by families like yours</h2>
-    <p class="section-sub">Every book is completely unique — illustrated, written, and personalized just for your child.</p>
-  </div>
-
-  <div class="samples-grid">
-    <div class="sample-card fade-in fade-in-delay-1">
-      <img src="assets/books/sample-book.jpg" class="sample-cover" alt="Sample book" style="width:100%;aspect-ratio:0.75/1;object-fit:cover;border-radius:12px 12px 0 0;display:block"/>
-      <div class="sample-info">
-        <div class="sample-name">Emma's Enchanted Garden</div>
-        <div class="sample-meta">Age 4 · Fantasy Adventure</div>
-      </div>
-    </div>
-    <div class="sample-card fade-in fade-in-delay-2">
-      <img src="assets/books/sample2.png" class="sample-cover" alt="Sample book" style="width:100%;aspect-ratio:0.75/1;object-fit:cover;border-radius:12px 12px 0 0;display:block"/>
-      <div class="sample-info">
-        <div class="sample-name">Noah's Space Quest</div>
-        <div class="sample-meta">Age 6 · Science Fiction</div>
-      </div>
-    </div>
-    <div class="sample-card fade-in fade-in-delay-3">
-      <img src="assets/books/sample3.png" class="sample-cover" alt="Sample book" style="width:100%;aspect-ratio:0.75/1;object-fit:cover;border-radius:12px 12px 0 0;display:block"/>
-      <div class="sample-info">
-        <div class="sample-name">Lila's Butterfly Kingdom</div>
-        <div class="sample-meta">Age 5 · Nature & Magic</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- TESTIMONIALS -->
-
-<section class="section reviews-section">
-  <div class="reviews-header fade-in">
-    <div class="section-label">Happy Families</div>
-    <h2 class="section-title">Parents love it. Kids treasure it.</h2>
-    <p class="section-sub">Join thousands of families who've created a magical keepsake their child will never forget.</p>
-  </div>
-
-  <div class="reviews-grid">
-    <div class="review-card fade-in fade-in-delay-1">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">My daughter couldn't stop smiling when she saw herself as the main character. She made me read it five times in a row!</p>
-      <div class="reviewer">
-        <div class="reviewer-avatar">👩</div>
-        <div>
-          <div class="reviewer-name">Sarah M.</div>
-          <div class="reviewer-label">Mom of a 5-year-old</div>
-        </div>
-      </div>
-    </div>
-    <div class="review-card fade-in fade-in-delay-2">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">Best birthday gift we ever gave. The illustrations are gorgeous and the story perfectly matched our son's love of dinosaurs.</p>
-      <div class="reviewer">
-        <div class="reviewer-avatar">👨</div>
-        <div>
-          <div class="reviewer-name">David K.</div>
-          <div class="reviewer-label">Dad of a 7-year-old</div>
-        </div>
-      </div>
-    </div>
-    <div class="review-card fade-in fade-in-delay-3">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">I ordered one for each of my three kids. Each book is completely different and special. Absolutely worth every penny.</p>
-      <div class="reviewer">
-        <div class="reviewer-avatar">👩</div>
-        <div>
-          <div class="reviewer-name">Rachel T.</div>
-          <div class="reviewer-label">Mom of 3</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA / PRICING -->
-
-<section class="section cta-section" id="cta">
-  <div class="section-label" style="color: var(--gold-light); position:relative">Start Creating</div>
-  <h2 class="section-title">Give your child a story<br>only they could star in</h2>
-  <p class="section-sub">One personalized digital storybook, ready in minutes.</p>
-
-  <div class="pricing-card fade-in">
-    <div class="pricing-badge">🎉 Most Popular</div>
-    <div class="pricing-price">89 ₪</div>
-    <div class="pricing-desc">One fully personalized digital storybook</div>
-    <ul class="pricing-features">
-      <li><div class="check-icon">✓</div> 12-page illustrated storybook</li>
-      <li><div class="check-icon">✓</div> Your child as the main character</li>
-      <li><div class="check-icon">✓</div> Custom name, age & personality</li>
-      <li><div class="check-icon">✓</div> High-quality PDF download</li>
-      <li><div class="check-icon">✓</div> Ready in under 5 minutes</li>
-      <li><div class="check-icon">✓</div> Read on any device, forever</li>
-    </ul>
-    <button class="btn-cta-big" onclick="window.location.href='./wizard.html'">
-      Create My Book Now ✨
-    </button>
-    <p class="cta-note">🔒 Secure checkout · Instant download · 100% satisfaction</p>
+<!-- CLOSING CTA -->
+<section class="closing-cta-section" dir="rtl">
+  <p class="closing-quote">כי כל ילד ראוי להיות הגיבור של הסיפור שלו</p>
+  <a href="wizard.html" class="btn-primary-xl">צרו את הספר עכשיו — 89 ₪</a>
+  <div class="footer-links">
+    <a href="contact.html">שאלות נפוצות</a> ·
+    <a href="contact.html">צרו קשר</a> ·
+    <a href="terms.html">תנאי שימוש</a>
   </div>
 </section>
 
 <!-- FOOTER -->
-
 <footer>
-  <div class="footer-brand"><img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/></div>
-  <div class="footer-copy">© 2026 Lifebook. All rights reserved. · <a href="terms.html" style="color:var(--gold-light);text-decoration:none;font-weight:700;">Terms &amp; Privacy</a> · <a href="contact.html" style="color:var(--gold-light);text-decoration:none;font-weight:700;">Contact Us</a></div>
+  <img src="assets/branding/lifebook-logo.webp" height="36" alt="Lifebook" style="display:inline-block;margin-bottom:8px;"/>
+  <p>© 2025 Lifebook. כל הזכויות שמורות.</p>
+  <p><a href="mailto:lifebooks@lifebooksil.com">lifebooks@lifebooksil.com</a></p>
+  <a href="https://lifebooksil.com">lifebooksil.com</a>
 </footer>
 
 <script>
-  // Subtle starfield
-  const canvas = document.getElementById('stars-canvas');
-  const ctx = canvas.getContext('2d');
-  let stars = [];
-
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
-  function initStars() {
-    stars = [];
-    for (let i = 0; i < 80; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.5 + 0.3,
-        alpha: Math.random(),
-        speed: Math.random() * 0.004 + 0.002,
-        phase: Math.random() * Math.PI * 2
-      });
-    }
-  }
-
-  function drawStars(t) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    stars.forEach(s => {
-      const a = (Math.sin(t * s.speed + s.phase) + 1) / 2 * 0.5 + 0.1;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(200, 160, 60, ${a})`;
-      ctx.fill();
-    });
-    requestAnimationFrame(drawStars);
-  }
-
-  resize();
-  initStars();
-  requestAnimationFrame(drawStars);
-  window.addEventListener('resize', () => { resize(); initStars(); });
-
-  // Scroll fade-in
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        e.target.classList.add('visible');
-        observer.unobserve(e.target);
-      }
-    });
-  }, { threshold: 0.12 });
-
-  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+function carouselMove(dir) {
+  const track = document.querySelector('.carousel-track');
+  const cardW = track.querySelector('.carousel-card').offsetWidth + 16;
+  track.scrollBy({ left: dir * cardW, behavior: 'smooth' });
+  setTimeout(updateDots, 400);
+}
+function updateDots() {
+  const track = document.querySelector('.carousel-track');
+  const cards = track.querySelectorAll('.carousel-card');
+  const dots = document.querySelectorAll('.carousel-dot');
+  const idx = Math.round(track.scrollLeft / (cards[0].offsetWidth + 16));
+  dots.forEach((d,i) => d.classList.toggle('active', i === idx));
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const dots = document.getElementById('carouselDots');
+  const cards = document.querySelectorAll('.carousel-card');
+  cards.forEach((_,i) => {
+    const d = document.createElement('button');
+    d.className = 'carousel-dot' + (i===0?' active':'');
+    d.setAttribute('aria-label', 'עמוד ' + (i+1));
+    d.onclick = () => {
+      const track = document.querySelector('.carousel-track');
+      const cardW = track.querySelector('.carousel-card').offsetWidth + 16;
+      track.scrollTo({ left: i * cardW, behavior: 'smooth' });
+      setTimeout(updateDots, 400);
+    };
+    dots.appendChild(d);
+  });
+  document.querySelector('.carousel-track').addEventListener('scroll', updateDots);
+});
 </script>
-
 <script src="accessibility.js"></script>
 </body>
 </html>
