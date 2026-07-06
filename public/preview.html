@@ -355,7 +355,7 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = '⬇ Download PDF';
+        payBtn.textContent = 'Continue to Checkout';
       }
 
       // Break when cover + 2 page images all ready (keeps polling so page images update)
@@ -389,13 +389,13 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = '⬇ Download PDF';
+        payBtn.textContent = 'Continue to Checkout';
       } else if (d3.book && d3.book.generatedBook) {
         // Story exists but no cover yet — still let them proceed
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = '⬇ Download PDF';
+        payBtn.textContent = 'Continue to Checkout';
       }
     } catch(e) {}
   }
