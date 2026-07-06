@@ -4,21 +4,21 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Payment Successful</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+    body{font-family:'Assistant',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
     nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:center}
     .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
     .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
-    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-brand-name{font-family:'Assistant',sans-serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
     .shell{width:min(680px,94vw);margin:0 auto;padding:60px 0 80px;flex:1;display:flex;flex-direction:column;align-items:center;text-align:center}
 
     /* SUCCESS ICON */
     .success-icon{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold-light),var(--gold));display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 24px;box-shadow:var(--shadow-gold)}
 
-    .page-title{font-family:'Playfair Display',serif;font-size:clamp(28px,5vw,46px);color:var(--brown);line-height:1.1;margin-bottom:10px}
+    .page-title{font-family:'Assistant',sans-serif;font-size:clamp(28px,5vw,46px);color:var(--brown);line-height:1.1;margin-bottom:10px}
     .page-sub{font-size:17px;color:var(--text-muted);line-height:1.7;margin-bottom:36px;max-width:480px}
 
     /* CARD */
@@ -29,18 +29,19 @@
     .mini-cover{width:70px;height:97px;border-radius:8px;overflow:hidden;border:2px solid rgba(200,146,42,0.3);background:var(--cream-deep);flex-shrink:0}
     .mini-cover img{width:100%;height:100%;object-fit:cover;display:none}
     .book-info{text-align:left}
-    .book-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--brown);margin-bottom:4px}
+    .book-title{font-family:'Assistant',sans-serif;font-size:18px;color:var(--brown);margin-bottom:4px}
     .book-meta{font-size:13px;color:var(--text-muted)}
 
-    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-gold);transition:all 0.25s;font-family:'Lato',sans-serif;width:100%;margin-bottom:10px}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-gold);transition:all 0.25s;font-family:'Assistant',sans-serif;width:100%;margin-bottom:10px}
     .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45)}
-    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s;width:100%}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Assistant',sans-serif;transition:all 0.2s;width:100%}
     .btn-secondary:hover{border-color:var(--gold-light)}
 
     .status{font-size:14px;color:var(--text-muted);margin-top:12px}
 
     @media(max-width:640px){.shell{padding:40px 14px 60px}}
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <nav>
@@ -67,7 +68,7 @@
     <button class="btn-secondary" id="goHomeBtn">Back to home</button>
     <div class="status" id="statusMsg">Verifying your order...</div>
     <div id="resendWrap" style="display:none;margin-top:8px;">
-      <button id="resendEmailBtn" style="background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;text-decoration:underline;font-family:'Lato',sans-serif;">
+      <button id="resendEmailBtn" style="background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;text-decoration:underline;font-family:'Assistant',sans-serif;">
         📬 Resend book link to my email
       </button>
     </div>

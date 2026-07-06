@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Create Your Book</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root {
       --cream:      #fdf6ec;
@@ -22,7 +22,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Lato', sans-serif;
+      font-family: 'Assistant', sans-serif;
       background: var(--cream);
       color: var(--text);
       min-height: 100vh;
@@ -40,13 +40,13 @@
       background: var(--white); color: var(--brown);
       border-radius: 50px; padding: 8px 18px;
       font-size: 14px; font-weight: 700; cursor: pointer;
-      font-family: 'Lato', sans-serif;
+      font-family: 'Assistant', sans-serif;
     }
     .nav-back:hover { background: var(--cream-deep); }
     .nav-lang {
       background: var(--white); color: var(--brown);
       border: 1.5px solid var(--parchment); border-radius: 50px;
-      padding: 9px 18px; font-family: 'Lato', sans-serif;
+      padding: 9px 18px; font-family: 'Assistant', sans-serif;
       font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
       white-space: nowrap;
     }
@@ -56,21 +56,21 @@
     [dir="rtl"] .wizard-actions { flex-direction: row-reverse; }
     .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .nav-brand img { height: 36px; width: auto; }
-    .nav-brand-name { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--gold); }
+    .nav-brand-name { font-family: 'Assistant', sans-serif; font-size: 22px; color: var(--gold); }
     .wizard-shell { max-width: 980px; margin: 0 auto; padding: 36px 5vw 80px; }
     .step-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
-    .wizard-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 4vw, 42px); color: var(--brown); margin-bottom: 10px; line-height: 1.2; }
+    .wizard-title { font-family: 'Assistant', sans-serif; font-size: clamp(26px, 4vw, 42px); color: var(--brown); margin-bottom: 10px; line-height: 1.2; }
     .wizard-sub { font-size: 16px; color: var(--text-muted); line-height: 1.7; max-width: 600px; margin-bottom: 36px; font-weight: 300; }
     .wizard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
     @media (max-width: 700px) { .wizard-grid { grid-template-columns: 1fr; } }
     .card { background: var(--white); border: 1px solid var(--parchment); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
-    .card-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--brown); margin-bottom: 20px; }
+    .card-title { font-family: 'Assistant', sans-serif; font-size: 22px; color: var(--brown); margin-bottom: 20px; }
     .input-group { display: grid; gap: 16px; }
     .input-label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 700; color: var(--brown); }
     .input-label input, .input-label select, .input-label textarea {
       width: 100%; border: 1px solid var(--parchment); border-radius: 12px;
       background: var(--cream); color: var(--text);
-      padding: 12px 14px; font-size: 15px; font-family: 'Lato', sans-serif;
+      padding: 12px 14px; font-size: 15px; font-family: 'Assistant', sans-serif;
       outline: none; transition: border-color 0.2s;
     }
     .input-label input:focus, .input-label select:focus, .input-label textarea:focus { border-color: var(--gold-light); }
@@ -82,30 +82,30 @@
     .style-card:hover { border-color: var(--gold-light); }
     .style-card.active { border-color: var(--gold); background: #fff8ed; }
     .style-thumb { height: 120px; overflow: hidden; border-radius: 8px; margin-bottom: 10px; background: var(--cream-deep); }
-    .style-name { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--brown); margin-bottom: 4px; }
+    .style-name { font-family: 'Assistant', sans-serif; font-size: 15px; color: var(--brown); margin-bottom: 4px; }
     .style-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
     .upload-area { border: 2px dashed var(--parchment); border-radius: 16px; background: var(--cream); min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 20px; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 14px; }
     .upload-area:hover { border-color: var(--gold-light); background: #fff8ed; }
     .upload-icon { font-size: 32px; margin-bottom: 8px; }
-    .upload-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--brown); margin-bottom: 5px; }
+    .upload-title { font-family: 'Assistant', sans-serif; font-size: 18px; color: var(--brown); margin-bottom: 5px; }
     .upload-text { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
     .tips-box { background: var(--cream-deep); border: 1px solid var(--parchment); border-radius: 12px; padding: 14px 16px; display: grid; gap: 7px; }
     .tip-item { font-size: 13px; color: var(--text-muted); line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
     .tip-item::before { content: "✦"; color: var(--gold); flex-shrink: 0; font-size: 10px; margin-top: 2px; }
     .wizard-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
-    .btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--white); border: none; border-radius: 50px; padding: 14px 32px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(200,146,42,0.3); font-family: 'Lato', sans-serif; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--white); border: none; border-radius: 50px; padding: 14px 32px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(200,146,42,0.3); font-family: 'Assistant', sans-serif; transition: transform 0.2s, box-shadow 0.2s; }
     .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(200,146,42,0.4); }
-    .btn-secondary { background: var(--white); color: var(--brown); border: 1px solid var(--parchment); border-radius: 50px; padding: 14px 28px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Lato', sans-serif; transition: background 0.2s; }
+    .btn-secondary { background: var(--white); color: var(--brown); border: 1px solid var(--parchment); border-radius: 50px; padding: 14px 28px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Assistant', sans-serif; transition: background 0.2s; }
     .btn-secondary:hover { background: var(--cream-deep); }
     #wizardError { display: none; margin-top: 14px; padding: 12px 16px; border-radius: 12px; background: rgba(200,60,60,0.08); border: 1px solid rgba(200,60,60,0.25); color: #c03030; font-size: 14px; font-weight: 600; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(50,30,10,0.55); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; backdrop-filter: blur(4px); }
     .modal-overlay.hidden { display: none; }
     .modal-card { background: var(--white); border-radius: 24px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 24px 60px rgba(100,60,20,0.18); position: relative; }
     .modal-close { position: absolute; top: 14px; right: 16px; background: var(--cream-deep); border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; color: var(--brown); }
-    .modal-title { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--brown); margin-bottom: 8px; }
+    .modal-title { font-family: 'Assistant', sans-serif; font-size: 24px; color: var(--brown); margin-bottom: 8px; }
     .modal-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 22px; }
     .modal-actions { display: grid; gap: 10px; }
-    .upload-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Lato', sans-serif; transition: transform 0.15s; border: none; }
+    .upload-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Assistant', sans-serif; transition: transform 0.15s; border: none; }
     .upload-btn:hover { transform: translateY(-1px); }
     .upload-btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--white); box-shadow: 0 4px 16px rgba(200,146,42,0.3); }
     .upload-btn-secondary { background: var(--cream); color: var(--brown); border: 1px solid var(--parchment) !important; }
@@ -118,6 +118,7 @@
       .btn-primary, .btn-secondary { width: 100%; text-align: center; }
     }
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 

@@ -4,21 +4,21 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Checkout</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;min-height:100vh}
+    body{font-family:'Assistant',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;min-height:100vh}
     nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
     .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
     .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
-    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
-    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-brand-name{font-family:'Assistant',sans-serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Assistant',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
     .nav-back:hover{border-color:var(--gold-light)}
     .shell{width:min(1020px,94vw);margin:0 auto;padding:40px 0 80px}
     .page-header{margin-bottom:32px}
     .step-badge{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fff8ed,#fdf0d5);border:1px solid var(--gold-pale);border-radius:50px;padding:5px 14px;font-size:12px;color:var(--gold);font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px}
-    .page-title{font-family:'Playfair Display',serif;font-size:clamp(28px,4vw,44px);color:var(--brown);line-height:1.1;margin-bottom:6px}
+    .page-title{font-family:'Assistant',sans-serif;font-size:clamp(28px,4vw,44px);color:var(--brown);line-height:1.1;margin-bottom:6px}
     .page-sub{font-size:16px;color:var(--text-muted);line-height:1.6}
     .layout{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
     .cover-card{background:var(--white);border-radius:24px;padding:20px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:sticky;top:84px}
@@ -29,31 +29,31 @@
     .cover-placeholder{text-align:center;color:var(--gold);opacity:0.5}
     .cover-placeholder div{font-size:36px;margin-bottom:8px}
     .cover-placeholder span{font-size:12px;color:var(--text-muted)}
-    .book-title-below{font-family:'Playfair Display',serif;font-size:16px;color:var(--brown);text-align:center;margin-bottom:3px;line-height:1.2}
+    .book-title-below{font-family:'Assistant',sans-serif;font-size:16px;color:var(--brown);text-align:center;margin-bottom:3px;line-height:1.2}
     .book-subtitle-below{font-size:12px;color:var(--text-muted);text-align:center}
     .content-card{background:var(--white);border-radius:24px;padding:28px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
     .content-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
-    .section-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--brown);margin-bottom:16px}
+    .section-title{font-family:'Assistant',sans-serif;font-size:20px;color:var(--brown);margin-bottom:16px}
     .details-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
     .detail-item{background:var(--cream-deep);border-radius:14px;padding:12px 14px;border:1px solid var(--parchment)}
     .detail-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
     .detail-value{font-size:14px;color:var(--text)}
     .price-box{background:linear-gradient(135deg,var(--brown),#3a2010);border-radius:20px;padding:20px 22px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .price-text strong{display:block;font-family:'Playfair Display',serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
+    .price-text strong{display:block;font-family:'Assistant',sans-serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
     .price-text span{font-size:13px;color:var(--parchment);opacity:0.75}
-    .price-amount{font-family:'Playfair Display',serif;font-size:36px;color:var(--gold-light);font-weight:700;flex-shrink:0}
-    .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Lato',sans-serif;letter-spacing:0.3px;margin-bottom:12px;display:block;text-align:center}
+    .price-amount{font-family:'Assistant',sans-serif;font-size:36px;color:var(--gold-light);font-weight:700;flex-shrink:0}
+    .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Assistant',sans-serif;letter-spacing:0.3px;margin-bottom:12px;display:block;text-align:center}
     .pay-btn:hover{transform:translateY(-2px);box-shadow:0 12px 42px rgba(200,146,42,0.55)}
     .pay-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
     /* Override Gumroad's default button styles */
-    a.gumroad-button.pay-btn{background:linear-gradient(135deg,var(--gold-light),var(--gold)) !important;background-image:none !important;color:var(--white) !important;border-radius:50px !important;padding:18px 36px !important;font-size:18px !important;font-weight:700 !important;font-family:'Lato',sans-serif !important;letter-spacing:0.3px !important;box-shadow:0 8px 32px rgba(200,146,42,0.4) !important;border:none !important;display:block !important;width:100% !important;text-align:center !important;text-decoration:none !important;margin-bottom:12px !important;cursor:pointer !important;transition:all 0.25s !important}
+    a.gumroad-button.pay-btn{background:linear-gradient(135deg,var(--gold-light),var(--gold)) !important;background-image:none !important;color:var(--white) !important;border-radius:50px !important;padding:18px 36px !important;font-size:18px !important;font-weight:700 !important;font-family:'Assistant',sans-serif !important;letter-spacing:0.3px !important;box-shadow:0 8px 32px rgba(200,146,42,0.4) !important;border:none !important;display:block !important;width:100% !important;text-align:center !important;text-decoration:none !important;margin-bottom:12px !important;cursor:pointer !important;transition:all 0.25s !important}
     a.gumroad-button.pay-btn:hover{transform:translateY(-2px) !important;box-shadow:0 12px 42px rgba(200,146,42,0.55) !important}
     a.gumroad-button.pay-btn .logo-full{display:none !important}
     .trust-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
     .trust-item{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
     .status-note{margin-top:12px;font-size:14px;color:var(--text-muted);text-align:center;min-height:20px}
     .status-note.error{color:#c03020}
-    .contact-btn{display:block;width:100%;border-radius:50px;padding:15px 24px;font-size:16px;font-weight:700;font-family:'Lato',sans-serif;text-decoration:none;text-align:center;margin-bottom:10px;transition:all 0.2s;letter-spacing:0.2px}
+    .contact-btn{display:block;width:100%;border-radius:50px;padding:15px 24px;font-size:16px;font-weight:700;font-family:'Assistant',sans-serif;text-decoration:none;text-align:center;margin-bottom:10px;transition:all 0.2s;letter-spacing:0.2px}
     .contact-btn-email{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);box-shadow:0 6px 24px rgba(200,146,42,0.35)}
     .contact-btn-email:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(200,146,42,0.48)}
     .contact-btn-whatsapp{background:#25d366;color:var(--white);box-shadow:0 6px 24px rgba(37,211,102,0.3)}
@@ -61,6 +61,7 @@
     @media(max-width:820px){.layout{grid-template-columns:1fr}.cover-card{position:static}}
     @media(max-width:640px){nav{padding:0 4vw}.shell{padding:24px 14px 60px}}
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <nav>
@@ -107,7 +108,7 @@
       <a id="shopifyPayBtn" class="pay-btn" href="#" style="text-decoration:none;">Proceed to Secure Checkout &mdash; &#8362;89</a>
 
       <div style="background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1px solid var(--gold-pale);border-radius:18px;padding:22px 20px;margin-bottom:16px;text-align:center;">
-        <p style="font-family:'Playfair Display',serif;font-size:18px;color:var(--brown);margin:0 0 6px;">Contact us to complete your order</p>
+        <p style="font-family:'Assistant',sans-serif;font-size:18px;color:var(--brown);margin:0 0 6px;">Contact us to complete your order</p>
         <p style="font-size:13px;color:var(--text-muted);margin:0 0 20px;line-height:1.6;">We'll send you the PDF within 24 hours after payment</p>
         <a href="mailto:onlinelifebooks@gmail.com" class="contact-btn contact-btn-email">
           📧 Email us

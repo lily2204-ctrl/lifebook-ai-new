@@ -4,38 +4,39 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Review Setup</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root { --cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22); }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden}
+    body{font-family:'Assistant',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden}
     nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
     .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
     .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
-    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
-    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-brand-name{font-family:'Assistant',sans-serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Assistant',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
     .nav-back:hover{border-color:var(--gold-light)}
     .shell{width:min(860px,94vw);margin:0 auto;padding:40px 0 80px}
     .step-badge{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#fff8ed,#fdf0d5);border:1px solid var(--gold-pale);border-radius:50px;padding:5px 14px;font-size:12px;color:var(--gold);font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px}
-    .page-title{font-family:'Playfair Display',serif;font-size:clamp(24px,4vw,38px);color:var(--brown);line-height:1.1;margin-bottom:6px}
+    .page-title{font-family:'Assistant',sans-serif;font-size:clamp(24px,4vw,38px);color:var(--brown);line-height:1.1;margin-bottom:6px}
     .page-sub{font-size:15px;color:var(--text-muted);line-height:1.7;margin-bottom:28px}
     .layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
     .card{background:var(--white);border-radius:24px;padding:26px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
     .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
-    .card h2{font-family:'Playfair Display',serif;font-size:18px;color:var(--brown);margin-bottom:8px}
+    .card h2{font-family:'Assistant',sans-serif;font-size:18px;color:var(--brown);margin-bottom:8px}
     .card p{font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5}
     #previewCroppedPhoto{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:16px;border:2px solid var(--parchment);background:var(--cream-deep)}
     .summary-row{display:grid;grid-template-columns:130px 1fr;gap:8px;align-items:start;padding:10px 13px;border-radius:13px;background:var(--cream-deep);border:1px solid var(--parchment);margin-bottom:7px}
     .summary-label{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px}
     .summary-value{font-size:14px;color:var(--text);line-height:1.5}
-    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;letter-spacing:0.3px;font-family:'Lato',sans-serif}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;letter-spacing:0.3px;font-family:'Assistant',sans-serif}
     .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(200,146,42,0.45)}
-    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Assistant',sans-serif;transition:all 0.2s}
     .btn-secondary:hover{border-color:var(--gold-light)}
     .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
     @media(max-width:680px){.layout{grid-template-columns:1fr}}
     @media(max-width:640px){nav{padding:0 4vw}.shell{padding:24px 14px 60px}.btn-primary,.btn-secondary{width:100%}.actions{flex-direction:column}}
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <nav>

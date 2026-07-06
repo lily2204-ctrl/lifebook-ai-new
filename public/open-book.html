@@ -3,26 +3,27 @@
 <head>
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Opening Your Book</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+    body{font-family:'Assistant',sans-serif;background:var(--cream);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
     .card{width:min(520px,100%);background:var(--white);border:1px solid var(--parchment);border-radius:24px;box-shadow:var(--shadow-warm);padding:36px;position:relative;overflow:hidden}
     .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
-    .logo{display:flex;align-items:center;gap:8px;margin-bottom:22px;font-family:'Playfair Display',serif;font-size:20px;color:var(--gold)}
+    .logo{display:flex;align-items:center;gap:8px;margin-bottom:22px;font-family:'Assistant',sans-serif;font-size:20px;color:var(--gold)}
     .logo-icon{font-size:26px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
-    h1{font-family:'Playfair Display',serif;font-size:clamp(22px,5vw,34px);color:var(--brown);line-height:1.1;margin-bottom:8px}
+    h1{font-family:'Assistant',sans-serif;font-size:clamp(22px,5vw,34px);color:var(--brown);line-height:1.1;margin-bottom:8px}
     p{font-size:15px;color:var(--text-muted);line-height:1.65;margin-bottom:14px}
     .status{padding:12px 15px;border-radius:14px;background:var(--cream-deep);border:1px solid var(--parchment);color:var(--text);font-size:14px;line-height:1.6;margin-bottom:18px}
     .status.error{background:#fff0ee;border-color:#f5c5bb;color:#a03020}
     .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;font-family:'Lato',sans-serif}
+    .btn-primary{background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 28px rgba(200,146,42,0.35);transition:all 0.25s;font-family:'Assistant',sans-serif}
     .btn-primary:hover{transform:translateY(-2px)}
-    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:all 0.2s}
+    .btn-secondary{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Assistant',sans-serif;transition:all 0.2s}
     .btn-secondary:hover{border-color:var(--gold-light)}
     @media(max-width:480px){.card{padding:24px}.actions{flex-direction:column}}
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <div class="card">

@@ -3,7 +3,7 @@
    Copy of index.html design tokens + inner page components
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap');
 
 :root {
   --cream:       #fdf6ec;
@@ -28,7 +28,7 @@ img { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 
 body {
-  font-family: 'Lato', sans-serif;
+  font-family: 'Assistant', sans-serif;
   background: var(--cream);
   color: var(--text);
   overflow-x: hidden;
@@ -63,7 +63,7 @@ nav, .wizard-topbar {
 }
 .nav-brand-icon { font-size: 28px; filter: drop-shadow(0 2px 6px rgba(200,146,42,0.5)); }
 .nav-brand-name, .wizard-brand-text {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Assistant', sans-serif;
   font-size: 24px; color: var(--gold); letter-spacing: 0.5px;
 }
 .brand-image { height: 44px; width: auto; display: block; }
@@ -75,7 +75,7 @@ nav, .wizard-topbar {
   border: none;
   border-radius: 50px;
   padding: 12px 28px;
-  font-family: 'Lato', sans-serif;
+  font-family: 'Assistant', sans-serif;
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
@@ -100,7 +100,7 @@ nav, .wizard-topbar {
   border: 1.5px solid var(--parchment);
   border-radius: 50px;
   padding: 11px 26px;
-  font-family: 'Lato', sans-serif;
+  font-family: 'Assistant', sans-serif;
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
@@ -153,7 +153,7 @@ nav, .wizard-topbar {
 
 /* Page title */
 .page-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Assistant', sans-serif;
   font-size: clamp(28px, 4vw, 46px);
   color: var(--brown);
   line-height: 1.15;
@@ -167,7 +167,7 @@ nav, .wizard-topbar {
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   color: var(--white);
   border-radius: 50%;
-  font-family: 'Playfair Display', serif;
+  font-family: 'Assistant', sans-serif;
   font-size: 16px; font-weight: 700;
   margin-bottom: 12px;
   box-shadow: var(--shadow-gold);
@@ -178,7 +178,7 @@ nav, .wizard-topbar {
 .input-label {
   display: grid; gap: 7px;
   font-size: 14px; font-weight: 700; color: var(--brown);
-  font-family: 'Lato', sans-serif;
+  font-family: 'Assistant', sans-serif;
 }
 .input-label input, .input-label select, .input-label textarea {
   width: 100%;
@@ -186,7 +186,7 @@ nav, .wizard-topbar {
   border: 1.5px solid var(--parchment);
   background: var(--white); color: var(--text);
   padding: 12px 16px; font-size: 15px;
-  outline: none; font-family: 'Lato', sans-serif;
+  outline: none; font-family: 'Assistant', sans-serif;
   transition: border-color 0.2s;
 }
 .input-label input:focus, .input-label select:focus, .input-label textarea:focus {
@@ -213,7 +213,7 @@ nav, .wizard-topbar {
   background: linear-gradient(135deg, var(--cream-deep), var(--parchment));
   margin-bottom: 8px; border: 1px solid var(--parchment);
 }
-.style-name { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--brown); margin-bottom: 3px; }
+.style-name { font-family: 'Assistant', sans-serif; font-size: 16px; color: var(--brown); margin-bottom: 3px; }
 .style-text { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 /* Upload drop zone */
@@ -231,7 +231,7 @@ nav, .wizard-topbar {
   background: rgba(200,146,42,0.1); color: var(--gold); font-size: 32px;
   margin-bottom: 10px;
 }
-.upload-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--brown); margin-bottom: 6px; }
+.upload-title { font-family: 'Assistant', sans-serif; font-size: 22px; color: var(--brown); margin-bottom: 6px; }
 .upload-text { color: var(--text-muted); font-size: 13px; line-height: 1.6; max-width: 300px; }
 
 /* Photo tips */
@@ -272,18 +272,18 @@ nav, .wizard-topbar {
   cursor: pointer; font-size: 24px; color: var(--brown); background: var(--cream-deep);
   display: flex; align-items: center; justify-content: center;
 }
-.modal-title { font-family: 'Playfair Display', serif; font-size: clamp(20px,3vw,32px); color: var(--brown); margin-bottom: 8px; }
+.modal-title { font-family: 'Assistant', sans-serif; font-size: clamp(20px,3vw,32px); color: var(--brown); margin-bottom: 8px; }
 .modal-text { font-size: 15px; line-height: 1.7; color: var(--text-muted); margin-bottom: 18px; }
 .modal-body-layout { display: grid; grid-template-columns: 1fr 280px; gap: 18px; align-items: start; }
 .modal-side-card { padding: 18px; border-radius: 20px; background: var(--cream-deep); border: 1px solid var(--parchment); }
-.modal-side-card h3 { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--brown); margin-bottom: 10px; }
+.modal-side-card h3 { font-family: 'Assistant', sans-serif; font-size: 18px; color: var(--brown); margin-bottom: 10px; }
 .modal-guide-list { display: grid; gap: 7px; margin-bottom: 14px; }
 .modal-guide-item { padding: 9px 11px; border-radius: 11px; background: var(--white); border: 1px solid var(--parchment); color: var(--text-muted); font-size: 13px; line-height: 1.5; }
 .modal-actions { display: grid; gap: 9px; margin-top: 8px; }
 .upload-btn {
   display: block; width: 100%; padding: 13px 14px; border-radius: 14px;
   text-align: center; font-size: 15px; font-weight: 700; cursor: pointer;
-  border: none; font-family: 'Lato', sans-serif;
+  border: none; font-family: 'Assistant', sans-serif;
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   color: var(--white); box-shadow: var(--shadow-gold); transition: all 0.2s;
 }

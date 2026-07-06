@@ -4,25 +4,25 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lifebook - Your Preview</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  
   <style>
     :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--gold-pale:#f5d98a;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff;--shadow-warm:0 8px 40px rgba(100,60,20,0.12);--shadow-gold:0 4px 24px rgba(200,146,42,0.22)}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Lato',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;min-height:100vh}
+    body{font-family:'Assistant',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;min-height:100vh}
 
     /* NAV */
     nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--parchment);padding:0 5vw;height:68px;display:flex;align-items:center;justify-content:space-between}
     .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
     .nav-brand-icon{font-size:28px;filter:drop-shadow(0 2px 6px rgba(200,146,42,0.5))}
-    .nav-brand-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
-    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Lato',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
+    .nav-brand-name{font-family:'Assistant',sans-serif;font-size:24px;color:var(--gold);letter-spacing:0.5px}
+    .nav-back{background:var(--white);color:var(--brown);border:1.5px solid var(--parchment);border-radius:50px;padding:9px 22px;font-family:'Assistant',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s}
     .nav-back:hover{border-color:var(--gold-light)}
 
     .shell{width:min(1100px,94vw);margin:0 auto;padding:40px 0 80px}
 
     /* LOADING SCREEN */
     .loading-screen{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
-    .loading-title{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,32px);color:var(--brown);margin-bottom:6px}
+    .loading-title{font-family:'Assistant',sans-serif;font-size:clamp(22px,4vw,32px);color:var(--brown);margin-bottom:6px}
     .loading-sub{font-size:14px;color:var(--text-muted);margin-bottom:28px}
     .lb-timer-row{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:360px;margin-bottom:12px}
     .lb-timer-label{font-size:13px;color:var(--text-muted)}
@@ -61,14 +61,14 @@
     /* CONTENT PANEL */
     .content-panel{background:var(--white);border-radius:24px;padding:28px;box-shadow:var(--shadow-warm);border:1px solid var(--parchment);position:relative;overflow:hidden}
     .content-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold-light),var(--gold))}
-    .book-title{font-family:'Playfair Display',serif;font-size:clamp(26px,4vw,42px);line-height:1.05;color:var(--brown);margin-bottom:6px}
+    .book-title{font-family:'Assistant',sans-serif;font-size:clamp(26px,4vw,42px);line-height:1.05;color:var(--brown);margin-bottom:6px}
     .book-subtitle{font-size:16px;color:var(--text-muted);margin-bottom:20px}
 
     /* UNLOCK BANNER */
     .unlock-banner{background:linear-gradient(135deg,var(--brown),#3a2010);border-radius:18px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .unlock-text strong{display:block;font-family:'Playfair Display',serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
+    .unlock-text strong{display:block;font-family:'Assistant',sans-serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
     .unlock-text span{font-size:13px;color:var(--parchment);opacity:0.75}
-    .unlock-price{font-family:'Playfair Display',serif;font-size:30px;color:var(--gold-light);font-weight:700;flex-shrink:0}
+    .unlock-price{font-family:'Assistant',sans-serif;font-size:30px;color:var(--gold-light);font-weight:700;flex-shrink:0}
 
     /* PAGES */
     .pages-wrap{display:grid;gap:16px;margin-bottom:20px}
@@ -78,7 +78,7 @@
     .page-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
     .page-img-loading{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);font-size:13px;padding:16px}
     .mini-spinner{width:28px;height:28px;border-radius:50%;border:2.5px solid rgba(200,146,42,0.1);border-top-color:var(--gold-light);animation:spin 0.9s linear infinite}
-    .page-text{font-family:'Playfair Display',serif;font-size:16px;line-height:1.65;color:var(--brown);padding:10px 14px 14px}
+    .page-text{font-family:'Assistant',sans-serif;font-size:16px;line-height:1.65;color:var(--brown);padding:10px 14px 14px}
 
     /* LOCKED */
     .locked-section{border-radius:18px;background:var(--cream-deep);border:2px dashed var(--parchment);padding:20px;text-align:center;color:var(--text-muted);margin-bottom:20px}
@@ -86,7 +86,7 @@
     .locked-section p{margin:0;font-size:14px;line-height:1.6}
 
     /* PAY BUTTON - matches index.html btn-cta-big */
-    .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Lato',sans-serif;letter-spacing:0.3px;display:block;text-align:center;margin-bottom:12px}
+    .pay-btn{width:100%;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--white);border:none;border-radius:50px;padding:18px 36px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 32px rgba(200,146,42,0.4);transition:all 0.25s;font-family:'Assistant',sans-serif;letter-spacing:0.3px;display:block;text-align:center;margin-bottom:12px}
     .pay-btn:hover{transform:translateY(-2px);box-shadow:0 12px 42px rgba(200,146,42,0.55)}
     .trust-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
     .trust-item{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
@@ -97,6 +97,7 @@
     @media(max-width:900px){.main-layout{grid-template-columns:1fr}.cover-panel{position:static}}
     @media(max-width:480px){.shell{padding:20px 12px 60px;width:100%}.content-panel{padding:18px}.unlock-banner{flex-direction:column}}
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
 <nav>
