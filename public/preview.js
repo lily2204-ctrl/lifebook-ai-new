@@ -58,7 +58,7 @@ function createPageCard(page, index, imageSrc) {
 
   var imgHtml = imageSrc
     ? '<img src="' + imageSrc + '" alt="Page ' + (index+1) + '"/>'
-    : '<div class="page-img-loading"><div class="page-img-spinner"></div><span>Illustrating page ' + (index+1) + '...</span></div>';
+    : '<div class="page-img-loading"><div class="page-img-spinner"></div><span>' + (typeof i18nT === "function" ? i18nT("previewStep3") : "Illustrating the pages") + ' ' + (index+1) + '...</span></div>';
 
   card.innerHTML =
     '<div class="page-num">Page ' + (index+1) + '</div>' +

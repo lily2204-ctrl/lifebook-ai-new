@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (nameEl)  nameEl.textContent  = b.childName         || "-";
     if (ageEl)   ageEl.textContent   = b.childAge          || "-";
     if (styleEl) styleEl.textContent = b.illustrationStyle || "-";
-    if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + " pages";
+    if (pagesEl) pagesEl.textContent = String((b.generatedBook && b.generatedBook.pages ? b.generatedBook.pages.length : 0)) + (typeof i18nT === "function" ? i18nT("pageCountSuffix") : " pages");
   }
 
   var SHOPIFY_STORE   = "https://lifebooksil.com";

@@ -83,25 +83,25 @@
       <div class="book-stage">
         <div class="book-shadow"></div>
         <div class="book-cover-wrap">
-          <div class="cover-placeholder" id="coverPlaceholder"><div>📖</div><span>Cover loading...</span></div>
+          <div class="cover-placeholder" id="coverPlaceholder"><div>📖</div><span data-i18n="coverLoading">Cover loading...</span></div>
           <img id="coverImage" alt="Book cover" onload="this.style.display='block';document.getElementById('coverPlaceholder').style.display='none'"/>
         </div>
       </div>
-      <div class="book-title-below" id="bookTitleValue">Your Magical Book</div>
+      <div class="book-title-below" id="bookTitleValue" data-i18n="bookTitleDefault">Your Magical Book</div>
       <div class="book-subtitle-below" id="bookSubtitleValue"></div>
     </div>
     <div class="content-card">
-      <h2 class="section-title">Order summary</h2>
+      <h2 class="section-title" data-i18n="summaryTitle">Order Summary</h2>
       <div class="details-grid">
-        <div class="detail-item"><div class="detail-label">Child</div><div class="detail-value" id="name">—</div></div>
-        <div class="detail-item"><div class="detail-label">Age</div><div class="detail-value" id="age">—</div></div>
-        <div class="detail-item"><div class="detail-label">Style</div><div class="detail-value" id="style">—</div></div>
-        <div class="detail-item"><div class="detail-label">Pages</div><div class="detail-value" id="pages">—</div></div>
+        <div class="detail-item"><div class="detail-label" data-i18n="labelChild">CHILD</div><div class="detail-value" id="name">—</div></div>
+        <div class="detail-item"><div class="detail-label" data-i18n="labelAge">AGE</div><div class="detail-value" id="age">—</div></div>
+        <div class="detail-item"><div class="detail-label" data-i18n="labelStyle">STYLE</div><div class="detail-value" id="style">—</div></div>
+        <div class="detail-item"><div class="detail-label" data-i18n="labelPages">PAGES</div><div class="detail-value" id="pages">—</div></div>
       </div>
       <div class="price-box">
         <div class="price-text">
-          <strong>Digital Storybook</strong>
-          <span>PDF download · All pages</span>
+          <strong data-i18n="productName">Digital Storybook</strong>
+          <span data-i18n="productDesc">PDF download · All pages</span>
         </div>
         <div class="price-amount">&#8362;89</div>
       </div>
@@ -109,9 +109,9 @@
       <a id="shopifyPayBtn" class="pay-btn" href="#" style="text-decoration:none;">Proceed to Secure Checkout &mdash; &#8362;89</a>
 
       <div class="trust-row">
-        <span class="trust-item">⚡ Within 24 hours</span>
-        <span class="trust-item">📖 All 12 pages</span>
-        <span class="trust-item">📄 PDF included</span>
+        <span class="trust-item">⚡ <span data-i18n="deliveryTime">Ready in minutes</span></span>
+        <span class="trust-item">📖 <span data-i18n="allPages">All 12 pages</span></span>
+        <span class="trust-item">📄 <span data-i18n="pdfIncluded">PDF included</span></span>
       </div>
       <div class="status-note" id="checkoutStatus"></div>
     </div>

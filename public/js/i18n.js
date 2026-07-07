@@ -51,6 +51,33 @@ const I18N = {
     // Homepage extras
     magicTitle: 'מהתמונה שלכם — לדמות בסיפור קסום',
     magicCta: 'נסו עכשיו — התוצאה תפתיע אתכם',
+    // Checkout / order summary dynamic strings
+    almostThere: 'עוד רגע וזה שלכם ✨',
+    bookReadyPayPrompt: 'הספר שלכם מוכן — נותר רק להשלים את התשלום',
+    summaryTitle: 'סיכום הזמנה',
+    bookTitleDefault: 'הספר הקסום שלכם',
+    coverLoading: 'הכריכה בטעינה...',
+    labelChild: 'ילד',
+    labelAge: 'גיל',
+    labelPages: 'עמודים',
+    labelStyle: 'סגנון',
+    productName: 'ספר דיגיטלי',
+    productDesc: 'קובץ PDF · כל העמודים',
+    pdfIncluded: 'PDF כלול',
+    allPages: 'כל 12 העמודים',
+    deliveryTime: 'מוכן תוך דקות',
+    // Validation errors
+    errChildName: 'נא להזין את שם הילד/ה',
+    errChildAge: 'נא לבחור את גיל הילד/ה',
+    errChildGender: 'נא לבחור את מין הילד/ה',
+    errStoryIdea: 'נא להוסיף כיוון לסיפור',
+    // Status / loading
+    statusCreating: 'יוצר את הספר שלכם...',
+    statusSaving: 'שומר על השרת...',
+    statusStarting: 'מתחיל ביצירה...',
+    statusRedirecting: 'מעביר...',
+    statusPreparingPhoto: 'מכין תמונה...',
+    pageCountSuffix: ' עמודים',
   },
   en: {
     navCta: 'Create a Book Now',
@@ -93,6 +120,33 @@ const I18N = {
     footerRights: '© 2025 Lifebook. All rights reserved.',
     magicTitle: 'From your photo — to a character in a magical story',
     magicCta: 'Try now — the result will surprise you',
+    // Checkout / order summary dynamic strings
+    almostThere: 'ALMOST THERE ✨',
+    bookReadyPayPrompt: 'Your book is ready — complete your payment to download',
+    summaryTitle: 'Order Summary',
+    bookTitleDefault: 'Your Magical Book',
+    coverLoading: 'Cover loading...',
+    labelChild: 'CHILD',
+    labelAge: 'AGE',
+    labelPages: 'PAGES',
+    labelStyle: 'STYLE',
+    productName: 'Digital Storybook',
+    productDesc: 'PDF download · All pages',
+    pdfIncluded: 'PDF included',
+    allPages: 'All 12 pages',
+    deliveryTime: 'Ready in minutes',
+    // Validation errors
+    errChildName: "Please enter the child's name.",
+    errChildAge: "Please select the child's age.",
+    errChildGender: "Please select the child's gender.",
+    errStoryIdea: 'Please add a story direction.',
+    // Status / loading
+    statusCreating: 'Creating your book...',
+    statusSaving: 'Saving to server...',
+    statusStarting: 'Starting generation...',
+    statusRedirecting: 'Redirecting...',
+    statusPreparingPhoto: 'Preparing photo...',
+    pageCountSuffix: ' pages',
   }
 };
 

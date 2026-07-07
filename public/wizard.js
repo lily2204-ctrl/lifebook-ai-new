@@ -46,10 +46,10 @@ function validateSetupData() {
   var childGender = (childGenderInput && childGenderInput.value)        || "";
   var storyIdea   = (storyIdeaInput   && storyIdeaInput.value.trim())   || "";
 
-  if (!childName)   { showError("Please enter the child's name.");    return false; }
-  if (!childAge)    { showError("Please select the child's age.");    return false; }
-  if (!childGender) { showError("Please select the child's gender."); return false; }
-  if (!storyIdea)   { showError("Please add a story direction.");     return false; }
+  if (!childName)   { showError(i18nT("errChildName"));    return false; }
+  if (!childAge)    { showError(i18nT("errChildAge"));    return false; }
+  if (!childGender) { showError(i18nT("errChildGender")); return false; }
+  if (!storyIdea)   { showError(i18nT("errStoryIdea"));   return false; }
   return true;
 }
 

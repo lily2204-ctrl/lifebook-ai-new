@@ -78,8 +78,8 @@ function showError(msg) {
 continueBtn.addEventListener("click", async function() {
   try {
     continueBtn.disabled = true;
-    continueBtn.textContent = "Creating your book...";
-    setStatus("Preparing photo...", 15);
+    continueBtn.textContent = i18nT("statusCreating");
+    setStatus(i18nT("statusPreparingPhoto"), 15);
 
     // Export the cropped circle to a 768×768 JPEG
     var exportCanvas = document.createElement("canvas");
@@ -96,7 +96,7 @@ continueBtn.addEventListener("click", async function() {
     var croppedPhoto = exportCanvas.toDataURL("image/jpeg", 0.9);
     updateBookData({ croppedPhoto });
 
-    setStatus("Saving to server...", 40);
+    setStatus(i18nT("statusSaving"), 40);
 
     var data = getBookData();
     var createRes = await fetch(window.location.origin + "/api/books/create", {
@@ -128,7 +128,7 @@ continueBtn.addEventListener("click", async function() {
       throw new Error("No bookId returned from server. Please try again.");
     }
 
-    setStatus("Starting generation...", 75);
+    setStatus(i18nT("statusStarting"), 75);
 
     // Fire generate-full in background — don't await
     fetch(window.location.origin + "/api/books/" + bookId + "/generate-full", {
@@ -136,7 +136,7 @@ continueBtn.addEventListener("click", async function() {
       headers: { "Content-Type": "application/json" }
     }).catch(function(e) { console.warn("generate-full kick:", e.message); });
 
-    setStatus("Redirecting...", 95);
+    setStatus(i18nT("statusRedirecting"), 95);
 
     // Small delay so the status is visible before navigation
     await new Promise(function(r) { setTimeout(r, 300); });
