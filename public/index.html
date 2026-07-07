@@ -21,8 +21,7 @@
     .hero-section { position:relative; }
     .hero-img { width:100%; display:block; }
     .hero-image-wrap { position:relative; overflow:hidden; }
-    .hero-overlay-bar { position:absolute; bottom:0; left:0; right:0; height:80px; background:#fdf6ec; }
-    .hero-delivery-strip { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-family:'Assistant',sans-serif; font-size:14px; color:#7a6048; }
+    .hero-info-strip { display:flex; gap:24px; justify-content:center; padding:12px; background:#fdf6ec; font-family:'Assistant',sans-serif; font-size:14px; color:#7a6048; }
     .hero-cta-wrap { text-align:center; padding:32px 16px 16px; }
     .btn-primary-xl { display:inline-block; background:linear-gradient(135deg,#e8b84b,#c8922a); color:#fff; font-family:'Assistant',sans-serif; font-weight:800; font-size:20px; padding:18px 40px; border-radius:12px; text-decoration:none; margin-bottom:16px; box-shadow:0 8px 32px rgba(200,146,42,0.4); transition:all 0.2s; }
     .btn-primary-xl:hover { transform:translateY(-2px); box-shadow:0 12px 42px rgba(200,146,42,0.55); }
@@ -96,9 +95,12 @@
 <!-- HERO -->
 <section class="hero-section" style="padding:0;max-width:100%;" dir="rtl">
   <div class="hero-image-wrap">
-    <img src="assets/marketing/hero-main.png" alt="ספר ילדים בהתאמה אישית" class="hero-img" loading="eager"/>
-    <div class="hero-overlay-bar"></div>
-    <div class="hero-delivery-strip">מוכן תוך דקות · PDF להורדה ולהדפסה</div>
+    <img src="assets/marketing/hero-main-cropped.png" alt="ספר ילדים בהתאמה אישית" class="hero-img" loading="eager"/>
+  </div>
+  <div class="hero-info-strip" dir="rtl">
+    <span>📄 PDF דיגיטלי</span>
+    <span>⚡ מוכן תוך דקות</span>
+    <span>🖨️ מוכן להדפסה</span>
   </div>
   <div class="hero-cta-wrap">
     <a href="wizard.html" class="btn-primary-xl">צרו את הספר שלכם — 89 ₪</a>
