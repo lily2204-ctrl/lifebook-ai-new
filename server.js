@@ -302,6 +302,7 @@ function dbRowToBook(row) {
     croppedPhoto:     row.cropped_photo     || "",
     originalPhoto:    row.original_photo    || "",
     customerEmail:    row.customer_email    || "",
+    language:         row.language          || "he",
     characterReference: row.character_reference || null,
     generatedBook:    row.generated_book    || null,
     coverImage:       row.cover_image       || null,
@@ -327,6 +328,7 @@ function patchToDbFields(patch = {}) {
   if ("croppedPhoto"       in patch) dbPatch.cropped_photo       = patch.croppedPhoto;
   if ("originalPhoto"      in patch) dbPatch.original_photo      = patch.originalPhoto;
   if ("customerEmail"      in patch) dbPatch.customer_email      = patch.customerEmail;
+  if ("language"           in patch) dbPatch.language             = patch.language;
   if ("characterReference" in patch) dbPatch.character_reference = patch.characterReference;
   if ("generatedBook"      in patch) dbPatch.generated_book      = patch.generatedBook;
   if ("coverImage"         in patch) dbPatch.cover_image         = patch.coverImage;
@@ -354,6 +356,7 @@ async function insertBook(book) {
       cropped_photo:      book.croppedPhoto,
       original_photo:     book.originalPhoto,
       customer_email:     book.customerEmail || "",
+      language:           book.language || "he",
       character_reference:book.characterReference,
       generated_book:     book.generatedBook,
       cover_image:        book.coverImage,
@@ -467,13 +470,80 @@ async function sendPaymentConfirmationEmail(book) {
   const appUrl    = process.env.APP_URL || "https://lifebooks.online";
   const childName = book.childName || "your child";
   const bookTitle = book.generatedBook?.title || `${childName}'s Magical Adventure`;
+  const lang      = book.language || "he";
 
   try {
     await resend.emails.send({
       from:    "Lifebook <lifebooks@lifebooksil.com>",
       to:      book.customerEmail,
-      subject: `✅ קיבלנו את התשלום שלך — הספר של ${childName} בדרך!`,
-      html: `
+      subject: lang === "en"
+        ? `✅ Payment received — ${childName}'s book is on its way!`
+        : `✅ קיבלנו את התשלום שלך — הספר של ${childName} בדרך!`,
+      html: lang === "en" ? `
+<!DOCTYPE html>
+<html dir="ltr">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#fdf6ec;font-family:Assistant,Arial,sans-serif;direction:ltr;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(100,60,20,0.12);border:1px solid #ede0c8;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1a1008,#5c3d1e);padding:36px;text-align:center;">
+            <img src="https://lifebooksil.com/assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block;margin:0 auto 10px;" />
+            <div style="font-size:11px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">Personalized Children's Books</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px;direction:ltr;text-align:left;">
+            <p style="font-family:Assistant,Arial,sans-serif;font-size:26px;color:#3a2810;margin:0 0 12px;line-height:1.2;font-weight:700;">Payment received! ✅</p>
+            <p style="font-size:15px;color:#7a6048;line-height:1.7;margin:0 0 24px;">
+              Payment confirmed — <strong>${childName}</strong>'s personalized book is now being created.
+              Our AI is writing the story and illustrating every page — usually takes <strong>5–10 minutes</strong>.
+            </p>
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#fdf6ec;border-radius:14px;border:1px solid #ede0c8;margin-bottom:24px;">
+              <tr>
+                <td style="padding:18px 22px;direction:ltr;text-align:left;">
+                  <p style="font-family:Assistant,Arial,sans-serif;font-size:17px;color:#5c3d1e;margin:0 0 6px;">"${bookTitle}"</p>
+                  <p style="font-size:13px;color:#8a6240;margin:0 0 14px;">A personalized story for ${childName}</p>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding-right:28px;">
+                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Status</span><br/>
+                        <span style="font-size:14px;color:#3a2810;">Creating illustrations...</span>
+                      </td>
+                      <td>
+                        <span style="font-size:10px;color:#c8922a;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Est. time</span><br/>
+                        <span style="font-size:14px;color:#3a2810;">5–10 minutes</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <p style="font-size:14px;color:#7a6048;line-height:1.7;margin:0;">
+              You'll receive another email as soon as your book is ready to read and download.
+              No need to keep the page open — we'll come to you! 📬
+            </p>
+            <hr style="border:none;border-top:1px solid #f0e4d0;margin:24px 0 18px;" />
+            <p style="font-size:12px;color:#b09070;line-height:1.6;margin:0;">
+              Questions? Just reply to this email and we'll be happy to help.<br/>
+              Thank you for creating with Lifebook 💛
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#fdf6ec;border-top:1px solid #ede0c8;padding:16px 40px;text-align:center;">
+            <p style="font-size:11px;color:#c4a87a;margin:0;">
+              © 2026 Lifebook · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">Contact Us</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+      `.trim() : `
 <!DOCTYPE html>
 <html dir="rtl">
 <head><meta charset="UTF-8"/></head>
@@ -569,13 +639,83 @@ async function sendBookReadyEmail(book) {
   const childName = book.childName || "your child";
   const pageCount = book.generatedBook?.pages?.length || 12;
   const downloadUrl = `${appUrl}/delivery.html?bookId=${book.bookId}`;
+  const lang = book.language || "he";
 
   try {
     await resend.emails.send({
       from: "Lifebook <lifebooks@lifebooksil.com>",
       to:   book.customerEmail,
-      subject: `✨ הספר של ${childName} מוכן! "${bookTitle}"`,
-      html: `
+      subject: lang === "en"
+        ? `✨ ${childName}'s book is ready! "${bookTitle}"`
+        : `✨ הספר של ${childName} מוכן! "${bookTitle}"`,
+      html: lang === "en" ? `
+<!DOCTYPE html>
+<html dir="ltr">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#fdf6ec;font-family:Assistant,Arial,sans-serif;direction:ltr;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;padding:40px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(100,60,20,0.12);border:1px solid #ede0c8;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1a1008,#5c3d1e);padding:40px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:10px;">📖</div>
+            <img src="https://lifebooksil.com/assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block;margin:0 auto 10px;" />
+            <div style="font-size:12px;color:#c4a87a;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">Personalized Children's Books</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 44px 28px;direction:ltr;text-align:left;">
+            <p style="font-family:Assistant,Arial,sans-serif;font-size:28px;color:#3a2810;margin:0 0 14px;line-height:1.2;font-weight:700;">🎉 ${childName}'s book is ready!</p>
+            <p style="font-size:16px;color:#7a6048;line-height:1.7;margin:0 0 28px;">Your personalized book has been carefully created and is waiting for you.</p>
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#fdf6ec;border-radius:16px;border:1px solid #ede0c8;margin-bottom:28px;">
+              <tr>
+                <td style="padding:20px 24px;direction:ltr;text-align:left;">
+                  <p style="font-family:Assistant,Arial,sans-serif;font-size:20px;color:#5c3d1e;margin:0 0 4px;">"${bookTitle}"</p>
+                  <p style="font-size:14px;color:#8a6240;margin:0 0 14px;font-style:italic;">${bookSub}</p>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding-right:24px;">
+                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;">Pages</span><br/>
+                        <span style="font-size:15px;color:#3a2810;">${pageCount} illustrated pages</span>
+                      </td>
+                      <td>
+                        <span style="font-size:11px;color:#c8922a;font-weight:700;letter-spacing:0.8px;">Hero</span><br/>
+                        <span style="font-size:15px;color:#3a2810;">${childName}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#e8b84b,#c8922a);border-radius:50px;padding:16px 40px;box-shadow:0 6px 24px rgba(200,146,42,0.35);">
+                  <a href="${downloadUrl}" style="font-family:Assistant,Arial,sans-serif;font-size:17px;font-weight:700;color:#ffffff;text-decoration:none;display:block;white-space:nowrap;">Read &amp; Download Your Book →</a>
+                </td>
+              </tr>
+            </table>
+            <p style="font-size:13px;color:#b09070;line-height:1.6;margin:0 0 8px;">Or copy the link:</p>
+            <p style="font-size:12px;color:#c8922a;word-break:break-all;margin:0 0 32px;background:#fdf6ec;padding:10px 14px;border-radius:10px;border:1px solid #ede0c8;">${downloadUrl}</p>
+            <hr style="border:none;border-top:1px solid #f0e4d0;margin:0 0 20px;" />
+            <p style="font-size:13px;color:#b09070;line-height:1.7;margin:0;">
+              Questions or issues? Just reply to this email and we'll be happy to help.<br/>
+              Thank you for creating with Lifebook 💛
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#fdf6ec;border-top:1px solid #ede0c8;padding:18px 44px;text-align:center;">
+            <p style="font-size:12px;color:#c4a87a;margin:0;">
+              © 2026 Lifebook · Personalized Children's Books · <a href="${appUrl}/contact.html" style="color:#c8922a;text-decoration:none;">Contact Us</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+      `.trim() : `
 <!DOCTYPE html>
 <html dir="rtl">
 <head><meta charset="UTF-8"/></head>
@@ -711,6 +851,7 @@ app.post("/api/books/create", async (req, res) => {
       childGender:       rawInput.childGender         || "",
       storyIdea:         cleanInput.storyIdea         || "",
       illustrationStyle: cleanInput.illustrationStyle || "Soft Storybook",
+      language:          rawInput.language === "en" ? "en" : "he",
       croppedPhoto:      croppedPhotoVal,
       originalPhoto:     originalPhotoVal,
       customerEmail:     rawInput.customerEmail       || "",
@@ -1132,7 +1273,7 @@ app.post("/api/books/:bookId/unlock", async (req, res) => {
 //   ... (template-specific allergyVariant + dadRoleVariant hardcoded) ...
 // }
 // ─────────────────────────────────────────────────────────────────────────────
-async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore) {
+async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, promptCore, bookLanguage) {
   const { data: tmpl, error } = await supabase
     .from("story_templates")
     .select("story_skeleton, variations, input_schema, character_bible")
@@ -1177,7 +1318,10 @@ async function buildTemplateStoryPrompt(templateSlug, inputs, characterSummary, 
   const filledSkeleton = tmpl.story_skeleton.replace(/\{\{(\w+)\}\}/g, (_, k) => vals[k] ?? "");
 
   // Prepend writing rules automatically — no {{writingRules}} needed in any skeleton
-  const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
+  const langRule = (bookLanguage || "he") === "en"
+    ? "- Language: Write the ENTIRE story in English only."
+    : '- Language: כתוב את כל הסיפור בעברית בלבד — ללא מילים באנגלית (למשל: כתוב "התרגשות" ולא "excitement!"). שמות פרטיים אפשר לשמור באותיות לטיניות.';
+  const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${inputs.childAge || ""}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.\n${langRule}`;
   const prompt = `${writingRules}\n\n${filledSkeleton}`;
 
   // skinToneSource: "child" (default) or "fixed" (template overrides child's skin tone)
@@ -1214,8 +1358,9 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       const safeStyle         = resolveStyle(illustrationStyle);
       const t0 = Date.now();
       const elapsed = () => `+${Math.round((Date.now()-t0)/1000)}s`;
-      const isHebrewBook = /[\u0590-\u05FF]/.test(childName + storyIdea);
-      console.log(`generate-full [${bookId}]: language=${isHebrewBook ? 'Hebrew' : 'English'} — imagePrompts always in English`);
+      const bookLanguage = book.language || "he";
+      const isHebrewBook = bookLanguage === "he" || /[\u0590-\u05FF]/.test(childName + storyIdea);
+      console.log(`generate-full [${bookId}]: language=${bookLanguage} (isHebrew=${isHebrewBook}) — imagePrompts always in English`);
 
       // ── STEP 1: Character reference (photo → DNA + prompt core) ──────────────
       let characterReference = book.characterReference || null;
@@ -1288,7 +1433,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         if (mode === 'template' && templateSlug) {
           console.log(`generate-full [${bookId}]: STEP 2 mode=template slug=${templateSlug}`);
           const tmplResult = await buildTemplateStoryPrompt(
-            templateSlug, templateInputs, characterSummary, promptCore
+            templateSlug, templateInputs, characterSummary, promptCore, bookLanguage
           );
           if (!tmplResult) {
             console.warn(`generate-full [${bookId}]: STEP 2 template not found — falling back to custom`);
@@ -1304,7 +1449,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         if (mode !== 'template') {
           console.log(`generate-full [${bookId}]: STEP 2 mode=custom`);
           const writingRules = `כללי כתיבה חשובים:\n- בדיוק 12 עמודים — לא פחות, לא יותר.\n- כל עמוד: לפחות 2–3 משפטים. אסור לכתוב משפט יחיד.\n- התאם לגיל ${childAge}: ילד צעיר (עד 4) — לפחות 2–3 משפטים, קצרים וקצביים עם חזרות (קצרים, אך לא פחות משניים); ילד מבוגר יותר (5+) — עושר רגשי ומילולי רב יותר.\n- כתוב מה הילד מרגיש וחושב — לא רק מה שקורה. הטקסט חי ורגשי.\n- השתמש בשפה חמה, קצבית, ילדותית — שאלות, קריאות, חזרות מוזיקליות.\n- שם הילד מופיע באופן טבעי לאורך הסיפור — לא בכל משפט, לא רק בהתחלה.\n- אין מוסר השכל מפורש. אין נאומים. הרגש עולה מהסיפור עצמו.`;
-          storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- Write the ENTIRE story in Hebrew only — no English words mid-sentence (e.g. write "התרגשות" not "excitement!"). If the child's name and story direction are both in English/Latin only, write in English. Keep imagePrompt always in English for image generation.`;
+          storyPrompt = `You are a premium personalized children's book writer.\n\n${writingRules}\n\nChild name: ${sanitizeBrandTerms(childName)}\nChild age: ${childAge}\nChild gender: ${childGender}\nStory direction: ${sanitizeBrandTerms(storyIdea)}\nIllustration style: ${safeStyle}\n\nCharacter summary:\n${sanitizeBrandTerms(characterSummary)}\n\nCharacter consistency instructions:\n${sanitizeBrandTerms(promptCore)}\n\nReturn ONLY JSON:\n{\n  "title": "string",\n  "subtitle": "string",\n  "pages": [\n    {\n      "text": "string",\n      "imagePrompt": "string"\n    }\n  ]\n}\n\nRules:\n- Exactly 12 story pages\n- Each page text must be 35-70 words\n- The child must clearly be the hero\n- imagePrompt must describe the same child consistently\n- No page numbers inside text\n- No brand names\n- Do not mention copyrighted characters or logos\n- Language: ${bookLanguage === "en" ? "Write the ENTIRE story in English only." : 'כתוב את כל הסיפור בעברית בלבד — ללא מילים באנגלית (למשל: כתוב "התרגשות" ולא "excitement!"). שמות פרטיים אפשר לשמור באותיות לטיניות.'} Keep imagePrompt always in English for image generation.`;
         }
 
         // ── OpenAI call (identical for both modes) — up to 2 retries if <12 pages ──

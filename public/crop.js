@@ -110,7 +110,8 @@ continueBtn.addEventListener("click", async function() {
         illustrationStyle:  data.illustrationStyle  || "Soft Storybook",
         croppedPhoto:       croppedPhoto,
         originalPhoto:      data.originalPhoto      || "",
-        customerEmail:      data.customerEmail      || ""
+        customerEmail:      data.customerEmail      || "",
+        language:           (typeof i18nGetLang === "function" ? i18nGetLang() : "he")
       })
     });
 
