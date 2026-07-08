@@ -51,13 +51,15 @@ const STYLE_LOCK = {
     "character design. Keep the child's face, age, features and identity " +
     "exactly as in the reference photo, and keep them consistent and identical " +
     "across every illustration in the book. Hand-painted watercolor look, " +
-    "NOT 3D, NOT photorealistic, NOT a photo.",
+    "NOT 3D, NOT photorealistic, NOT a photo." +
+    " Absolutely NO text, NO letters, NO words, NO writing, NO signs with writing, NO labels, NO logos anywhere in the illustration. Any signs, books or papers in the scene must be blank.",
   soft3d:
     "Transform this into a 3D rendered animated character. " +
     "Glossy smooth 3D surfaces, big expressive eyes, soft cinematic studio lighting, " +
     "subsurface scattering on the skin, depth of field, looks like a frame from a " +
     "high-quality animated movie. NOT a painting, NOT watercolor, NOT a photo. " +
-    "Keep the child's facial identity, features and hairstyle from the reference.",
+    "Keep the child's facial identity, features and hairstyle from the reference." +
+    " Absolutely NO text, NO letters, NO words, NO writing, NO signs with writing, NO labels, NO logos anywhere in the illustration. Any signs, books or papers in the scene must be blank.",
 };
 
 function buildStyleLock(illustrationStyleKey) {
