@@ -113,7 +113,7 @@
 
   <!-- LOADING SCREEN -->
   <div class="loading-screen" id="loadingScreen">
-    <div class="loading-title" id="loadingTitle">Creating <span id="loadingChildName">your child</span>...</div>
+    <div class="loading-title" id="loadingTitle">יוצרים את הספר שלכם... <span id="loadingChildName"></span></div>
     <div class="loading-sub" data-i18n="aiCrafting">Our AI is crafting a personalized story just for them</div>
 
     <div class="lb-timer-row">
@@ -330,7 +330,7 @@ async function pollBook() {
       if      (!hasChar)  setStep(1, "Analyzing photo...", 15);
       else if (!hasStory) setStep(2, "Writing " + (b.childName||"your child") + "'s story...", 35);
       else if (!hasImgs)  setStep(3, "Illustrating the first pages...", 55);
-      else if (!hasCover) setStep(4, "Creating the cover...", 78);
+      else if (!hasCover) setStep(4, (typeof i18nT === "function" ? i18nT("stepCover") : "יוצרים את הכריכה..."), 78);
       else                setStep(4, "Almost ready...", 92);
 
       // Show preview AS SOON AS story is ready — no need to wait for images

@@ -73,6 +73,7 @@ const I18N = {
     errStoryIdea: 'נא להוסיף כיוון לסיפור',
     // Status / loading
     statusCreating: 'יוצר את הספר שלכם...',
+    stepCover: 'יוצרים את הכריכה...',
     statusSaving: 'שומר על השרת...',
     statusStarting: 'מתחיל ביצירה...',
     statusRedirecting: 'מעביר...',
@@ -230,6 +231,7 @@ const I18N = {
     errStoryIdea: 'Please add a story direction.',
     // Status / loading
     statusCreating: 'Creating your book...',
+    stepCover: 'Creating the cover...',
     statusSaving: 'Saving to server...',
     statusStarting: 'Starting generation...',
     statusRedirecting: 'Redirecting...',

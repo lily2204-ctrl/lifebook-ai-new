@@ -114,7 +114,7 @@ async function pollForBook() {
       } else if (!hasImages) {
         setLoadingStep(3, "Illustrating the first pages...", 55);
       } else if (!hasCover) {
-        setLoadingStep(4, "Creating the cover...", 75);
+        setLoadingStep(4, (typeof i18nT === "function" ? i18nT("stepCover") : "יוצרים את הכריכה..."), 75);
       } else {
         setLoadingStep(4, "Almost ready...", 90);
       }
