@@ -128,14 +128,14 @@
   <!-- Live generation progress (shown only while images still generating) -->
   <div id="genProgress" style="display:none;background:linear-gradient(135deg,#fff8ed,#fdf3dc);border:1.5px solid var(--gold-pale);border-radius:16px;padding:16px 22px;margin-bottom:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:15px;font-weight:700;color:var(--brown);" id="genProgressText">✨ Illustrating your book...</span>
+      <span style="font-size:15px;font-weight:700;color:var(--brown);" id="genProgressText" data-i18n="illustratingBook">✨ Illustrating your book...</span>
       <span style="font-size:13px;color:var(--text-muted);" id="genETA"></span>
     </div>
     <div style="height:7px;background:rgba(200,146,42,0.12);border-radius:8px;overflow:hidden;">
       <div id="genProgressBar" style="height:100%;background:linear-gradient(90deg,var(--gold-light),var(--gold));border-radius:8px;transition:width 0.8s ease;width:0%;"></div>
     </div>
     <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;">
-      📬 You can close this tab — we'll email you when your book is complete
+      <span data-i18n="youCanCloseTab">📬 You can close this tab — we'll email you when your book is complete</span>
     </div>
   </div>
 
@@ -163,8 +163,8 @@
           </div>
         </div>
       </div>
-      <div class="book-title-sm" id="sideTitleEl">Your Magical Book</div>
-      <div class="book-sub-sm" id="sideSubEl">Personalized storybook</div>
+      <div class="book-title-sm" id="sideTitleEl" data-i18n="yourMagicalBook">Your Magical Book</div>
+      <div class="book-sub-sm" id="sideSubEl" data-i18n="personalizedStorybook">Personalized storybook</div>
       <div class="info-rows">
         <div class="info-row"><span class="lbl" data-i18n="labelChild">Child</span><span id="infoChild">—</span></div>
         <div class="info-row"><span class="lbl" data-i18n="labelPages">Pages</span><span id="infoPages">—</span></div>
@@ -176,21 +176,21 @@
     <div>
       <div class="flipper-card">
         <div class="flipper-header">
-          <h2>📖 Preview your book</h2>
+          <h2 data-i18n="previewYourBook">📖 Preview your book</h2>
           <span class="spread-counter" id="spreadCounter">Cover</span>
         </div>
 
         <div class="book-spread" id="bookSpread">
           <div class="spread-loading">
             <div class="spinner"></div>
-            <p>Loading your book...</p>
+            <p data-i18n="loadingYourBook">Loading your book...</p>
           </div>
         </div>
 
         <div class="flipper-nav">
-          <button class="nav-btn" id="prevBtn" disabled title="Previous page (←)" aria-label="עמוד קודם">←</button>
+          <button class="nav-btn" id="prevBtn" disabled title="←" aria-label="עמוד קודם">←</button>
           <div class="spread-dots" id="spreadDots"></div>
-          <button class="nav-btn" id="nextBtn" title="Next page (→)" aria-label="עמוד הבא">→</button>
+          <button class="nav-btn" id="nextBtn" title="→" aria-label="עמוד הבא">→</button>
         </div>
         <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-muted);opacity:0.7" data-i18n="flipHint">
           Use arrow keys or swipe to flip pages
@@ -250,7 +250,7 @@ function renderSpread(i) {
   el.classList.add('flipping');
   setTimeout(() => {
     if (sp.type === 'cover') {
-      $('spreadCounter').textContent = 'Cover';
+      $('spreadCounter').textContent = typeof i18nT === 'function' ? i18nT('spreadCover') : 'Cover';
       el.style.gridTemplateColumns = '1fr';
       el.innerHTML = `<div class="spread-cover-full">
         ${book.coverImage
@@ -259,7 +259,11 @@ function renderSpread(i) {
         }
       </div>`;
     } else {
-      $('spreadCounter').textContent = `Pages ${sp.L+1}${sp.R!==null?'–'+(sp.R+1):''} of ${pages.length}`;
+      $('spreadCounter').textContent = typeof i18nT === 'function'
+        ? (sp.R !== null
+            ? i18nT('spreadPages').replace('{from}', sp.L+1).replace('{to}', sp.R+1).replace('{total}', pages.length)
+            : i18nT('spreadPage').replace('{n}', sp.L+1).replace('{total}', pages.length))
+        : `Pages ${sp.L+1}${sp.R!==null?'–'+(sp.R+1):''} of ${pages.length}`;
       // Left = text panel, Right = image panel
       el.style.gridTemplateColumns = '1fr 1fr';
 
@@ -279,7 +283,7 @@ function renderSpread(i) {
           </div>
           <div class="spread-right image-panel">${img
             ? `<img src="${img}" alt="Page ${pi+1}"/>`
-            : `<div class="image-panel-spin"><div class="mini-spin"></div><span style="font-size:11px;color:var(--text-muted)">Illustrating...</span></div>`
+            : `<div class="image-panel-spin"><div class="mini-spin"></div><span style="font-size:11px;color:var(--text-muted)">${typeof i18nT === 'function' ? i18nT('illustrating') : 'Illustrating...'}</span></div>`
           }</div>`;
       };
 
@@ -339,10 +343,10 @@ async function init() {
 
   $('heroBannerTitle').textContent = '🎉 ' + title;
   $('sideTitleEl').textContent = title;
-  $('sideSubEl').textContent   = sub || 'Personalized storybook';
+  $('sideSubEl').textContent   = sub || (typeof i18nT === 'function' ? i18nT('personalizedStorybook') : 'Personalized storybook');
   $('infoChild').textContent   = book.childName || '—';
-  $('infoPages').textContent   = pages.length + ' pages';
-  $('infoStatus').textContent  = book.purchaseUnlocked ? '✅ Paid' : 'Pending';
+  $('infoPages').textContent   = pages.length + (typeof i18nT === 'function' ? i18nT('pagesCountSuffix') : ' pages');
+  $('infoStatus').textContent  = book.purchaseUnlocked ? (typeof i18nT === 'function' ? i18nT('paidStatus') : '✅ Paid') : (typeof i18nT === 'function' ? i18nT('pendingStatus') : 'Pending');
 
   if (book.coverImage) { $('coverImg3d').src = book.coverImage; }
 
@@ -361,11 +365,11 @@ async function init() {
     const genETA  = document.getElementById('genETA');
     if (genProg) {
       genProg.style.display = 'block';
-      if (genText) genText.textContent = `✨ ${ready}/${pages.length} pages illustrated`;
+      if (genText) genText.textContent = typeof i18nT === 'function' ? i18nT('pagesCount').replace('{ready}', ready).replace('{total}', pages.length) : `✨ ${ready}/${pages.length} pages illustrated`;
       if (genBar)  genBar.style.width = Math.round((ready / pages.length) * 100) + '%';
       if (genETA) {
         const etaMins = Math.ceil(((pages.length - ready) * 25) / 60);
-        genETA.textContent = etaMins <= 1 ? 'Almost done!' : `~${etaMins} min remaining`;
+        genETA.textContent = etaMins <= 1 ? (typeof i18nT === 'function' ? i18nT('almostDone') : 'Almost done!') : (typeof i18nT === 'function' ? i18nT('minutesRemaining').replace('{n}', etaMins) : `~${etaMins} min remaining`);
       }
     }
   }
@@ -406,15 +410,15 @@ async function init() {
       const genETA  = document.getElementById('genETA');
       if (genProg && ready < totalPgs) {
         genProg.style.display = 'block';
-        genText.textContent = `✨ ${ready}/${totalPgs} pages illustrated`;
+        genText.textContent = typeof i18nT === 'function' ? i18nT('pagesCount').replace('{ready}', ready).replace('{total}', totalPgs) : `✨ ${ready}/${totalPgs} pages illustrated`;
         genBar.style.width = Math.round((ready / totalPgs) * 100) + '%';
         const remaining = totalPgs - ready;
         const etaSecs = remaining * 25;
         const etaMins = Math.ceil(etaSecs / 60);
-        genETA.textContent = etaMins <= 1 ? 'Less than a minute remaining' : `~${etaMins} min remaining`;
+        genETA.textContent = etaMins <= 1 ? (typeof i18nT === 'function' ? i18nT('lessThanMinute') : 'Less than a minute remaining') : (typeof i18nT === 'function' ? i18nT('minutesRemaining').replace('{n}', etaMins) : `~${etaMins} min remaining`);
       }
       if (ready >= totalPgs && genProg) {
-        genProg.innerHTML = '<div style="text-align:center;font-size:15px;font-weight:700;color:#2d7a2d;">✅ Your book is complete!</div>';
+        genProg.innerHTML = '<div style="text-align:center;font-size:15px;font-weight:700;color:#2d7a2d;">' + (typeof i18nT === 'function' ? i18nT('bookComplete') : '✅ Your book is complete!') + '</div>';
         setTimeout(() => { genProg.style.display = 'none'; }, 3000);
         clearInterval(iv);
       }
@@ -439,10 +443,10 @@ async function generatePDF() {
   const p = (pct, msg) => { fill.style.width = pct + '%'; st.textContent = msg; };
 
   try {
-    p(5, 'Loading book data...');
+    p(5, typeof i18nT === 'function' ? i18nT('pdfLoadingData') : 'Loading book data...');
     book = await loadBook();
-    if (!book) { st.textContent = '❌ Book not found. Please try again.'; return; }
-    if (!book.generatedBook) { st.textContent = '❌ Book still generating. Please wait and try again.'; return; }
+    if (!book) { st.textContent = typeof i18nT === 'function' ? i18nT('pdfBookNotFound') : '❌ Book not found. Please try again.'; return; }
+    if (!book.generatedBook) { st.textContent = typeof i18nT === 'function' ? i18nT('pdfStillGenerating') : '❌ Book still generating. Please wait and try again.'; return; }
 
     const pages  = book.generatedBook?.pages || [];
     let   images = book.fullImages || [];
@@ -452,18 +456,18 @@ async function generatePDF() {
 
     // Wait up to 3 min for all images
     if (images.filter(Boolean).length < pages.length) {
-      p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
+      p(6, typeof i18nT === 'function' ? i18nT('pdfWaitingIllustrations').replace('{ready}', images.filter(Boolean).length).replace('{total}', pages.length) : 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
       let waited = 0;
       while (waited < 180) {
         await new Promise(r => setTimeout(r, 3000)); waited += 3;
         const fresh = await loadBook();
         if (fresh) { images = fresh.fullImages || []; book = fresh; }
-        p(6, 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
+        p(6, typeof i18nT === 'function' ? i18nT('pdfWaitingIllustrations').replace('{ready}', images.filter(Boolean).length).replace('{total}', pages.length) : 'Waiting for illustrations (' + images.filter(Boolean).length + '/' + pages.length + ')...');
         if (images.filter(Boolean).length >= pages.length) break;
       }
     }
 
-    p(10, 'Loading PDF engine...');
+    p(10, typeof i18nT === 'function' ? i18nT('pdfLoadingEngine') : 'Loading PDF engine...');
     if (!window.jspdf) {
       await new Promise((res, rej) => {
         const s = document.createElement('script');
@@ -477,7 +481,7 @@ async function generatePDF() {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const W = 210, H = 297;
 
-    p(13, 'Preparing text renderer...');
+    p(13, typeof i18nT === 'function' ? i18nT('pdfPreparingRenderer') : 'Preparing text renderer...');
 
     // ── Canvas Hebrew renderer ────────────────────────────────────────────
     // Renders Hebrew RTL text onto a canvas using the browser's native Heebo
@@ -606,7 +610,7 @@ async function generatePDF() {
     // ══════════════════════════════════════════════════════════════════════
     // COVER PAGE — full-bleed image, floating title overlay, logo footer
     // ══════════════════════════════════════════════════════════════════════
-    p(16, 'Building cover page...');
+    p(16, typeof i18nT === 'function' ? i18nT('pdfBuildingCover') : 'Building cover page...');
     const coverB64  = await loadB64(book.coverImage);
     const logoPng   = await loadLogoPng(38);
 
@@ -704,7 +708,7 @@ async function generatePDF() {
     for (let i = 0; i < pages.length; i++) {
       const pct     = 16 + Math.round(((i+1)/pages.length)*76);
       const pageNum = i+1;
-      p(pct, 'Page '+pageNum+' of '+pages.length+'...');
+      p(pct, typeof i18nT === 'function' ? i18nT('pdfPage').replace('{n}', pageNum).replace('{total}', pages.length) : 'Page '+pageNum+' of '+pages.length+'...');
       pdf.addPage();
 
       const imgB64   = await loadB64(images[i]);
@@ -757,7 +761,7 @@ async function generatePDF() {
     // ══════════════════════════════════════════════════════════════════════
     // DEDICATION PAGE (second to last)
     // ══════════════════════════════════════════════════════════════════════
-    p(92, 'Adding dedication page...');
+    p(92, typeof i18nT === 'function' ? i18nT('pdfDedication') : 'Adding dedication page...');
     pdf.addPage();
     // Cream background
     fill_([253, 246, 236]); pdf.rect(0, 0, W, H, 'F');
@@ -799,7 +803,7 @@ async function generatePDF() {
 
     // BACK COVER — warm cream, centered branding
     // ══════════════════════════════════════════════════════════════════════
-    p(94, 'Adding back cover...');
+    p(94, typeof i18nT === 'function' ? i18nT('pdfBackCover') : 'Adding back cover...');
     pdf.addPage();
     fill_([250, 244, 232]); pdf.rect(0, 0, W, H, 'F');
     goldBar(0, 4); goldBar(H - 4, 4);
@@ -833,11 +837,11 @@ async function generatePDF() {
     pdf.text('lifebooksil.com', W/2, H*0.72, {align:'center'});
 
     // ── SAVE ──────────────────────────────────────────────────────────────
-    p(98, 'Saving PDF...');
+    p(98, typeof i18nT === 'function' ? i18nT('pdfSaving') : 'Saving PDF...');
     let safe = child.replace(/[^a-z0-9]/gi,'_').toLowerCase().replace(/_+/g,'_').replace(/^_|_$/g,'');
     if (!safe) safe = bookId ? bookId.substring(0,8) : 'story';
     pdf.save(safe+'_lifebook.pdf');
-    p(100, '✅ PDF downloaded!');
+    p(100, typeof i18nT === 'function' ? i18nT('pdfDone') : '✅ PDF downloaded!');
     setTimeout(() => { prog.classList.remove('show'); }, 4000);
 
   } catch(err) {

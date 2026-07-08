@@ -113,11 +113,11 @@
 
   <!-- LOADING SCREEN -->
   <div class="loading-screen" id="loadingScreen">
-    <div class="loading-title">Creating <span id="loadingChildName">your child</span>...</div>
-    <div class="loading-sub">Our AI is crafting a personalized story just for them</div>
+    <div class="loading-title" id="loadingTitle">Creating <span id="loadingChildName">your child</span>...</div>
+    <div class="loading-sub" data-i18n="aiCrafting">Our AI is crafting a personalized story just for them</div>
 
     <div class="lb-timer-row">
-      <span class="lb-timer-label">Time elapsed</span>
+      <span class="lb-timer-label" data-i18n="timeElapsed">Time elapsed</span>
       <span class="lb-timer-val" id="lbTimer">0:00</span>
     </div>
     <div class="lb-bar-wrap"><div class="lb-bar" id="lbBar"></div></div>
@@ -127,7 +127,7 @@
         <div class="lb-icon" id="lbIcon1">📷</div>
         <div class="lb-step-text">
           <div class="lb-step-label" data-i18n="previewStep1">Analyzing photo</div>
-          <div class="lb-step-desc">Identifying your child's unique features</div>
+          <div class="lb-step-desc" data-i18n="stepAnalyze">Identifying your child's unique features</div>
         </div>
         <div class="lb-step-time" id="lbTime1">~30s</div>
       </div>
@@ -135,30 +135,30 @@
         <div class="lb-icon" id="lbIcon2">✍️</div>
         <div class="lb-step-text">
           <div class="lb-step-label" data-i18n="previewStep2">Writing the story</div>
-          <div class="lb-step-desc">Creating a personalized adventure</div>
+          <div class="lb-step-desc" data-i18n="stepStory">Creating a personalized adventure</div>
         </div>
         <div class="lb-step-time" id="lbTime2">~45s</div>
       </div>
       <div class="lb-step" id="lstep3">
         <div class="lb-icon" id="lbIcon3">🎨</div>
         <div class="lb-step-text">
-          <div class="lb-step-label" id="lbLabel3">Illustrating first pages</div>
-          <div class="lb-step-desc">Cover + 2 preview illustrations</div>
+          <div class="lb-step-label" id="lbLabel3" data-i18n="stepIllustrate">Illustrating first pages</div>
+          <div class="lb-step-desc" data-i18n="stepCoverPages">Cover + 2 preview illustrations</div>
         </div>
         <div class="lb-step-time" id="lbTime3">~60s</div>
       </div>
       <div class="lb-step" id="lstep4">
         <div class="lb-icon" id="lbIcon4">📖</div>
         <div class="lb-step-text">
-          <div class="lb-step-label">Preview ready!</div>
-          <div class="lb-step-desc">Ready to view and unlock</div>
+          <div class="lb-step-label" data-i18n="previewReadyLabel">Preview ready!</div>
+          <div class="lb-step-desc" data-i18n="readyToView">Ready to view and unlock</div>
         </div>
         <div class="lb-step-time" id="lbTime4"></div>
       </div>
     </div>
 
     <div role="note" style="padding:11px 16px;background:rgba(200,146,42,0.07);border-radius:12px;border:1px solid rgba(200,146,42,0.18);font-size:12px;color:#7a6048;line-height:1.7;max-width:340px;text-align:center;">
-      📬 <strong style="color:#5c3d1e">You can close this tab</strong> — we'll email you when your book is ready
+      📬 <strong style="color:#5c3d1e" data-i18n="canCloseTab">You can close this tab — we'll email you when your book is ready</strong>
     </div>
   </div>
 
@@ -171,7 +171,7 @@
         <div class="book-cover-wrap" id="coverWrap">
           <div class="cover-placeholder-inner" id="coverPlaceholder">
             <div></div>
-            <span>Cover loading...</span>
+            <span data-i18n="coverLoading">Cover loading...</span>
           </div>
           <img id="coverImage" alt="Book cover" onload="this.style.display='block';document.getElementById('coverPlaceholder').style.display='none'"/>
         </div>
@@ -179,7 +179,7 @@
     </div>
 
     <div class="content-panel">
-      <h1 class="book-title" id="bookTitle">Your Magical Book</h1>
+      <h1 class="book-title" id="bookTitle" data-i18n="yourMagicalBook">Your Magical Book</h1>
       <div class="book-subtitle" id="bookSubtitle"></div>
 
       <div class="unlock-banner">
@@ -199,7 +199,7 @@
         </div>
       </div>
 
-      <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;">⏳ Preparing your preview...</button>
+      <button class="pay-btn" id="payBtn" disabled style="opacity:0.5;cursor:not-allowed;" data-i18n="preparingPreview">⏳ Preparing your preview...</button>
 
       <div class="still-gen" id="stillGen" style="display:none">
         <div class="mini-spin2"></div>
@@ -278,7 +278,7 @@ function createPageCard(page, i, imgSrc) {
   card.className = "page-card";
   var imgHtml = imgSrc
     ? '<img src="' + imgSrc + '" alt="Page ' + (i+1) + '"/>'
-    : '<div class="page-img-loading"><div class="mini-spinner"></div><span>Illustrating...</span></div>';
+    : '<div class="page-img-loading"><div class="mini-spinner"></div><span>' + (typeof i18nT === 'function' ? i18nT('illustratingDots') : 'Illustrating...') + '</span></div>';
   card.innerHTML =
     '<div class="page-num">' + (typeof i18nT === 'function' ? i18nT('pageLabel') : 'PAGE') + ' ' + (i+1) + '</div>' +
     '<div class="page-img-wrap" id="pimg-' + i + '">' + imgHtml + '</div>' +
@@ -313,8 +313,12 @@ async function pollBook() {
       if (!res.ok || !data.book) continue;
       var b = data.book;
 
-      // Update child name
-      if (b.childName && loadingChildName) loadingChildName.textContent = b.childName;
+      // Update child name + loading title
+      if (b.childName && loadingChildName) {
+        loadingChildName.textContent = b.childName;
+        var loadingTitleEl = document.getElementById('loadingTitle');
+        if (loadingTitleEl) loadingTitleEl.innerHTML = (typeof i18nT === 'function' ? i18nT('creatingChild').replace('{name}', b.childName) : 'Creating ' + b.childName + "'s book...").replace(b.childName, '<span id="loadingChildName">' + b.childName + '</span>');
+      }
 
       // Update steps
       var hasChar   = !!(b.characterReference && b.characterReference.characterPromptCore);
@@ -404,7 +408,7 @@ async function pollBook() {
 }
 
 function renderPreview(b) {
-  var title = (b.generatedBook && b.generatedBook.title) || "Your Magical Adventure";
+  var title = (b.generatedBook && b.generatedBook.title) || (typeof i18nT === 'function' ? i18nT('yourMagicalAdventure') : "Your Magical Adventure");
   var sub   = (b.generatedBook && b.generatedBook.subtitle) || "";
   if (bookTitleEl)    bookTitleEl.textContent    = title;
   if (bookSubtitleEl) bookSubtitleEl.textContent = sub;

@@ -62,15 +62,15 @@
         <img id="coverImg" alt="Cover" onload="this.style.display='block'"/>
       </div>
       <div class="book-info">
-        <div class="book-title" id="bookTitle">Your Magical Adventure</div>
-        <div class="book-meta" id="bookMeta">Personalized storybook</div>
+        <div class="book-title" id="bookTitle" data-i18n="yourMagicalAdventure">Your Magical Adventure</div>
+        <div class="book-meta" id="bookMeta" data-i18n="personalizedStorybook">Personalized storybook</div>
       </div>
     </div>
     <button class="btn-primary" id="openBookBtn" data-i18n="successCta">📖 Open My Book</button>
     <button class="btn-secondary" id="goHomeBtn" data-i18n="backToHome">Back to home</button>
-    <div class="status" id="statusMsg">Verifying your order...</div>
+    <div class="status" id="statusMsg" data-i18n="verifyingOrder">Verifying your order...</div>
     <div id="resendWrap" style="display:none;margin-top:8px;">
-      <button id="resendEmailBtn" style="background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;text-decoration:underline;font-family:'Assistant',sans-serif;">
+      <button id="resendEmailBtn" style="background:none;border:none;color:var(--gold);font-size:13px;cursor:pointer;text-decoration:underline;font-family:'Assistant',sans-serif;" data-i18n="resendEmailBtn">
         📬 Resend book link to my email
       </button>
     </div>
@@ -95,7 +95,7 @@ if (!bookId) { window.location.href = "wizard.html"; }
 openBtn.disabled      = true;
 openBtn.style.opacity = "0.6";
 openBtn.style.cursor  = "not-allowed";
-openBtn.textContent   = "⏳ Confirming payment...";
+openBtn.textContent   = "⏳ " + (typeof i18nT === 'function' ? i18nT('confirmingPayment') : "Confirming payment...");
 
 homeBtn.onclick = () => { window.location.href = "index.html"; };
 
@@ -107,21 +107,21 @@ function enableOpenBtn() {
   openBtn.disabled      = false;
   openBtn.style.opacity = "1";
   openBtn.style.cursor  = "pointer";
-  openBtn.textContent   = "📖 Open My Book";
+  openBtn.textContent   = typeof i18nT === 'function' ? i18nT('successCta') : "📖 Open My Book";
   openBtn.onclick       = goToBook;
 }
 
 // Resend email button
 if (resendBtn && bookId) {
   resendBtn.addEventListener("click", async function() {
-    resendBtn.textContent = "Sending...";
+    resendBtn.textContent = typeof i18nT === 'function' ? i18nT('statusSaving') : "Sending...";
     resendBtn.disabled = true;
     try {
       const r = await fetch(API + "/api/books/" + bookId + "/resend-email", { method: "POST" });
       const d = await r.json();
-      resendBtn.textContent = d.ok ? "✅ Sent! Check your inbox" : "❌ " + (d.error || "Try again");
+      resendBtn.textContent = d.ok ? (typeof i18nT === 'function' ? i18nT('sentCheckInbox') : "✅ Sent! Check your inbox") : "❌ " + (d.error || (typeof i18nT === 'function' ? i18nT('cropError') : "Try again"));
     } catch(e) {
-      resendBtn.textContent = "❌ Network error";
+      resendBtn.textContent = typeof i18nT === 'function' ? i18nT('networkError') : "❌ Network error";
     }
   });
 }
@@ -134,7 +134,7 @@ async function loadBook() {
 
 async function init() {
   try {
-    statusEl.textContent = "Confirming your payment...";
+    statusEl.textContent = typeof i18nT === 'function' ? i18nT('confirmingPayment') : "Confirming your payment...";
 
     // If redirected from Gumroad, call /unlock immediately (webhook may not have fired yet)
     const source = new URLSearchParams(window.location.search).get("source");
@@ -162,16 +162,16 @@ async function init() {
         coverImg.src = book.coverImage;
       }
       if (book?.childName !== undefined) {
-        metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+        metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + (typeof i18nT === 'function' ? i18nT('pageCountSuffix') : " pages");
       }
 
       if (book && book.purchaseUnlocked) { unlocked = true; break; }
       await new Promise(r => setTimeout(r, 2000));
-      statusEl.textContent = "Confirming payment... (" + (i + 1) + "/30)";
+      statusEl.textContent = typeof i18nT === 'function' ? i18nT('confirmingPaymentCount').replace('{i}', i + 1) : "Confirming payment... (" + (i + 1) + "/30)";
     }
 
     if (!book) {
-      statusEl.textContent = "Could not load book — please contact support.";
+      statusEl.textContent = typeof i18nT === 'function' ? i18nT('couldNotLoadBook') : "Could not load book — please contact support.";
       enableOpenBtn(); // let them try anyway
       return;
     }
@@ -179,20 +179,20 @@ async function init() {
     // Final render pass — ensures UI reflects last fetched state
     if (book.generatedBook?.title) { titleEl.textContent = book.generatedBook.title; }
     if (book.coverImage) { coverImg.src = book.coverImage; }
-    metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + " pages";
+    metaEl.textContent = (book.childName || "") + " · " + (book.generatedBook?.pages?.length || 0) + (typeof i18nT === 'function' ? i18nT('pageCountSuffix') : " pages");
 
     // Enable the button — always delivery.html
     enableOpenBtn();
 
     if (unlocked) {
-      statusEl.textContent = "✅ Payment confirmed — your book is ready!";
+      statusEl.textContent = typeof i18nT === 'function' ? i18nT('paymentConfirmedReady') : "✅ Payment confirmed — your book is ready!";
       statusEl.style.color = "#2d7a2d";
       if (resendWrap) resendWrap.style.display = "block";
       // Auto-redirect after 2s
       setTimeout(goToBook, 2000);
     } else {
       // Webhook didn't fire in 60s — redirect anyway; delivery.html will handle unlocked state
-      statusEl.textContent = "Payment confirmed — opening your book...";
+      statusEl.textContent = typeof i18nT === 'function' ? i18nT('paymentConfirmedOpening') : "Payment confirmed — opening your book...";
       statusEl.style.color = "#c8922a";
       setTimeout(goToBook, 2500);
     }

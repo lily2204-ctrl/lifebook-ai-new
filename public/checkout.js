@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   async function loadBook() {
     var res  = await fetch(API_BASE + "/api/books/" + bookId);
     var data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to load book");
+    if (!res.ok) throw new Error(data.message || (typeof i18nT === 'function' ? i18nT('cropError') : "Failed to load book"));
     return data.book;
   }
 
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   } catch(error) {
     console.error("loadBook failed:", error);
     if (checkoutStatus) {
-      checkoutStatus.textContent = error.message || "Failed to load book.";
+      checkoutStatus.textContent = error.message || (typeof i18nT === 'function' ? i18nT('cropError') : "Failed to load book.");
       checkoutStatus.className = "status-note error";
     }
   }
