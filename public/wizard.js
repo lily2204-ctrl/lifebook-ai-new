@@ -15,9 +15,12 @@ const customerEmailInput = document.getElementById("customerEmail");
 
 const styleCards = document.querySelectorAll(".style-card");
 
+var currentStyle = null;
 function getSelectedStyle() {
+  if (currentStyle) return currentStyle;
   var active = document.querySelector(".style-card.active");
-  return (active && active.dataset.style) || "Soft Storybook";
+  var stored = (typeof getBookData === "function" && (getBookData() || {}).illustrationStyle) || null;
+  return (active && active.dataset.style) || stored || "Soft Storybook";
 }
 
 function saveSetupData() {
@@ -62,6 +65,7 @@ function restoreSetupData() {
   if (data.customerEmail && customerEmailInput) customerEmailInput.value = data.customerEmail;
 
   var selectedStyle = data.illustrationStyle || "Soft Storybook";
+  currentStyle = data.illustrationStyle || null;
   styleCards.forEach(function(card) {
     card.classList.toggle("active", card.dataset.style === selectedStyle);
   });
@@ -72,6 +76,7 @@ function bindStyleSelection() {
     card.addEventListener("click", function() {
       styleCards.forEach(function(c) { c.classList.remove("active"); });
       card.classList.add("active");
+      currentStyle = card.dataset.style;
       saveSetupData();
     });
   });
