@@ -60,10 +60,36 @@ const STYLE_LOCK = {
     "high-quality animated movie. NOT a painting, NOT watercolor, NOT a photo. " +
     "Keep the child's facial identity, features and hairstyle from the reference." +
     " Absolutely NO text, NO letters, NO words, NO writing, NO signs with writing, NO labels, NO logos anywhere in the illustration. Any signs, books or papers in the scene must be blank.",
+  fantasy:
+    "A magical fantasy children\u0027s storybook illustration, enchanted glowing atmosphere, " +
+    "sparkles and soft golden light, rich jewel-tone colors, dreamy painterly rendering, " +
+    "consistent character design. Keep the child\u0027s face, age, features and identity " +
+    "exactly as in the reference photo, identical across every illustration. " +
+    "NOT 3D render, NOT photorealistic, NOT a photo." +
+    " Absolutely NO text, NO letters, NO words, NO writing, NO signs with writing, NO labels, NO logos anywhere in the illustration. Any signs, books or papers in the scene must be blank.",
+  scandi:
+    "A minimal Scandinavian children\u0027s book illustration, clean simple shapes, soft muted " +
+    "pastel palette, generous white space, flat gentle textures, subtle grain, modern nordic " +
+    "picture-book style, consistent character design. Keep the child\u0027s face, age, features " +
+    "and identity exactly as in the reference photo, identical across every illustration. " +
+    "NOT 3D, NOT photorealistic, NOT a photo." +
+    " Absolutely NO text, NO letters, NO words, NO writing, NO signs with writing, NO labels, NO logos anywhere in the illustration. Any signs, books or papers in the scene must be blank.",
+};
+
+const STYLE_NAME_MAP = {
+  "soft storybook": "watercolor",
+  "watercolor": "watercolor",
+  "pixar 3d": "soft3d",
+  "soft3d": "soft3d",
+  "magical fantasy": "fantasy",
+  "fantasy": "fantasy",
+  "minimal scandinavian": "scandi",
+  "scandi": "scandi",
 };
 
 function buildStyleLock(illustrationStyleKey) {
-  const key = (illustrationStyleKey || "").toLowerCase();
+  const raw = (illustrationStyleKey || "").toLowerCase().trim();
+  const key = STYLE_NAME_MAP[raw] || raw;
   return STYLE_LOCK[key] || STYLE_LOCK.watercolor;
 }
 
