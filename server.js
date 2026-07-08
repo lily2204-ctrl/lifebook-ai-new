@@ -237,7 +237,10 @@ function sanitizeStoryPayload(obj = {}) {
     ...obj,
     childName:          sanitizeBrandTerms(obj.childName || ""),
     storyIdea:          sanitizeBrandTerms(obj.storyIdea || ""),
-    illustrationStyle:  sanitizeBrandTerms(obj.illustrationStyle || ""),
+    // Do NOT run sanitizeBrandTerms on illustrationStyle — it corrupts style keys like
+    // "Pixar 3D" → "3D animated 3D" which then fail to match STYLE_NAME_MAP → wrong style.
+    // Style keys are resolved via STYLE_NAME_MAP + STYLE_LOCK so brand names never reach AI prompts.
+    illustrationStyle:  obj.illustrationStyle || "",
     croppedPhoto:       obj.croppedPhoto  || "",
     originalPhoto:      obj.originalPhoto || ""
   };
@@ -1672,8 +1675,12 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
-          return generatePageImageWithRetryV2(scenePrompt);
+          const scenePrompt = `${styleLock}\n\n${sanitizeBrandTerms(promptCore)}\n\nScene: ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          // Single attempt here — outer generatePageImageWithRetry provides the retry loop.
+          // Previously called generatePageImageWithRetryV2 which had its own 3-attempt loop,
+          // causing up to 9 total API calls per page and severe speed regression.
+          const resp = await generatePageImageV2(referenceBuffer, scenePrompt);
+          return normalizeImageToBase64(resp?.data?.[0]);
         }
         return generatePageImage(pageIndex);
       }
@@ -1703,11 +1710,14 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
         return null;
       }
 
+      // Log effective style before any scenePrompt is built
+      console.log(`generate-full [${bookId}]: effective style → ${safeStyle} → styleLock: ${styleLock?.substring(0,60)}...`);
+
       // Cover prompt / cover generation
       let coverGenPromise;
       if (useEditPipeline) {
         const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
-        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        const coverScenePrompt = `${styleLock}\n\n${sanitizeBrandTerms(promptCore)}\n\nScene: ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
         coverGenPromise = Promise.race([
           generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
