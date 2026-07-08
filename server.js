@@ -1570,7 +1570,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           if (!refRes.ok) throw new Error(`HTTP ${refRes.status}`);
           const arrBuf = await refRes.arrayBuffer();
           referenceBuffer = Buffer.from(arrBuf);
-          console.log(`generate-full [${bookId}]: reference photo loaded (${referenceBuffer.length} bytes) — using image-edit pipeline`);
+          const refSource = croppedPhoto === book.croppedPhoto ? "croppedPhoto" : "originalPhoto";
+          console.log(`generate-full [${bookId}]: referenceBuffer loaded — source=${refSource} url=${croppedPhoto?.substring(0,80)} size=${referenceBuffer.length} bytes`);
         } catch (refErr) {
           console.warn(`generate-full [${bookId}]: ⚠️ FALLBACK — could not load reference photo (${refErr.message}). Falling back to text-to-image (no face identity). Book will still be generated.`);
           referenceBuffer = null;
@@ -1675,7 +1676,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
           const skinToneHint = (hasFamilyMember && skinToneDescription && templateSkinToneSource !== "fixed")
             ? ` Family members share the child's ${skinToneDescription}.`
             : "";
-          const scenePrompt = `${styleLock}\n\n${sanitizeBrandTerms(promptCore)}\n\nScene: ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
+          // V2 (image-edit): reference photo is the sole source of child identity — no promptCore text needed.
+          const scenePrompt = `${styleLock} ${scene}${bibleHint || skinToneHint} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. Keep the lower third of the composition calmer and less visually busy with a simpler background — this area is reserved for text overlay. NO text, letters, words, numbers, captions, labels, titles, watermarks, logos, or speech bubbles inside the image.`;
           // Single attempt here — outer generatePageImageWithRetry provides the retry loop.
           // Previously called generatePageImageWithRetryV2 which had its own 3-attempt loop,
           // causing up to 9 total API calls per page and severe speed regression.
@@ -1717,7 +1719,8 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
       let coverGenPromise;
       if (useEditPipeline) {
         const coverScene = `The child stands as the hero on the cover of a children's storybook. Magical scene inspired by: ${sanitizeBrandTerms(storyIdea)}. Beautiful cover composition, full portrait, warm magical atmosphere. No character sheet, no multiple poses.`;
-        const coverScenePrompt = `${styleLock}\n\n${sanitizeBrandTerms(promptCore)}\n\nScene: ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
+        // V2 (image-edit): reference photo is the sole source of child identity — no promptCore text needed.
+        const coverScenePrompt = `${styleLock} ${coverScene} Portrait orientation. Character fully centered vertically — full head, hair, and shoulders visible with clear space above; never cropped at the top. No English text or signs; any visible signage should be blank or in Hebrew. NO text, letters, words, numbers, captions, titles, watermarks, logos, or speech bubbles inside the image.`;
         coverGenPromise = Promise.race([
           generatePageImageV2(referenceBuffer, coverScenePrompt).then(r => normalizeImageToBase64(r?.data?.[0])),
           new Promise((_, reject) => setTimeout(() => reject(new Error("cover timed out after 180s")), 180000))
