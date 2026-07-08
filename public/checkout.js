@@ -7,6 +7,9 @@ function getBookId() {
 document.addEventListener("DOMContentLoaded", async function() {
   var bookId = getBookId();
 
+  var backBtn = document.getElementById("backBtn");
+  if (backBtn) backBtn.addEventListener("click", function() { history.back(); });
+
   var coverImageEl      = document.getElementById("coverImage");
   var bookTitleValue    = document.getElementById("bookTitleValue");
   var bookSubtitleValue = document.getElementById("bookSubtitleValue");
