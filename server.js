@@ -150,9 +150,13 @@ async function generatePageImageV2(referenceBuffer, scenePrompt, attempt = 0) {
 const STYLE_DESCRIPTIONS = {
   watercolor: "Soft Storybook watercolor illustration, warm hand-painted textures, gentle pencil outlines, delicate transparent washes, storybook warmth",
   soft3d:     "soft 3D rendered children's illustration, modern animated film style, rounded friendly character, large expressive eyes, warm cinematic lighting, smooth volumes, gentle colors",
+  fantasy:    "magical fantasy children's illustration, enchanted glowing atmosphere, sparkles and soft golden light, rich jewel-tone colors, dreamy painterly rendering",
+  scandi:     "minimal Scandinavian children's illustration, clean simple shapes, soft muted pastel palette, generous white space, flat gentle textures, modern nordic picture-book style",
 };
 function resolveStyle(raw) {
-  return STYLE_DESCRIPTIONS[raw] || sanitizeBrandTerms(raw) || STYLE_DESCRIPTIONS.watercolor;
+  const norm = (raw || "").toLowerCase().trim();
+  const key = (typeof STYLE_NAME_MAP !== "undefined" && STYLE_NAME_MAP[norm]) || norm;
+  return STYLE_DESCRIPTIONS[key] || sanitizeBrandTerms(raw) || STYLE_DESCRIPTIONS.watercolor;
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -249,7 +253,7 @@ function sanitizeImagePrompt(text = "") {
 function buildCharacterPromptCore(characterDNA, style) {
   const hair    = characterDNA.hair    || "soft child hair";
   const skin    = characterDNA.skin    || "natural skin tone";
-  const eyes    = characterDNA.eyes    || "gentle expressive eyes";
+  const eyes    = characterDNA.eyes    || "natural eye color exactly as in the reference photo";
   const face    = characterDNA.face    || "soft child face";
   const vibe    = characterDNA.vibe    || "warm curious child";
   const ageLook = characterDNA.ageLook || "young child";
@@ -1413,7 +1417,7 @@ app.post("/api/books/:bookId/generate-full", async (req, res) => {
 
           const characterDNA = safeJsonParse(dnaCompletion.choices?.[0]?.message?.content || "{}", {
             hair: "soft child hair", skin: "warm natural skin tone",
-            eyes: "bright child eyes", face: "soft rounded child face",
+            eyes: "natural eye color exactly as in the reference photo", face: "soft rounded child face",
             ageLook: "young child", outfit: "simple timeless child outfit",
             vibe: "warm curious child", summary: "A warm curious child hero for a magical storybook."
           });
