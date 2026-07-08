@@ -65,10 +65,10 @@
     .book-subtitle{font-size:16px;color:var(--text-muted);margin-bottom:20px}
 
     /* UNLOCK BANNER */
-    .unlock-banner{background:linear-gradient(135deg,var(--brown),#3a2010);border-radius:18px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .unlock-text strong{display:block;font-family:'Assistant',sans-serif;font-size:17px;color:var(--gold-pale);margin-bottom:3px}
-    .unlock-text span{font-size:13px;color:var(--parchment);opacity:0.75}
-    .unlock-price{font-family:'Assistant',sans-serif;font-size:30px;color:var(--gold-light);font-weight:700;flex-shrink:0}
+    .unlock-banner{background:var(--white);border:1px solid #e8d5a3;border-radius:18px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .unlock-text strong{display:block;font-family:'Assistant',sans-serif;font-size:17px;color:var(--brown);margin-bottom:3px}
+    .unlock-text span{font-size:13px;color:var(--text-muted)}
+    .unlock-price{font-family:'Assistant',sans-serif;font-size:30px;color:var(--gold);font-weight:700;flex-shrink:0}
 
     /* PAGES */
     .pages-wrap{display:grid;gap:16px;margin-bottom:20px}
@@ -102,7 +102,7 @@
 </head>
 <body>
 <nav>
-  <button class="nav-back" onclick="history.back()"> Back</button>
+  <button class="nav-back" onclick="history.back()" data-i18n="backBtn"> Back</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
@@ -184,8 +184,8 @@
 
       <div class="unlock-banner">
         <div class="unlock-text">
-          <strong>Preview — First 2 pages</strong>
-          <span>Download the full book as PDF (all pages)</span>
+          <strong data-i18n="previewFirstPages">Preview — First 2 pages</strong>
+          <span data-i18n="downloadFullPdf">Download the full book as PDF (all pages)</span>
         </div>
       </div>
 
@@ -203,7 +203,7 @@
 
       <div class="still-gen" id="stillGen" style="display:none">
         <div class="mini-spin2"></div>
-        <span>Full book is still being prepared...</span>
+        <span data-i18n="stillPreparing">Full book is still being prepared...</span>
       </div>
     </div>
   </div>
@@ -280,7 +280,7 @@ function createPageCard(page, i, imgSrc) {
     ? '<img src="' + imgSrc + '" alt="Page ' + (i+1) + '"/>'
     : '<div class="page-img-loading"><div class="mini-spinner"></div><span>Illustrating...</span></div>';
   card.innerHTML =
-    '<div class="page-num">Page ' + (i+1) + '</div>' +
+    '<div class="page-num">' + (typeof i18nT === 'function' ? i18nT('pageLabel') : 'PAGE') + ' ' + (i+1) + '</div>' +
     '<div class="page-img-wrap" id="pimg-' + i + '">' + imgHtml + '</div>' +
     '<div class="page-text">' + (page.text || "") + '</div>';
   return card;
@@ -346,7 +346,7 @@ async function pollBook() {
       var progressBar = document.getElementById('imgProgressBar');
       if (progressEl && readyCount > 0) {
         progressEl.style.display = 'block';
-        progressText.textContent = '✨ ' + readyCount + '/' + totalPages + ' pages illustrated';
+        progressText.textContent = '✨ ' + readyCount + '/' + totalPages + ' ' + (typeof i18nT === 'function' ? i18nT('pagesIllustrated') : 'pages illustrated');
         progressBar.style.width = Math.round((readyCount / totalPages) * 100) + '%';
       }
 
@@ -357,7 +357,7 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Continue to Checkout';
+        payBtn.textContent = typeof i18nT === 'function' ? i18nT('continueToCheckout') : 'Continue to Checkout';
       }
 
       // Break when cover + 2 page images all ready (keeps polling so page images update)
@@ -391,13 +391,13 @@ async function pollBook() {
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Continue to Checkout';
+        payBtn.textContent = typeof i18nT === 'function' ? i18nT('continueToCheckout') : 'Continue to Checkout';
       } else if (d3.book && d3.book.generatedBook) {
         // Story exists but no cover yet — still let them proceed
         payBtn.disabled = false;
         payBtn.style.opacity = '1';
         payBtn.style.cursor = 'pointer';
-        payBtn.textContent = 'Continue to Checkout';
+        payBtn.textContent = typeof i18nT === 'function' ? i18nT('continueToCheckout') : 'Continue to Checkout';
       }
     } catch(e) {}
   }
