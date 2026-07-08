@@ -116,7 +116,7 @@
 <body>
 
 <nav>
-  <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם">← Back</button>
+  <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם" data-i18n="backBtn">← Back</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
@@ -142,7 +142,7 @@
   <div class="hero">
     <div class="hero-text">
       <strong id="heroBannerTitle" data-i18n="deliveryTitle">🎉 Your book is ready!</strong>
-      <span>Read your personalized storybook or download a premium PDF</span>
+      <span data-i18n="deliverySubtitle">Read your personalized storybook or download a premium PDF</span>
     </div>
     <div class="hero-btns">
       <button class="btn-gold" id="dlBtnHero" data-i18n="deliveryDownloadBtn">⬇ Download PDF</button>
@@ -166,10 +166,10 @@
       <div class="book-title-sm" id="sideTitleEl">Your Magical Book</div>
       <div class="book-sub-sm" id="sideSubEl">Personalized storybook</div>
       <div class="info-rows">
-        <div class="info-row"><span class="lbl">Child</span><span id="infoChild">—</span></div>
-        <div class="info-row"><span class="lbl">Pages</span><span id="infoPages">—</span></div>
-        <div class="info-row"><span class="lbl">Format</span><span>Digital PDF</span></div>
-        <div class="info-row"><span class="lbl">Status</span><span id="infoStatus">—</span></div>
+        <div class="info-row"><span class="lbl" data-i18n="labelChild">Child</span><span id="infoChild">—</span></div>
+        <div class="info-row"><span class="lbl" data-i18n="labelPages">Pages</span><span id="infoPages">—</span></div>
+        <div class="info-row"><span class="lbl" data-i18n="labelFormat">Format</span><span data-i18n="digitalPdf">Digital PDF</span></div>
+        <div class="info-row"><span class="lbl" data-i18n="labelStatus">Status</span><span id="infoStatus">—</span></div>
       </div>
     </div>
 
@@ -192,15 +192,15 @@
           <div class="spread-dots" id="spreadDots"></div>
           <button class="nav-btn" id="nextBtn" title="Next page (→)" aria-label="עמוד הבא">→</button>
         </div>
-        <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-muted);opacity:0.7">
+        <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-muted);opacity:0.7" data-i18n="flipHint">
           Use arrow keys or swipe to flip pages
         </div>
       </div>
 
       <div class="download-card">
         <div class="dl-text">
-          <strong>Download your storybook PDF</strong>
-          <span>High quality · Print-ready · Cover + all pages</span>
+          <strong data-i18n="dlCardTitle">Download your storybook PDF</strong>
+          <span data-i18n="dlCardDesc">High quality · Print-ready · Cover + all pages</span>
         </div>
         <button class="btn-gold" id="dlBtn">⬇ Download PDF</button>
         <div class="pdf-progress-wrap" id="pdfProg">
