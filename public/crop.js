@@ -118,7 +118,7 @@ continueBtn.addEventListener("click", async function() {
     if (!createRes.ok) {
       var errText = "";
       try { var errData = await createRes.json(); errText = errData.message || ""; } catch(e) {}
-      throw new Error("Server error " + createRes.status + (errText ? ": " + errText : ""));
+      throw new Error(i18nT("uploadError") + " (" + createRes.status + (errText ? ": " + errText : "") + ")");
     }
 
     var createData = await createRes.json();
@@ -147,8 +147,8 @@ continueBtn.addEventListener("click", async function() {
   } catch(err) {
     console.error("crop continue failed:", err);
     continueBtn.disabled = false;
-    continueBtn.textContent = "✨ Create My Book";
-    showError(err.message || "Something went wrong. Please try again.");
+    continueBtn.textContent = i18nT("createMyBook");
+    showError(err.message || i18nT("cropError"));
   }
 });
 

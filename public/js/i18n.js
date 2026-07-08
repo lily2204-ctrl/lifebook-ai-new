@@ -78,6 +78,33 @@ const I18N = {
     statusRedirecting: 'מעביר...',
     statusPreparingPhoto: 'מכין תמונה...',
     pageCountSuffix: ' עמודים',
+    // Crop page
+    chooseAnotherPhoto: 'בחרו תמונה אחרת',
+    createMyBook: 'צרו את הספר שלי',
+    bestResult: 'לתוצאה הטובה ביותר',
+    whatHappensNext: 'מה קורה בשלב הבא?',
+    whyThisMatters: 'למה זה חשוב?',
+    step2of3: 'שלב 2 מתוך 3',
+    cropError: 'אירעה שגיאה — אנא נסו שוב',
+    uploadError: 'שגיאת העלאה — אנא נסו שוב',
+    // Preview page
+    continueToCheckout: 'המשך לתשלום',
+    previewFirstPages: 'תצוגה מקדימה — 2 עמודים ראשונים',
+    downloadFullPdf: 'הורדת הספר המלא (PDF)',
+    pagesIllustrated: 'עמודים מאוירים',
+    stillPreparing: 'הספר המלא עדיין בהכנה...',
+    pageLabel: 'עמוד',
+    backBtn: 'חזרה',
+    // Delivery page
+    deliverySubtitle: 'קראו את ספר ההרפתקאות האישי שלכם או הורידו PDF',
+    labelFormat: 'פורמט',
+    digitalPdf: 'PDF דיגיטלי',
+    labelStatus: 'סטטוס',
+    dlCardTitle: 'הורדת קובץ ה-PDF',
+    dlCardDesc: 'איכות גבוהה · מוכן להדפסה · כריכה + כל העמודים',
+    flipHint: 'השתמשו בחצים או החליקו כדי לדפדף',
+    // Success page
+    backToHome: 'חזרה לדף הבית',
   },
   en: {
     navCta: 'Create a Book Now',
@@ -147,6 +174,33 @@ const I18N = {
     statusRedirecting: 'Redirecting...',
     statusPreparingPhoto: 'Preparing photo...',
     pageCountSuffix: ' pages',
+    // Crop page
+    chooseAnotherPhoto: 'Choose Another Photo',
+    createMyBook: 'Create My Book',
+    bestResult: 'Best result',
+    whatHappensNext: 'What happens next?',
+    whyThisMatters: 'Why this matters',
+    step2of3: 'Step 2 of 3',
+    cropError: 'An error occurred — please try again',
+    uploadError: 'Upload error — please try again',
+    // Preview page
+    continueToCheckout: 'Continue to Checkout',
+    previewFirstPages: 'Preview — First 2 pages',
+    downloadFullPdf: 'Download the full book as PDF (all pages)',
+    pagesIllustrated: 'pages illustrated',
+    stillPreparing: 'Full book is still being prepared...',
+    pageLabel: 'PAGE',
+    backBtn: 'Back',
+    // Delivery page
+    deliverySubtitle: 'Read your personalized storybook or download a premium PDF',
+    labelFormat: 'Format',
+    digitalPdf: 'Digital PDF',
+    labelStatus: 'Status',
+    dlCardTitle: 'Download your storybook PDF',
+    dlCardDesc: 'High quality · Print-ready · Cover + all pages',
+    flipHint: 'Use arrow keys or swipe to flip pages',
+    // Success page
+    backToHome: 'Back to home',
   }
 };
 

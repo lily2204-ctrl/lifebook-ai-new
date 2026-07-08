@@ -16,13 +16,14 @@
       z-index:2;
     }
 
+    :root{--cream:#fdf6ec;--cream-deep:#f5e9d4;--parchment:#ede0c8;--gold:#c8922a;--gold-light:#e8b84b;--brown:#5c3d1e;--text:#3a2810;--text-muted:#7a6048;--white:#ffffff}
+    body{background:var(--cream);color:var(--text)}
+
     .crop-card{
-      background:
-        linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.03)),
-        linear-gradient(180deg,rgba(18,23,41,0.96),rgba(14,18,33,0.98));
-      border:1px solid rgba(240,196,109,0.14);
-      border-radius:36px;
-      box-shadow:var(--shadow);
+      background:var(--white);
+      border:1px solid #e8d5a3;
+      border-radius:12px;
+      box-shadow:0 8px 40px rgba(100,60,20,0.12);
       padding:28px;
     }
 
@@ -30,16 +31,16 @@
 
     .crop-head h1{
       margin:0 0 10px;
-      font-family:Georgia,"Times New Roman",serif;
-      font-size:clamp(30px,5vw,50px);
-      line-height:.96;
-      color:#f9f1e4;
+      font-family:'Assistant',sans-serif;
+      font-size:clamp(24px,4vw,38px);
+      line-height:1.1;
+      color:var(--brown);
     }
 
     .crop-head p{
       margin:0;
-      color:#cfc0ab;
-      font-size:17px;
+      color:var(--text-muted);
+      font-size:16px;
       line-height:1.65;
       max-width:700px;
     }
@@ -52,16 +53,16 @@
     }
 
     .crop-stage-card{
-      background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:28px;
+      background:var(--cream-deep);
+      border:1px solid #e8d5a3;
+      border-radius:12px;
       padding:20px;
     }
 
     .crop-stage{
       width:100%;aspect-ratio:1/1;
-      position:relative;border-radius:24px;overflow:hidden;
-      background:radial-gradient(circle at center,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 55%,rgba(0,0,0,0.08) 100%);
+      position:relative;border-radius:12px;overflow:hidden;
+      background:var(--parchment);
     }
 
     #cropCanvas{
@@ -71,17 +72,20 @@
     #cropCanvas:active{cursor:grabbing}
 
     .crop-circle-mask{
-      position:absolute;inset:0;pointer-events:none;border-radius:24px;
-      box-shadow:inset 0 0 0 9999px rgba(0,0,0,0.30);
+      position:absolute;inset:0;pointer-events:none;border-radius:12px;
+      box-shadow:inset 0 0 0 9999px rgba(253,246,236,0.35);
       -webkit-mask:radial-gradient(circle 42% at 50% 50%,transparent 0 99%,#000 100%);
       mask:radial-gradient(circle 42% at 50% 50%,transparent 0 99%,#000 100%);
     }
 
     .crop-ring{
-      position:absolute;inset:50%;width:84%;height:84%;
-      transform:translate(-50%,-50%);border-radius:50%;
-      border:4px solid #E4AB4B;
-      box-shadow:0 0 0 8px rgba(228,171,75,0.08);
+      position:absolute;
+      top:50%;left:50%;
+      width:84%;height:84%;
+      transform:translate(-50%,-50%);
+      border-radius:50%;
+      border:4px solid var(--gold);
+      box-shadow:0 0 0 8px rgba(200,146,42,0.1);
       pointer-events:none;
     }
 
@@ -90,8 +94,8 @@
     }
 
     .reset-btn{
-      width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);
-      background:rgba(255,255,255,0.06);color:#f7efdf;font-size:24px;cursor:pointer;
+      width:54px;height:54px;border-radius:50%;border:1.5px solid #e8d5a3;
+      background:var(--white);color:var(--brown);font-size:24px;cursor:pointer;
       flex-shrink:0;
     }
 
@@ -99,46 +103,46 @@
 
     .zoom-label{
       display:flex;justify-content:space-between;align-items:center;
-      margin-bottom:8px;color:#d9ccb8;font-size:14px;font-weight:700;
+      margin-bottom:8px;color:var(--text-muted);font-size:14px;font-weight:700;
     }
 
-    #zoomSlider{width:100%;accent-color:#E4AB4B}
+    #zoomSlider{width:100%;accent-color:var(--gold)}
 
     .crop-side{display:grid;gap:16px}
 
     .crop-tip-card{
-      background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:24px;padding:18px;
+      background:var(--white);
+      border:1px solid #e8d5a3;
+      border-radius:12px;padding:18px;
     }
 
     .crop-tip-card h3{
       margin:0 0 8px;
-      font-family:Georgia,"Times New Roman",serif;
-      font-size:22px;color:#f7efdf;
+      font-family:'Assistant',sans-serif;
+      font-size:18px;color:var(--brown);font-weight:700;
     }
 
-    .crop-tip-card p{margin:0;color:#c7baa8;line-height:1.6;font-size:15px}
+    .crop-tip-card p{margin:0;color:var(--text-muted);line-height:1.6;font-size:15px}
 
-    /* NEW: inline status inside crop card */
+    /* Inline status inside crop card */
     .crop-status-wrap{
       margin-top:18px;
       padding:14px 18px;
-      border-radius:18px;
-      background:rgba(240,196,109,0.07);
-      border:1px solid rgba(240,196,109,0.18);
+      border-radius:12px;
+      background:rgba(200,146,42,0.07);
+      border:1px solid rgba(200,146,42,0.25);
       display:none;
     }
     .crop-status-wrap.visible{display:block}
     .crop-status-text{
-      font-size:15px;color:#f0c46d;font-weight:700;margin-bottom:8px;
+      font-size:15px;color:var(--gold);font-weight:700;margin-bottom:8px;
     }
     .crop-progress-wrap{
-      height:8px;border-radius:8px;background:rgba(255,255,255,0.06);overflow:hidden;
+      height:8px;border-radius:8px;background:rgba(200,146,42,0.12);overflow:hidden;
     }
     .crop-progress-bar{
       height:100%;width:0%;border-radius:8px;
-      background:linear-gradient(90deg,#f0c46d,#d08e2b);
+      background:linear-gradient(90deg,var(--gold-light),var(--gold));
       transition:width 0.5s ease;
     }
 
@@ -146,11 +150,30 @@
       display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;
     }
 
+    .continue-btn{
+      background:linear-gradient(135deg,var(--gold-light),var(--gold));
+      color:#fff;border:none;border-radius:50px;padding:13px 28px;
+      font-size:16px;font-weight:700;cursor:pointer;
+      font-family:'Assistant',sans-serif;
+      box-shadow:0 6px 24px rgba(200,146,42,0.35);
+      transition:all 0.2s;
+    }
+    .continue-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(200,146,42,0.5)}
+    .continue-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+
+    .secondary-btn{
+      background:var(--white);color:var(--brown);
+      border:1.5px solid #e8d5a3;border-radius:50px;
+      padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;
+      font-family:'Assistant',sans-serif;transition:all 0.2s;
+    }
+    .secondary-btn:hover{border-color:var(--gold)}
+
     @media(max-width:980px){
       .crop-layout{grid-template-columns:1fr}
     }
     @media(max-width:640px){
-      .crop-card{padding:18px;border-radius:28px}
+      .crop-card{padding:18px;border-radius:12px}
       .crop-action-row{flex-direction:column}
       .continue-btn,.secondary-btn{width:100%}
     }
@@ -162,7 +185,7 @@
 
 <header class="wizard-topbar">
   <div class="wizard-topbar-left">
-    <button class="back-link-button" id="backToWizard" type="button">← Back</button>
+    <button class="back-link-button" id="backToWizard" type="button" data-i18n="backBtn">← Back</button>
   </div>
   <div class="wizard-brand">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
@@ -175,7 +198,7 @@
 <main class="crop-shell">
   <section class="crop-card">
     <div class="crop-head">
-      <div class="wizard-step-label">Step 2 of 3</div>
+      <div class="wizard-step-label" data-i18n="step2of3">Step 2 of 3</div>
       <h1 data-i18n="cropTitle">Adjust the photo</h1>
       <p data-i18n="cropSubtitle">Center the face inside the circle. When you tap Continue, we'll start creating the book automatically.</p>
     </div>
@@ -208,22 +231,22 @@
         </div>
 
         <div class="crop-action-row">
-          <button class="secondary-btn" id="chooseNewPhotoBtn" type="button">Choose Another Photo</button>
-          <button class="continue-btn" id="continueAfterCrop" type="button" data-i18n="cropConfirmBtn">✨ Create My Book</button>
+          <button class="secondary-btn" id="chooseNewPhotoBtn" type="button" data-i18n="chooseAnotherPhoto">Choose Another Photo</button>
+          <button class="continue-btn" id="continueAfterCrop" type="button" data-i18n="createMyBook">✨ Create My Book</button>
         </div>
       </div>
 
       <div class="crop-side">
         <div class="crop-tip-card">
-          <h3>Best result</h3>
+          <h3 data-i18n="bestResult">Best result</h3>
           <p>One child, front-facing, face clearly centered inside the circle, good lighting.</p>
         </div>
         <div class="crop-tip-card">
-          <h3>What happens next</h3>
+          <h3 data-i18n="whatHappensNext">What happens next</h3>
           <p>After you tap "Create My Book", we start building the story and illustrations automatically. You'll see a preview in about 45 seconds.</p>
         </div>
         <div class="crop-tip-card">
-          <h3>Why this matters</h3>
+          <h3 data-i18n="whyThisMatters">Why this matters</h3>
           <p>A clean, centered face gives the AI the best base to create a premium, consistent character throughout the whole book.</p>
         </div>
       </div>
