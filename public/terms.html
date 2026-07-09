@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lifebook — Terms, Refund &amp; Privacy Policy</title>
-  
+  <title>Lifebook — תנאים, מדיניות ביטול ופרטיות</title>
+
   <style>
     :root {
       --cream:       #fdf6ec;
@@ -41,6 +41,13 @@
       font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
     }
     .nav-back:hover { border-color: var(--gold-light); }
+    .lang-toggle-btn {
+      background: var(--white); color: var(--brown);
+      border: 1.5px solid var(--parchment); border-radius: 50px;
+      padding: 9px 22px; font-family: 'Assistant', sans-serif;
+      font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
+    }
+    .lang-toggle-btn:hover { border-color: var(--gold-light); }
 
     /* ── LAYOUT ── */
     .shell { width: min(780px, 94vw); margin: 0 auto; padding: 56px 0 90px; }
@@ -133,7 +140,6 @@
       display: flex; align-items: center; justify-content: space-between;
       gap: 20px; flex-wrap: wrap;
     }
-    .contact-strip-text { }
     .contact-strip-text p:first-child {
       font-family: 'Assistant', sans-serif; font-size: 20px; color: var(--gold-pale);
       margin-bottom: 6px;
@@ -180,43 +186,42 @@
 <body>
 
 <nav>
-  <button class="nav-back" onclick="history.back()" data-i18n="backBtn">← Back</button>
+  <button class="nav-back" onclick="history.back()" data-i18n="backBtn">חזרה</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
-  <div style="width:80px"></div>
+  <button class="lang-toggle-btn" id="langToggleBtn" onclick="i18nToggle()">English</button>
 </nav>
 
 <main class="shell">
 
   <div class="page-header">
-    <div class="step-badge" data-i18n="termsPageBadge">📄 Legal</div>
-    <h1 class="page-title" data-i18n="termsPageTitle">Terms, Refund &amp; Privacy Policy</h1>
-    <p class="page-sub" data-i18n="termsPageSub">Everything you need to know about how we handle your order, your photos, and your data.</p>
+    <div class="step-badge" data-i18n="termsPageBadge">📄 מסמכים משפטיים</div>
+    <h1 class="page-title" data-i18n="termsPageTitle">תנאים, מדיניות ביטול והגנת פרטיות</h1>
+    <p class="page-sub" data-i18n="termsPageSub">כל מה שצריך לדעת על ההזמנה, התמונות והנתונים שלכם.</p>
   </div>
 
   <!-- ── REFUND POLICY ── -->
   <div class="card">
     <div class="section-header">
       <div class="section-icon">💳</div>
-      <h2 class="section-title">Refund Policy</h2>
+      <h2 class="section-title" data-i18n="termsRefundTitle">ביטול והחזר כספי</h2>
     </div>
     <div class="policy-body">
       <div class="callout">
         <div class="callout-icon">⚠️</div>
-        <p><strong>No refunds once book generation begins.</strong> Because each book is uniquely generated for your child using AI, the creation process starts immediately after your order and cannot be reversed.</p>
+        <p data-i18n="termsRefundCallout"><strong>לאחר העלאת התמונה ותחילת יצירת הספר — לא ניתן לבטל את ההזמנה ולא מוחזר תשלום.</strong> כיוון שהספר נוצר במיוחד עבורכם, תהליך הייצור מתחיל מיד ואינו הפיך.</p>
       </div>
-      <p>Each personalized storybook is created on demand — the story is written, the illustrations are generated, and the PDF is assembled specifically for your child's name, photo, and story idea. This process consumes significant AI compute resources the moment your order is placed.</p>
-      <p>For this reason, <strong>all sales are final once book generation has started</strong>, which happens immediately after a successful payment is processed.</p>
+      <p data-i18n="termsRefundBody">כל ספר אישי נוצר לפי דרישה — הסיפור נכתב, האיורים מיוצרים והקובץ מורכב אך ורק עבור הילד שלכם. תהליך זה צורך משאבים ניכרים ברגע שהוגשה ההזמנה.</p>
       <div class="divider"></div>
-      <p><strong>Exceptions we'll always honor:</strong></p>
+      <p><strong data-i18n="termsRefundExceptionsTitle">חריגים שנכבד תמיד:</strong></p>
       <ul class="policy-list">
-        <li>Your payment was charged but no book was created (technical failure on our end)</li>
-        <li>You were charged more than once for the same book</li>
-        <li>The book was generated but is completely unreadable or blank</li>
+        <li data-i18n="termsRefundEx1">חויבתם אך הספר לא נוצר עקב תקלה טכנית מצידנו</li>
+        <li data-i18n="termsRefundEx2">חויבתם פעמיים עבור אותו ספר</li>
+        <li data-i18n="termsRefundEx3">הספר נוצר אך אינו קריא כלל או ריק לחלוטין</li>
       </ul>
       <div class="highlight-box">
-        <p>If any of the above applies, email us at <strong><a href="mailto:lifebooks@lifebooksil.com" style="color:var(--gold);">lifebooks@lifebooksil.com</a></strong> within 7 days of your purchase with your order details and we will make it right promptly.</p>
+        <p data-i18n="termsRefundContact">אם אחד מהאמור לעיל חל עליכם — שלחו לנו מייל ל-<strong><a href="mailto:lifebooks@lifebooksil.com" style="color:var(--gold);">lifebooks@lifebooksil.com</a></strong> תוך 7 ימים מהרכישה עם פרטי ההזמנה ונטפל בכך במהירות.</p>
       </div>
     </div>
   </div>
@@ -225,62 +230,67 @@
   <div class="card">
     <div class="section-header">
       <div class="section-icon">🔒</div>
-      <h2 class="section-title">Privacy Policy</h2>
+      <h2 class="section-title" data-i18n="termsPrivacyTitle">פרטיות ומחיקת תמונות</h2>
     </div>
     <div class="policy-body">
-      <p>We take the privacy of your family seriously. Here is exactly what we collect, how we use it, and when it is deleted.</p>
+      <p data-i18n="termsPrivacyIntro">אנו מייחסים חשיבות רבה לפרטיות המשפחה שלכם. הנה בדיוק מה שאנחנו אוספים, כיצד אנו משתמשים בו ומתי הוא נמחק.</p>
 
       <div class="divider"></div>
 
-      <p><strong>What we collect</strong></p>
+      <p><strong data-i18n="termsPrivacyCollectTitle">מה אנחנו אוספים</strong></p>
       <ul class="policy-list">
-        <li>The child's photo you upload for the book</li>
-        <li>The child's first name, age, and gender (used only for the story)</li>
-        <li>Your email address (to send you the book and receipt)</li>
-        <li>Payment information — processed securely by LemonSqueezy; we never see or store your card details</li>
+        <li data-i18n="termsPrivacyCollect1">התמונה שהעלתם לצורך יצירת הספר</li>
+        <li data-i18n="termsPrivacyCollect2">שם הילד/ה, גיל ומין — לצורך הסיפור בלבד</li>
+        <li data-i18n="termsPrivacyCollect3">כתובת המייל שלכם — לשליחת הספר ואישור ההזמנה</li>
+        <li data-i18n="termsPrivacyCollect4">פרטי תשלום — מעובדים באופן מאובטח; איננו רואים או שומרים את פרטי הכרטיס</li>
       </ul>
 
       <div class="divider"></div>
 
-      <p><strong>Photos are deleted after book creation</strong></p>
+      <p><strong data-i18n="termsPrivacyDeleteTitle">התמונה נמחקת לאחר יצירת הספר</strong></p>
       <div class="callout">
         <div class="callout-icon">🗑️</div>
-        <p>The photo you upload is used exclusively to generate your child's character for the storybook illustrations. <strong>Once your book has been created, your photo is permanently deleted from our servers.</strong> We do not keep, share, sell, or use it for any other purpose.</p>
+        <p data-i18n="termsPrivacyDeleteBody">התמונה שהועלתה משמשת אך ורק ליצירת דמות הילד/ה לצורך איורי הספר. <strong>לאחר השלמת הספר, התמונה נמחקת לצמיתות מהשרתים שלנו תוך 30 יום.</strong> איננו שומרים, משתפים, מוכרים או משתמשים בה לשום מטרה אחרת.</p>
       </div>
 
       <div class="divider"></div>
 
-      <p><strong>How we use your data</strong></p>
+      <p><strong data-i18n="termsPrivacyUseTitle">כיצד אנו משתמשים בנתונים שלכם</strong></p>
       <ul class="policy-list">
-        <li>Your email is used to deliver your book and receipt — nothing else</li>
-        <li>We do not sell, rent, or share your personal information with third parties</li>
-        <li>We do not use your data for advertising or marketing without your consent</li>
-        <li>Story content and child details are used only to generate your specific book</li>
+        <li data-i18n="termsPrivacyUse1">המייל שלכם משמש אך ורק למשלוח הספר ואישור ההזמנה</li>
+        <li data-i18n="termsPrivacyUse2">איננו מוכרים, משכירים או משתפים את המידע האישי שלכם עם צדדים שלישיים</li>
+        <li data-i18n="termsPrivacyUse3">איננו משתמשים בנתוניכם לפרסום ושיווק ללא הסכמתכם</li>
+        <li data-i18n="termsPrivacyUse4">תוכן הסיפור ופרטי הילד/ה משמשים אך ורק ליצירת הספר הספציפי שלכם</li>
       </ul>
 
       <div class="divider"></div>
 
-      <p><strong>Third-party services</strong></p>
-      <p>We use the following services to operate Lifebook. Each has their own privacy policy:</p>
-      <ul class="policy-list">
-        <li><strong>OpenAI</strong> — AI story and image generation. Input data (photo, story details) is sent to OpenAI solely to produce your book.</li>
-        <li><strong>LemonSqueezy</strong> — Payment processing. Your card and billing details go directly to LemonSqueezy; we never see them.</li>
-        <li><strong>Resend</strong> — Email delivery. Used only to send you your book and order confirmation.</li>
-        <li><strong>Supabase</strong> — Secure cloud database and file storage, hosted in the EU/US.</li>
-      </ul>
+      <p><strong data-i18n="termsPrivacyInfraTitle">ספקי תשתית</strong></p>
+      <p data-i18n="termsPrivacyInfraBody">אנו נעזרים בספקי תשתית ענן ובינה מלאכותית מאובטחים אך ורק לצורך יצירת הספר והפעלת השירות. לכל ספק מדיניות פרטיות משלו.</p>
 
       <div class="divider"></div>
 
-      <p><strong>Your rights</strong></p>
+      <p><strong data-i18n="termsPrivacyRightsTitle">זכויות המשתמש</strong></p>
       <ul class="policy-list">
-        <li>You may request deletion of your data at any time by emailing us</li>
-        <li>You may request a copy of any personal data we hold about you</li>
-        <li>You may opt out of any future email communications at any time</li>
+        <li data-i18n="termsPrivacyRight1">תוכלו לבקש מחיקת הנתונים שלכם בכל עת באמצעות פנייה אלינו</li>
+        <li data-i18n="termsPrivacyRight2">תוכלו לבקש עותק של כל מידע אישי שאנו מחזיקים אודותיכם</li>
+        <li data-i18n="termsPrivacyRight3">תוכלו לבטל את הסכמתכם לתקשורת עתידית בכל עת</li>
       </ul>
 
       <div class="highlight-box">
-        <p>For any privacy-related requests, email <strong><a href="mailto:lifebooks@lifebooksil.com" style="color:var(--gold);">lifebooks@lifebooksil.com</a></strong> and we will respond within 5 business days.</p>
+        <p data-i18n="termsPrivacyContactBox">לכל פנייה הקשורה לפרטיות, שלחו מייל ל-<strong><a href="mailto:lifebooks@lifebooksil.com" style="color:var(--gold);">lifebooks@lifebooksil.com</a></strong> ונחזור אליכם תוך 5 ימי עסקים.</p>
       </div>
+    </div>
+  </div>
+
+  <!-- ── PAYMENT & SECURITY ── -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon">🔐</div>
+      <h2 class="section-title" data-i18n="termsPaymentTitle">תשלום ואבטחה</h2>
+    </div>
+    <div class="policy-body">
+      <p data-i18n="termsPaymentBody">התשלומים מעובדים באופן מאובטח דרך ספק תשלומים מוסמך. איננו רואים, שומרים או מטפלים בפרטי כרטיס האשראי שלכם בשום שלב.</p>
     </div>
   </div>
 
@@ -288,16 +298,16 @@
   <div class="card">
     <div class="section-header">
       <div class="section-icon">📋</div>
-      <h2 class="section-title">General Terms of Use</h2>
+      <h2 class="section-title" data-i18n="termsGeneralTitle">תנאי שימוש כלליים</h2>
     </div>
     <div class="policy-body">
       <ul class="policy-list">
-        <li>Lifebook is intended for personal, non-commercial use. Books are for the private enjoyment of the purchasing family.</li>
-        <li>You must own or have the right to use any photo you upload. By uploading a photo, you confirm you have this right.</li>
-        <li>Generated books may not be resold, redistributed, or used for commercial purposes without our written permission.</li>
-        <li>We reserve the right to refuse service for content that is inappropriate, harmful, or violates the rights of others.</li>
-        <li>Lifebook is not responsible for AI-generated content that may not meet your expectations — each book is unique and results may vary.</li>
-        <li>These terms may be updated from time to time. Continued use of the service constitutes acceptance of the current terms.</li>
+        <li data-i18n="termsGeneral1">הספר שנוצר עבורכם מיועד לשימושכם האישי. אין לפרסם, להפיץ או למכור אותו מסחרית ללא אישור בכתב מאיתנו.</li>
+        <li data-i18n="termsGeneral2">עליכם להיות בעלי הזכות להשתמש בכל תמונה שתעלו. בהעלאת תמונה אתם מאשרים שיש לכם זכות זו.</li>
+        <li data-i18n="termsGeneral3">השירות ניתן "כמות שהוא" (as-is). אין אחריות על שימוש לרעה. תוצאות הבינה המלאכותית עשויות להשתנות בין ספר לספר.</li>
+        <li data-i18n="termsGeneral4">אנו שומרים לעצמנו את הזכות לסרב למתן שירות לתוכן פוגעני, בלתי הולם או המפר זכויות אחרים.</li>
+        <li data-i18n="termsGeneral5">תנאים אלה עשויים להתעדכן מעת לעת. המשך השימוש בשירות מהווה הסכמה לתנאים העדכניים.</li>
+        <li data-i18n="termsGeneral6">לשאלות ופניות: <a href="mailto:lifebooks@lifebooksil.com" style="color:var(--gold);">lifebooks@lifebooksil.com</a></li>
       </ul>
     </div>
   </div>
@@ -305,22 +315,22 @@
   <!-- ── CONTACT STRIP ── -->
   <div class="contact-strip">
     <div class="contact-strip-text">
-      <p>Have a question about your order or privacy?</p>
-      <p>We're a small team and reply within 24 hours on business days.</p>
+      <p data-i18n="termsContactStripTitle">יש לכם שאלה על ההזמנה או הפרטיות?</p>
+      <p data-i18n="termsContactStripSub">אנחנו צוות קטן ועונים תוך 24 שעות בימי עסקים.</p>
     </div>
     <a href="mailto:lifebooks@lifebooksil.com">✉️ lifebooks@lifebooksil.com</a>
   </div>
 
-  <p class="last-updated">Last updated: April 2026 · Lifebook</p>
+  <p class="last-updated" data-i18n="termsLastUpdated">עודכן לאחרונה: אפריל 2026 · Lifebook</p>
 
 </main>
 
 <footer>
   <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
-  <div class="footer-copy">© 2026 Lifebook. All rights reserved.</div>
+  <div class="footer-copy" data-i18n="footerRights">© 2026 Lifebook. כל הזכויות שמורות.</div>
   <div class="footer-links">
-    <a href="terms.html">Terms &amp; Privacy</a>
-    <a href="contact.html">Contact Us</a>
+    <a href="terms.html" data-i18n="termsLink">תנאי שימוש</a>
+    <a href="contact.html" data-i18n="contactLink">צרו קשר</a>
   </div>
 </footer>
 
