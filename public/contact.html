@@ -148,11 +148,12 @@
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="js/i18n.js"></script>
 </head>
 <body>
 
 <nav>
-  <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם">← Back</button>
+  <button class="nav-back" onclick="history.back()" aria-label="חזרה לעמוד הקודם" data-i18n="backBtn">← Back</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
@@ -162,103 +163,103 @@
 <main class="shell">
 
   <div class="page-header">
-    <div class="step-badge">✉️ Get in touch</div>
-    <h1 class="page-title">We'd love to hear from you</h1>
-    <p class="page-sub">Have a question about your book, a technical issue, or just want to say hello? We're here to help.</p>
+    <div class="step-badge" data-i18n="contactPageBadge">✉️ Get in touch</div>
+    <h1 class="page-title" data-i18n="contactPageTitle">We'd love to hear from you</h1>
+    <p class="page-sub" data-i18n="contactPageSub">Have a question about your book, a technical issue, or just want to say hello? We're here to help.</p>
   </div>
 
   <div class="contact-grid">
 
     <!-- Contact Form -->
     <div class="card">
-      <div class="card-title">Send us a message</div>
+      <div class="card-title" data-i18n="contactFormTitle">Send us a message</div>
 
       <div id="formWrap">
         <div class="form-group">
           <label class="input-label">
-            Your name
-            <input id="contactName" type="text" placeholder="e.g. Sarah"/>
+            <span data-i18n="contactNameLabel">Your name</span>
+            <input id="contactName" type="text" placeholder="e.g. Sarah" data-i18n-placeholder="contactNamePlaceholder"/>
           </label>
           <label class="input-label">
-            Your email
+            <span data-i18n="contactEmailLabel">Your email</span>
             <input id="contactEmail" type="email" placeholder="you@example.com"/>
           </label>
           <label class="input-label">
-            Subject
+            <span data-i18n="contactSubjectLabel">Subject</span>
             <select id="contactSubject">
-              <option value="">Choose a topic...</option>
-              <option value="book-issue">Issue with my book</option>
-              <option value="payment">Payment question</option>
-              <option value="generation">Generation took too long</option>
-              <option value="pdf">PDF download problem</option>
-              <option value="other">Something else</option>
+              <option value="" data-i18n="contactSubjectDefault">Choose a topic...</option>
+              <option value="book-issue" data-i18n="contactSubjectBookIssue">Issue with my book</option>
+              <option value="payment" data-i18n="contactSubjectPayment">Payment question</option>
+              <option value="generation" data-i18n="contactSubjectGeneration">Generation took too long</option>
+              <option value="pdf" data-i18n="contactSubjectPdf">PDF download problem</option>
+              <option value="other" data-i18n="contactSubjectOther">Something else</option>
             </select>
           </label>
           <label class="input-label">
-            Message
-            <textarea id="contactMessage" placeholder="Tell us what's on your mind..."></textarea>
+            <span data-i18n="contactMessageLabel">Message</span>
+            <textarea id="contactMessage" placeholder="Tell us what's on your mind..." data-i18n-placeholder="contactMessagePlaceholder"></textarea>
           </label>
         </div>
         <div id="formError" style="color:#c0392b;font-size:13px;margin-top:10px;display:none"></div>
-        <button class="btn-primary" id="sendBtn" onclick="submitForm()">Send Message ✉️</button>
+        <button class="btn-primary" id="sendBtn" onclick="submitForm()" data-i18n="contactSendBtn">Send Message ✉️</button>
       </div>
 
       <div class="success-msg" id="successMsg">
         <div class="success-icon">🎉</div>
-        <div class="success-title">Message sent!</div>
-        <div class="success-sub">We'll get back to you within 24 hours.<br/>Check your inbox — we'll reply to <span id="replyEmail"></span></div>
+        <div class="success-title" data-i18n="contactSuccessTitle">Message sent!</div>
+        <div class="success-sub"><span data-i18n="contactSuccessSub">We'll get back to you within 24 hours. Check your inbox — we'll reply to</span> <span id="replyEmail"></span></div>
       </div>
     </div>
 
     <!-- Info + FAQ -->
     <div style="display:grid;gap:20px;">
       <div class="card">
-        <div class="card-title">Contact info</div>
+        <div class="card-title" data-i18n="contactInfoTitle">Contact info</div>
         <div class="info-list">
           <div class="info-item">
             <div class="info-icon">✉️</div>
             <div class="info-text">
-              <strong>Email support</strong>
-              <span><a href="mailto:hello@lifebook.ai">hello@lifebook.ai</a><br/>We reply within 24 hours</span>
+              <strong data-i18n="contactEmailSupport">Email support</strong>
+              <span><a href="mailto:hello@lifebook.ai">hello@lifebook.ai</a><br/><span data-i18n="contactEmailSupportDesc">We reply within 24 hours</span></span>
             </div>
           </div>
           <div class="info-item">
             <div class="info-icon">⏰</div>
             <div class="info-text">
-              <strong>Response time</strong>
-              <span>Usually within a few hours<br/>during business days</span>
+              <strong data-i18n="contactResponseTime">Response time</strong>
+              <span data-i18n="contactResponseTimeDesc">Usually within a few hours during business days</span>
             </div>
           </div>
           <div class="info-item">
             <div class="info-icon">📖</div>
             <div class="info-text">
-              <strong>Book issues</strong>
-              <span>Please include your book ID<br/>or the child's name</span>
+              <strong data-i18n="contactBookIssues">Book issues</strong>
+              <span data-i18n="contactBookIssuesDesc">Please include your book ID or the child's name</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">FAQ</div>
+        <div class="card-title" data-i18n="contactFaqTitle">FAQ</div>
         <div class="faq-item">
-          <div class="faq-q">How long does book generation take?</div>
-          <div class="faq-a">Usually 5–10 minutes. We generate 16 unique illustrations plus the cover — all powered by AI.</div>
+          <div class="faq-q" data-i18n="contactFaqQ1">How long does book generation take?</div>
+          <div class="faq-a" data-i18n="contactFaqA1">Usually 5–10 minutes. We generate 12 unique illustrations plus the cover — all powered by AI.</div>
         </div>
         <div class="divider"></div>
         <div class="faq-item">
-          <div class="faq-q">My PDF didn't download. What now?</div>
-          <div class="faq-a">Try refreshing the delivery page and clicking Download again. If it still fails, contact us with your book ID.</div>
+          <div class="faq-q" data-i18n="contactFaqQ2">My PDF didn't download. What now?</div>
+          <div class="faq-a" data-i18n="contactFaqA2">Try refreshing the delivery page and clicking Download again. If it still fails, contact us with your book ID.</div>
         </div>
         <div class="divider"></div>
         <div class="faq-item">
-          <div class="faq-q">Can I get a refund?</div>
-          <div class="faq-a">If you're not happy with your book, reach out within 7 days and we'll make it right.</div>
+          <div class="faq-q" data-i18n="contactFaqQ3">Can I get a refund?</div>
+          <div class="faq-a" data-i18n="contactFaqA3">If you're not happy with your book, reach out within 7 days and we'll make it right.</div>
         </div>
         <div class="divider"></div>
         <div class="faq-item">
-          <div class="faq-q">Can I change the child's name or story?</div>
-          <div class="faq-a">Each book is generated fresh. To change details, please create a new book from the home page.</div>
+          <div class="faq-q" data-i18n="contactFaqQ4">Can I change the child's name or story?</div>
+          <div class="faq-a" data-i18n="contactFaqA4">Each book is generated fresh. To change details, please create a new book from the home page.</div>
         </div>
       </div>
     </div>
@@ -277,12 +278,12 @@ async function submitForm() {
 
   errEl.style.display = 'none';
 
-  if (!name)    { showErr('Please enter your name.'); return; }
-  if (!email || !email.includes('@')) { showErr('Please enter a valid email.'); return; }
-  if (!message) { showErr('Please write a message.'); return; }
+  if (!name)    { showErr(typeof i18nT==='function'?i18nT('contactErrName'):'Please enter your name.'); return; }
+  if (!email || !email.includes('@')) { showErr(typeof i18nT==='function'?i18nT('contactErrEmail'):'Please enter a valid email.'); return; }
+  if (!message) { showErr(typeof i18nT==='function'?i18nT('contactErrMessage'):'Please write a message.'); return; }
 
   btn.disabled = true;
-  btn.textContent = 'Sending...';
+  btn.textContent = typeof i18nT==='function'?i18nT('contactSending'):'Sending...';
 
   try {
     const res = await fetch('/api/contact', {
@@ -296,14 +297,14 @@ async function submitForm() {
       document.getElementById('replyEmail').textContent = email;
       document.getElementById('successMsg').style.display = 'block';
     } else {
-      showErr(data.error || 'Something went wrong. Please try again.');
+      showErr(data.error || (typeof i18nT==='function'?i18nT('contactErrGeneric'):'Something went wrong. Please try again.'));
       btn.disabled = false;
-      btn.textContent = 'Send Message ✉️';
+      btn.textContent = typeof i18nT==='function'?i18nT('contactSendBtn'):'Send Message ✉️';
     }
   } catch(e) {
-    showErr('Network error. Please try again.');
+    showErr(typeof i18nT==='function'?i18nT('contactErrNetwork'):'Network error. Please try again.');
     btn.disabled = false;
-    btn.textContent = 'Send Message ✉️';
+    btn.textContent = typeof i18nT==='function'?i18nT('contactSendBtn'):'Send Message ✉️';
   }
 
   function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }

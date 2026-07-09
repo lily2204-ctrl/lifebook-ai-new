@@ -175,11 +175,12 @@
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="js/i18n.js"></script>
 </head>
 <body>
 
 <nav>
-  <button class="nav-back" onclick="history.back()">← Back</button>
+  <button class="nav-back" onclick="history.back()" data-i18n="backBtn">← Back</button>
   <a class="nav-brand" href="index.html">
     <img src="assets/branding/lifebook-logo.webp" alt="Lifebook" style="height:54px;width:auto;display:block"/>
   </a>
@@ -189,9 +190,9 @@
 <main class="shell">
 
   <div class="page-header">
-    <div class="step-badge">📄 Legal</div>
-    <h1 class="page-title">Terms, Refund &amp; Privacy Policy</h1>
-    <p class="page-sub">Everything you need to know about how we handle your order, your photos, and your data.</p>
+    <div class="step-badge" data-i18n="termsPageBadge">📄 Legal</div>
+    <h1 class="page-title" data-i18n="termsPageTitle">Terms, Refund &amp; Privacy Policy</h1>
+    <p class="page-sub" data-i18n="termsPageSub">Everything you need to know about how we handle your order, your photos, and your data.</p>
   </div>
 
   <!-- ── REFUND POLICY ── -->
