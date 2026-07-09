@@ -123,7 +123,7 @@ const I18N = {
     faqLink: 'שאלות נפוצות',
     contactLink: 'צרו קשר',
     termsLink: 'תנאי שימוש',
-    canCloseTab: 'ניתן לסגור את הלשונית — נשלח אליכם מייל כשהספר מוכן',
+    canCloseTab: 'עוד רגע עוברים לתצוגה המקדימה ✨',
     // Preview page dynamic
     preparingPreview: '⏳ מכין את התצוגה המקדימה...',
     illustratingDots: 'מאייר...',
@@ -284,7 +284,7 @@ const I18N = {
     faqLink: 'FAQ',
     contactLink: 'Contact',
     termsLink: 'Terms',
-    canCloseTab: "You can close this tab — we'll email you when your book is ready",
+    canCloseTab: 'Taking you to your preview in a moment ✨',
     // Preview page dynamic
     preparingPreview: '⏳ Preparing your preview...',
     illustratingDots: 'Illustrating...',
