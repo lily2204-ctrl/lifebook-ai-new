@@ -120,6 +120,9 @@ const I18N = {
     stepCoverPages: 'כריכה + 2 איורי תצוגה מקדימה',
     previewReadyLabel: 'תצוגה מקדימה מוכנה!',
     readyToView: 'מוכן לצפייה ולביטול נעילה',
+    faqLink: 'שאלות נפוצות',
+    contactLink: 'צרו קשר',
+    termsLink: 'תנאי שימוש',
     canCloseTab: 'ניתן לסגור את הלשונית — נשלח אליכם מייל כשהספר מוכן',
     // Preview page dynamic
     preparingPreview: '⏳ מכין את התצוגה המקדימה...',
@@ -278,6 +281,9 @@ const I18N = {
     stepCoverPages: 'Cover + 2 preview illustrations',
     previewReadyLabel: 'Preview ready!',
     readyToView: 'Ready to view and unlock',
+    faqLink: 'FAQ',
+    contactLink: 'Contact',
+    termsLink: 'Terms',
     canCloseTab: "You can close this tab — we'll email you when your book is ready",
     // Preview page dynamic
     preparingPreview: '⏳ Preparing your preview...',
