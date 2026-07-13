@@ -162,14 +162,14 @@ async function upscaleImage(imageBuffer) {
   const dataUrl = `data:image/png;base64,${b64}`;
 
   // Create prediction
-  const createRes = await fetch("https://api.replicate.com/v1/predictions", {
+  const createRes = await fetch("https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions", {
     method: "POST",
     headers: {
       Authorization: `Token ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      version: REPLICATE_MODEL.split(":")[1],
+      
       input: {
         image:  dataUrl,
         scale:  4,        // 4× upscale: 1024 → 4096; we crop/resize to 2670
