@@ -51,6 +51,11 @@ document.addEventListener("DOMContentLoaded", async function() {
   var payBtn = document.getElementById("shopifyPayBtn");
   if (payBtn) {
     payBtn.href = SHOPIFY_STORE + "/cart/" + SHOPIFY_VARIANT + ":1?attributes[book_id]=" + encodeURIComponent(bookId);
+    // Analytics: proceed to payment
+    payBtn.addEventListener('click', function() {
+      if (typeof gtag === 'function') gtag('event', 'proceed_to_payment', { value: 89, currency: 'ILS' });
+      if (typeof ttq !== 'undefined') ttq.track('InitiateCheckout', { content_name: 'book', value: 89, currency: 'ILS' });
+    });
   }
 
   try {

@@ -129,6 +129,10 @@ continueBtn.addEventListener("click", async function() {
       throw new Error("No bookId returned from server. Please try again.");
     }
 
+    // Analytics: photo uploaded successfully
+    if (typeof gtag === 'function') gtag('event', 'photo_uploaded');
+    if (typeof ttq !== 'undefined') ttq.track('AddToWishlist', { content_name: 'photo_uploaded' });
+
     setStatus(i18nT("statusStarting"), 75);
 
     // Fire generate-full in background — don't await
@@ -136,6 +140,10 @@ continueBtn.addEventListener("click", async function() {
       method: "POST",
       headers: { "Content-Type": "application/json" }
     }).catch(function(e) { console.warn("generate-full kick:", e.message); });
+
+    // Analytics: book generation started
+    if (typeof gtag === 'function') gtag('event', 'book_generation_started');
+    if (typeof ttq !== 'undefined') ttq.track('SubmitForm', { content_name: 'book_generation_started' });
 
     setStatus(i18nT("statusRedirecting"), 95);
 
