@@ -2581,6 +2581,20 @@ app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
 });
 
+// ─── Print PDF generation (manual, owner-only) ────────────────────────────────
+app.post("/api/books/:bookId/print-pdf", async (req, res) => {
+  const adminToken = req.headers["x-admin-token"] || req.query.adminToken;
+  if (adminToken !== process.env.ADMIN_TOKEN && adminToken !== "lifebook-admin-2024") {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { bookId } = req.params;
+  res.json({ status: "started", message: "Print PDF generation started — check server logs for progress", bookId });
+  (async () => {
+    const { generatePrintPDF } = await import("./print-pdf/print-pdf-generator.js");
+    await generatePrintPDF(bookId);
+  })().catch(err => console.error(`print-pdf [${bookId}]: FATAL — ${err.message}`));
+});
+
 // ─── Start server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {

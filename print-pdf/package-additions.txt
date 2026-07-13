@@ -1,0 +1,50 @@
+## npm packages needed for print-pdf-generator.js
+## (not yet installed — owner must approve before running)
+
+### Required
+
+pdfkit
+  Server-side PDF generation library (Node.js native, no browser dep).
+  The digital delivery.html uses jsPDF which is browser-only and cannot run in Node.
+  pdfkit is the correct server-side replacement.
+
+  Install: npm install pdfkit
+
+canvas
+  Node.js implementation of the HTML5 Canvas API, backed by Cairo.
+  Required to render Hebrew (RTL) text to a PNG image for embedding in the PDF.
+  pdfkit's built-in text rendering does not support RTL/bidi reordering properly.
+  canvas handles this via the system's Cairo/Pango stack.
+
+  Install: npm install canvas
+
+  Note: canvas has native C++ bindings. On Railway, this should compile
+  automatically during `npm install`. If it fails, add the following to
+  package.json scripts.postinstall or use the pre-built binary:
+    npm install canvas --build-from-source
+  OR use the pre-built package for Linux x64 (Railway's runtime):
+    npm install @napi-rs/canvas   ← drop-in alternative, pure JS pre-built
+
+### New environment variable needed
+
+REPLICATE_API_TOKEN
+  Get from: https://replicate.com/account/api-tokens
+  Add to Railway: Settings → Variables → REPLICATE_API_TOKEN=<your token>
+  Estimated cost: ~$0.01 per upscale call × 13 images = ~$0.13 per book
+
+### Already installed (no action needed)
+
+@supabase/supabase-js  ← already in package.json
+openai                 ← already in package.json
+express                ← already in package.json
+
+### Estimated total API cost per print PDF run
+
+  OpenAI images.edit (outpaint):  $0.04 × 13 images = $0.52
+  Replicate Real-ESRGAN (upscale): $0.01 × 13 images = $0.13
+  ─────────────────────────────────────────────────────────
+  Total per book:                                    ~$0.65
+
+### Install command (run from project root)
+
+  npm install pdfkit canvas
