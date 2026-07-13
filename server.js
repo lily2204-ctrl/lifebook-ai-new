@@ -2574,14 +2574,6 @@ app.post("/api/admin/books/:bookId/generate", requireAdminAuth, async (req, res)
 });
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
-app.use((req, res) => {
-  if (req.path.startsWith("/api/") || req.path.startsWith("/webhooks/")) {
-    return res.status(404).json({ status: "error", message: "Not found" });
-  }
-  res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
-});
-
-// ─── Print PDF generation (manual, owner-only) ────────────────────────────────
 app.post("/api/books/:bookId/print-pdf", async (req, res) => {
   const adminToken = req.headers["x-admin-token"] || req.query.adminToken;
   if (adminToken !== process.env.ADMIN_TOKEN && adminToken !== "lifebook-admin-2024") {
@@ -2594,6 +2586,16 @@ app.post("/api/books/:bookId/print-pdf", async (req, res) => {
     await generatePrintPDF(bookId);
   })().catch(err => console.error(`print-pdf [${bookId}]: FATAL — ${err.message}`));
 });
+
+app.use((req, res) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/webhooks/")) {
+    return res.status(404).json({ status: "error", message: "Not found" });
+  }
+  res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
+});
+
+// ─── Print PDF generation (manual, owner-only) ────────────────────────────────
+
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
