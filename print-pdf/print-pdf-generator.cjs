@@ -455,8 +455,9 @@ async function buildPDF(book, spreads, outputPath, logo) {
   // "סוף" is conveyed through this page (no separate end page — math requires 2 end pages).
   addFramePage(renderFramePagePng(
     [
-      { text: `ספר זה נוצר במיוחד עבור ${book.childName}`, fontSize: 8, yFrac: 0.62, bold: false, color: '#7a5c3a' },
-      { text: 'lifebooksil.com', fontSize: 4.5, yFrac: 0.72, bold: false, color: '#a08060' },
+      { text: `ספר זה נכתב במיוחד עבור ${book.childName}`, fontSize: 8,   yFrac: 0.60, bold: false, color: '#2c1a0e' },
+      { text: 'שכל הרפתקה מתחילה ממך',                      fontSize: 6.5, yFrac: 0.68, bold: false, color: '#7a5c3a' },
+      { text: 'lifebooksil.com',                              fontSize: 4.5, yFrac: 0.78, bold: false, color: '#a08060' },
     ],
     [18, PAGE_MM - 18],
     null,
