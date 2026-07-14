@@ -258,6 +258,30 @@ function renderHebrewTextPng(text) {
   }
 }
 
+// ─── Logo loader ──────────────────────────────────────────────────────────────
+
+const LOGO_PATH = path.join(__dirname, '..', 'public', 'assets', 'branding', 'logo-pdf.png');
+
+/**
+ * Load the Lifebook logo WebP and return it as a PNG Buffer via canvas.
+ * Returns null if the file is not found (non-fatal).
+ */
+async function loadLogoPng() {
+  try {
+    const { createCanvas, loadImage } = require('canvas');
+    const img    = await loadImage(LOGO_PATH);
+    // Preserve aspect ratio; render at 600px wide
+    const W      = 600;
+    const H      = Math.round(img.height * (W / img.width));
+    const canvas = createCanvas(W, H);
+    canvas.getContext('2d').drawImage(img, 0, 0, W, H);
+    return { buffer: canvas.toBuffer('image/png'), w: W, h: H };
+  } catch (e) {
+    console.warn(`[print-pdf] logo not found at ${LOGO_PATH}: ${e.message}`);
+    return null;
+  }
+}
+
 // ─── Frame page renderer via canvas (Hebrew-safe) ────────────────────────────
 
 /**
@@ -265,14 +289,16 @@ function renderHebrewTextPng(text) {
  * passed to pdfkit directly (which produces broken glyphs).
  *
  * @param {Array<{text,fontSize,color,bold,yFrac}>} textLines
- *   - yFrac: Y position as fraction of PAGE_MM (0..1)
+ *   - yFrac: Y position as fraction of page height (0..1)
  *   - fontSize: in mm
  * @param {number[]} ruleYMms   Y positions (mm) for gold horizontal rules
  * @param {object|null} nameLine  If set: {yFrac} draws a gold underline (name field)
+ * @param {object|null} logo      If set: {buffer, w, h} — logo image, centered at logoYFrac
+ * @param {number} logoYFrac      Y center of logo as fraction (default 0.36)
  * @returns Buffer  PNG buffer at 300 DPI
  */
-function renderFramePagePng(textLines, ruleYMms = [], nameLine = null) {
-  const { createCanvas } = require('canvas');
+function renderFramePagePng(textLines, ruleYMms = [], nameLine = null, logo = null, logoYFrac = 0.36) {
+  const { createCanvas, Image } = require('canvas');
   const PX    = Math.round(PAGE_MM / 25.4 * 300); // ~2673px at 300 DPI
   const mm2px = PX / PAGE_MM;
 
@@ -294,9 +320,30 @@ function renderFramePagePng(textLines, ruleYMms = [], nameLine = null) {
     ctx.stroke();
   }
 
+  // Logo image centered
+  if (logo) {
+    // Logo rendered at ~1/4 of page width
+    const logoW  = Math.round(PX * 0.26);
+    const logoH  = Math.round(logo.h * (logoW / logo.w));
+    const logoX  = (PX - logoW) / 2;
+    const logoY  = logoYFrac * PX - logoH / 2;
+    const img    = new Image();
+    img.src      = logo.buffer;
+    ctx.drawImage(img, logoX, logoY, logoW, logoH);
+
+    // Thin gold rule below logo
+    const ruleY = logoY + logoH + 18 * mm2px;
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = 0.7 * mm2px;
+    ctx.beginPath();
+    ctx.moveTo(PX * 0.32, ruleY);
+    ctx.lineTo(PX * 0.68, ruleY);
+    ctx.stroke();
+  }
+
   // Name underline (gold line where child writes their name)
   if (nameLine) {
-    const y = nameLine.yFrac * PAGE_MM * mm2px;
+    const y = nameLine.yFrac * PX;
     ctx.strokeStyle = '#c8a84b';
     ctx.lineWidth   = 0.9 * mm2px;
     ctx.beginPath();
@@ -321,7 +368,7 @@ function renderFramePagePng(textLines, ruleYMms = [], nameLine = null) {
 
 // ─── PDF builder — 28 single pages ───────────────────────────────────────────
 
-async function buildPDF(book, spreads, outputPath) {
+async function buildPDF(book, spreads, outputPath, logo) {
   const doc = new PDFDocument({
     size:          [PAGE_PT, PAGE_PT],
     margin:        0,
@@ -395,23 +442,29 @@ async function buildPDF(book, spreads, outputPath) {
     // NO page numbers — per spec
   }
 
-  // ── Page 27: End page ──────────────────────────────────────────────────────
+  // ── Page 27: End page — mirrors delivery.html back cover style ────────────
+  // Logo + gold rule + dynamic closing line + domain
   addFramePage(renderFramePagePng(
     [
-      { text: 'סוף... או התחלה?', fontSize: 11, yFrac: 0.42, bold: true,  color: '#2c1a0e' },
-      { text: '✦  ✦  ✦',          fontSize:  6, yFrac: 0.56, bold: false, color: '#c8a84b' },
+      // "A magical story created just for [childName]" — dynamic, Hebrew
+      { text: `סיפור קסום שנוצר במיוחד עבור ${book.childName}`, fontSize: 7.5, yFrac: 0.62, bold: false, color: '#7a5c3a' },
+      { text: 'lifebooksil.com', fontSize: 4.5, yFrac: 0.72, bold: false, color: '#a08060' },
     ],
-    [24, PAGE_MM - 24]
+    [18, PAGE_MM - 18],
+    null,   // no name underline
+    logo,   // logo centered at top-third
+    0.34    // logoYFrac
   ));
 
-  // ── Page 28: Logo page ─────────────────────────────────────────────────────
+  // ── Page 28: Logo / colophon page — logo + domain only, no brand name text ─
   addFramePage(renderFramePagePng(
     [
-      { text: 'Lifebook AI',          fontSize:  9, yFrac: 0.42, bold: true,  color: '#c8a84b' },
-      { text: 'ספר ילדים מותאם אישית', fontSize:  5, yFrac: 0.50, bold: false, color: '#7a5c3a' },
-      { text: 'lifebooksil.com',       fontSize:  4, yFrac: 0.60, bold: false, color: '#2c1a0e' },
+      { text: 'lifebooksil.com', fontSize: 5, yFrac: 0.62, bold: false, color: '#a08060' },
     ],
-    [20, PAGE_MM - 20]
+    [20, PAGE_MM - 20],
+    null,
+    logo,
+    0.40
   ));
 
   doc.end();
@@ -541,7 +594,8 @@ async function generatePrintPDF(bookId, options = {}) {
   const expectedPages = 2 + (pilotPages * 2) + 2; // front×2 + spreads×2 + end×2
   console.log(`[print-pdf] STEP 6: building PDF — ${expectedPages} pages (${pilotPages} spreads)...`);
 
-  await buildPDF(book, spreads, outputPath);
+  const logo = await loadLogoPng();
+  await buildPDF(book, spreads, outputPath, logo);
 
   const totalSec = ((Date.now() - globalStart) / 1000).toFixed(1);
   console.log(`[print-pdf] ── DONE ── ${totalSec}s — estimated cost: ~$${costEstimate.toFixed(2)}`);
@@ -550,5 +604,35 @@ async function generatePrintPDF(bookId, options = {}) {
 
   return { outputPath, debugDir: DEBUG_DIR, costEstimate, totalSeconds: parseFloat(totalSec), pages: expectedPages };
 }
+
+// ─── Cover file stub — NOT YET IMPLEMENTED ───────────────────────────────────
+//
+// TODO: generateCoverPDF(bookId, options)
+//
+// Requirements (per LIFEBOOK_SPEC.md §3 and pending Bookpod confirmation):
+//
+//   File format : Single flat page — back + spine + front (left-to-right).
+//   Cover stock : Soft cover, Chromo 300g.
+//   Dimensions  : Width = back(220mm) + spine(TBD) + front(220mm) + bleed(3.2mm × 2 sides)
+//                 Height = 220mm + bleed(3.2mm × 2 sides) = 226.4mm
+//   Spine width : Calculated from page count × paper thickness.
+//                 ⚠️ BLOCKED: awaiting Bookpod confirmation of paper type/weight for
+//                 illustrated children's books before spine width can be computed.
+//
+//   Front cover (rightmost panel):
+//     - Full-bleed illustration from book.coverImage (cover_image from Supabase).
+//     - Dynamic title overlay (book.generatedBook.title) — same Hebrew canvas rendering.
+//     - Child's name (book.childName) — dynamic, never hardcoded.
+//     - Lifebook logo bottom-right.
+//
+//   Back cover (leftmost panel):
+//     - Cream background matching interior (#fdf8f0).
+//     - Gold rules top/bottom.
+//     - Logo centered + "סיפור קסום שנוצר במיוחד עבור [childName]" + lifebooksil.com.
+//
+//   Spine: cream background, vertical title text (Hebrew, top-to-bottom), logo at bottom.
+//
+//   Hebrew binding: front cover is on the RIGHT side of the flat file.
+//   Validate layout against Bookpod preview system before first print run.
 
 module.exports = { generatePrintPDF };
