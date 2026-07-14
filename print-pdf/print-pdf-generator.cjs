@@ -258,29 +258,68 @@ function renderHebrewTextPng(text) {
   }
 }
 
-// ─── PDF builder — 28 single pages ───────────────────────────────────────────
+// ─── Frame page renderer via canvas (Hebrew-safe) ────────────────────────────
 
 /**
- * addFullBleedPage: adds a new page and tiles the image buffer full-bleed.
- * CRITICAL: image must cover the entire PAGE_PT×PAGE_PT area including bleed.
+ * Render a cream frame page entirely via node-canvas so Hebrew text is never
+ * passed to pdfkit directly (which produces broken glyphs).
+ *
+ * @param {Array<{text,fontSize,color,bold,yFrac}>} textLines
+ *   - yFrac: Y position as fraction of PAGE_MM (0..1)
+ *   - fontSize: in mm
+ * @param {number[]} ruleYMms   Y positions (mm) for gold horizontal rules
+ * @param {object|null} nameLine  If set: {yFrac} draws a gold underline (name field)
+ * @returns Buffer  PNG buffer at 300 DPI
  */
-function addFullBleedPage(doc, imgBuffer) {
-  if (!imgBuffer) throw new Error('[print-pdf] addFullBleedPage: imgBuffer is null — outpainted image missing. Stopping.');
-  doc.addPage();
-  doc.image(imgBuffer, 0, 0, { width: PAGE_PT, height: PAGE_PT });
+function renderFramePagePng(textLines, ruleYMms = [], nameLine = null) {
+  const { createCanvas } = require('canvas');
+  const PX    = Math.round(PAGE_MM / 25.4 * 300); // ~2673px at 300 DPI
+  const mm2px = PX / PAGE_MM;
+
+  const canvas = createCanvas(PX, PX);
+  const ctx    = canvas.getContext('2d');
+
+  // Cream background
+  ctx.fillStyle = '#fdf8f0';
+  ctx.fillRect(0, 0, PX, PX);
+
+  // Gold rules
+  const ruleW = 1.4 * mm2px;
+  for (const yMm of ruleYMms) {
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = ruleW;
+    ctx.beginPath();
+    ctx.moveTo(MARGIN_OUTER_MM * mm2px, yMm * mm2px);
+    ctx.lineTo((PAGE_MM - MARGIN_OUTER_MM) * mm2px, yMm * mm2px);
+    ctx.stroke();
+  }
+
+  // Name underline (gold line where child writes their name)
+  if (nameLine) {
+    const y = nameLine.yFrac * PAGE_MM * mm2px;
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = 0.9 * mm2px;
+    ctx.beginPath();
+    ctx.moveTo(50 * mm2px, y);
+    ctx.lineTo((PAGE_MM - 50) * mm2px, y);
+    ctx.stroke();
+  }
+
+  // Text — all via canvas so Hebrew renders correctly
+  ctx.textAlign = 'center';
+  ctx.direction = 'rtl';
+  for (const line of textLines) {
+    if (!line.text) continue;
+    const fsPx = line.fontSize * mm2px;
+    ctx.font      = `${line.bold ? '700 ' : '400 '}${fsPx}px Arial Unicode MS, Arial, sans-serif`;
+    ctx.fillStyle = line.color || '#2c1a0e';
+    ctx.fillText(line.text, PX / 2, line.yFrac * PX);
+  }
+
+  return canvas.toBuffer('image/png');
 }
 
-function addCreamPage(doc) {
-  doc.addPage();
-  doc.rect(0, 0, PAGE_PT, PAGE_PT).fill('#fdf8f0');
-}
-
-function goldRule(doc, yMm) {
-  doc
-    .moveTo(MARGIN_OUTER_MM * MM_TO_PT, yMm * MM_TO_PT)
-    .lineTo((PAGE_MM - MARGIN_OUTER_MM) * MM_TO_PT, yMm * MM_TO_PT)
-    .strokeColor('#c8a84b').lineWidth(1.2).stroke();
-}
+// ─── PDF builder — 28 single pages ───────────────────────────────────────────
 
 async function buildPDF(book, spreads, outputPath) {
   const doc = new PDFDocument({
@@ -297,101 +336,83 @@ async function buildPDF(book, spreads, outputPath) {
   const writeStream = fs.createWriteStream(outputPath);
   doc.pipe(writeStream);
 
-  const title    = book.generatedBook?.title    || `${book.childName}'s Magical Adventure`;
-  const subtitle = book.generatedBook?.subtitle || 'A personalized story';
+  const title    = book.generatedBook?.title    || `הרפתקת ${book.childName}`;
+  const subtitle = book.generatedBook?.subtitle || 'ספר ילדים מותאם אישית';
   const pages    = book.generatedBook?.pages    || [];
 
-  // ── Page 1: "הספר הזה שייך ל___" ──────────────────────────────────────────
-  addCreamPage(doc);
-  goldRule(doc, 18);
-  goldRule(doc, PAGE_MM - 18);
-  doc.fontSize(28 * MM_TO_PT / 10).fillColor('#2c1a0e').font('Helvetica')
-     .text('הספר הזה שייך ל', MARGIN_OUTER_MM * MM_TO_PT, PAGE_MM * 0.38 * MM_TO_PT,
-           { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' });
-  // blank line for name
-  const lineY = PAGE_MM * 0.52 * MM_TO_PT;
-  doc.moveTo(50 * MM_TO_PT, lineY).lineTo((PAGE_MM - 50) * MM_TO_PT, lineY)
-     .strokeColor('#c8a84b').lineWidth(0.8).stroke();
+  // Helper: add a frame page from a canvas PNG buffer
+  function addFramePage(pngBuffer) {
+    doc.addPage();
+    doc.image(pngBuffer, 0, 0, { width: PAGE_PT, height: PAGE_PT });
+  }
 
-  // ── Page 2: Dedication / title page ────────────────────────────────────────
-  addCreamPage(doc);
-  goldRule(doc, 28);
-  goldRule(doc, PAGE_MM - 28);
-  doc.fontSize(36 * MM_TO_PT / 10).fillColor('#2c1a0e').font('Helvetica-Bold')
-     .text(title, MARGIN_OUTER_MM * MM_TO_PT, PAGE_MM * 0.30 * MM_TO_PT,
-           { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' })
-     .moveDown(1)
-     .fontSize(20 * MM_TO_PT / 10).font('Helvetica').fillColor('#7a5c3a')
-     .text(subtitle, { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' })
-     .moveDown(3)
-     .fontSize(15 * MM_TO_PT / 10).fillColor('#c8a84b')
-     .text('✦  ✦  ✦', { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' });
+  // ── Page 1: "הספר הזה שייך ל___" ──────────────────────────────────────────
+  // ALL text via canvas — no Hebrew directly to pdfkit
+  addFramePage(renderFramePagePng(
+    [{ text: 'הספר הזה שייך ל', fontSize: 10, yFrac: 0.42, bold: false }],
+    [18, PAGE_MM - 18],
+    { yFrac: 0.54 }  // name underline
+  ));
+
+  // ── Page 2: Title / dedication page ────────────────────────────────────────
+  addFramePage(renderFramePagePng(
+    [
+      { text: title,    fontSize: 12, yFrac: 0.34, bold: true,  color: '#2c1a0e' },
+      { text: subtitle, fontSize:  7, yFrac: 0.44, bold: false, color: '#7a5c3a' },
+      { text: '✦  ✦  ✦', fontSize: 6, yFrac: 0.56, bold: false, color: '#c8a84b' },
+    ],
+    [28, PAGE_MM - 28]
+  ));
 
   // ── Pages 3–26: 12 spreads × 2 pages each ─────────────────────────────────
-  // Per LIFEBOOK_SPEC.md option A:
-  //   Illustration page: LEFT side of the 1:1 square (original, uncropped) — full bleed
-  //   Text page:         RIGHT side of the 1:1 square (outpainted bg) + Hebrew text overlay
+  // Hebrew RTL book (per LIFEBOOK_SPEC.md §3):
+  //   Odd pages  = RIGHT side (in Hebrew binding) → TEXT page
+  //   Even pages = LEFT side                      → ILLUSTRATION page
+  // So per spread: TEXT page first, then ILLUSTRATION page.
 
   for (let i = 0; i < spreads.length; i++) {
-    const spread = spreads[i];
+    const spread    = spreads[i];
     const storyText = pages[i]?.text || '';
 
-    // Page A — Illustration: full-bleed with the illustration side of the square
-    // We render the full square image but positioned so only the LEFT half fills the page.
-    // The outpainted square is 1:1 (e.g. 4096×4096 after upscale).
-    // To show only the left half: place image at x=0, width=PAGE_PT*2 (double width),
-    // so left half (original illustration) occupies x=0..PAGE_PT.
     if (!spread.squareBuffer) {
       throw new Error(`[print-pdf] spread ${i}: squareBuffer is null — cannot build page. Stopping.`);
     }
-    doc.addPage();
-    // Show left half of square (illustration) by doubling the render width
-    doc.image(spread.squareBuffer, 0, 0, { width: PAGE_PT * 2, height: PAGE_PT });
 
-    // Page B — Text: outpainted right-half background + text overlay
-    // Re-render the same square, shifted left by PAGE_PT so the RIGHT half fills the page
+    // Page B — TEXT page (RIGHT / odd in Hebrew book): right half of the square image
     doc.addPage();
     doc.image(spread.squareBuffer, -PAGE_PT, 0, { width: PAGE_PT * 2, height: PAGE_PT });
 
-    // Text overlay — prefer canvas PNG, fallback to pdfkit text
+    // Text overlay — canvas PNG (transparent bg composited on top of the bg image)
     if (spread.textOverlayPng) {
-      // Canvas PNG is full-page, transparent bg — composite on top
       doc.image(spread.textOverlayPng, 0, 0, { width: PAGE_PT, height: PAGE_PT });
-    } else if (storyText) {
-      // pdfkit text fallback (no Hebrew RTL guarantee, but better than blank)
-      console.warn(`[print-pdf] spread ${i}: using pdfkit text fallback (no canvas PNG)`);
-      const textX = MARGIN_INNER_MM * MM_TO_PT;
-      const textW = (PAGE_MM - MARGIN_INNER_MM - MARGIN_OUTER_MM) * MM_TO_PT;
-      doc.fontSize(13 * MM_TO_PT / 10).fillColor('#2c1a0e').font('Helvetica')
-         .text(storyText, textX, PAGE_MM * 0.25 * MM_TO_PT, { width: textW, align: 'right', lineGap: 4 });
     }
+    // NO pdfkit text fallback — spec requires canvas for all Hebrew; if canvas fails, warn only.
+
+    // Page A — ILLUSTRATION page (LEFT / even in Hebrew book): left half of the square image
+    doc.addPage();
+    doc.image(spread.squareBuffer, 0, 0, { width: PAGE_PT * 2, height: PAGE_PT });
+
     // NO page numbers — per spec
   }
 
   // ── Page 27: End page ──────────────────────────────────────────────────────
-  addCreamPage(doc);
-  goldRule(doc, 24);
-  goldRule(doc, PAGE_MM - 24);
-  doc.fontSize(32 * MM_TO_PT / 10).fillColor('#2c1a0e').font('Helvetica-Bold')
-     .text('סוף... או התחלה?', MARGIN_OUTER_MM * MM_TO_PT, PAGE_MM * 0.38 * MM_TO_PT,
-           { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' })
-     .moveDown(2)
-     .fontSize(18 * MM_TO_PT / 10).font('Helvetica').fillColor('#c8a84b')
-     .text('✦  ✦  ✦', { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' });
+  addFramePage(renderFramePagePng(
+    [
+      { text: 'סוף... או התחלה?', fontSize: 11, yFrac: 0.42, bold: true,  color: '#2c1a0e' },
+      { text: '✦  ✦  ✦',          fontSize:  6, yFrac: 0.56, bold: false, color: '#c8a84b' },
+    ],
+    [24, PAGE_MM - 24]
+  ));
 
   // ── Page 28: Logo page ─────────────────────────────────────────────────────
-  addCreamPage(doc);
-  goldRule(doc, 20);
-  goldRule(doc, PAGE_MM - 20);
-  doc.fontSize(26 * MM_TO_PT / 10).fillColor('#c8a84b').font('Helvetica-Bold')
-     .text('Lifebook AI', MARGIN_OUTER_MM * MM_TO_PT, PAGE_MM * 0.40 * MM_TO_PT,
-           { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' })
-     .moveDown(0.8)
-     .fontSize(14 * MM_TO_PT / 10).font('Helvetica').fillColor('#7a5c3a')
-     .text('ספר ילדים מותאם אישית', { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' })
-     .moveDown(1)
-     .fontSize(12 * MM_TO_PT / 10).fillColor('#2c1a0e')
-     .text('lifebooks.online', { width: (PAGE_MM - MARGIN_OUTER_MM * 2) * MM_TO_PT, align: 'center' });
+  addFramePage(renderFramePagePng(
+    [
+      { text: 'Lifebook AI',          fontSize:  9, yFrac: 0.42, bold: true,  color: '#c8a84b' },
+      { text: 'ספר ילדים מותאם אישית', fontSize:  5, yFrac: 0.50, bold: false, color: '#7a5c3a' },
+      { text: 'lifebooksil.com',       fontSize:  4, yFrac: 0.60, bold: false, color: '#2c1a0e' },
+    ],
+    [20, PAGE_MM - 20]
+  ));
 
   doc.end();
   await new Promise((resolve, reject) => {
@@ -437,11 +458,28 @@ async function generatePrintPDF(bookId, options = {}) {
   console.log(`[print-pdf] STEP 2 done — ${pageBuffers.filter(Boolean).length}/${pilotPages} page images loaded ${elapsed(globalStart)}`);
 
   // ── STEP 3: Outpaint to 1:1 square ─────────────────────────────────────────
+  // Reuse cached debug files if they exist — avoids paying for outpainting/upscaling again.
   console.log(`[print-pdf] STEP 3: outpainting ${pilotPages} page(s) to square...`);
   const openai = getOpenAI();
   const squareBuffers = [];
 
   for (let i = 0; i < pilotPages; i++) {
+    const cachedUpscaled   = path.join(DEBUG_DIR, `page-${i}-upscaled.png`);
+    const cachedOutpainted = path.join(DEBUG_DIR, `page-${i}-outpainted.png`);
+
+    if (fs.existsSync(cachedUpscaled)) {
+      // Already have final upscaled — skip both outpaint and upscale for this page
+      console.log(`[print-pdf] STEP 3: page ${i} → using cached upscaled (no API call)`);
+      squareBuffers.push(fs.readFileSync(cachedUpscaled));
+      continue;
+    }
+    if (fs.existsSync(cachedOutpainted)) {
+      // Already outpainted — skip outpaint, will upscale in STEP 4
+      console.log(`[print-pdf] STEP 3: page ${i} → using cached outpainted (no outpaint API call)`);
+      squareBuffers.push(fs.readFileSync(cachedOutpainted));
+      continue;
+    }
+
     if (!pageBuffers[i]) {
       squareBuffers.push(null);
       continue;
@@ -458,6 +496,13 @@ async function generatePrintPDF(bookId, options = {}) {
   const upscaledBuffers = [];
 
   for (let i = 0; i < pilotPages; i++) {
+    const cachedUpscaled = path.join(DEBUG_DIR, `page-${i}-upscaled.png`);
+    if (fs.existsSync(cachedUpscaled)) {
+      console.log(`[print-pdf] STEP 4: page ${i} → using cached upscaled (no API call)`);
+      upscaledBuffers.push(fs.readFileSync(cachedUpscaled));
+      continue;
+    }
+
     if (!squareBuffers[i]) {
       upscaledBuffers.push(null);
       continue;
