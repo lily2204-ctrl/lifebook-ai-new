@@ -2583,7 +2583,8 @@ app.post("/api/books/:bookId/print-pdf", async (req, res) => {
   const pilotPages = req.body?.pilotPages ?? null;
   res.json({ status: "started", message: "Print PDF generation started — check server logs for progress", bookId, pilotPages });
   (async () => {
-    const { generatePrintPDF } = require("./print-pdf/print-pdf-generator.js");
+    const { createRequire } = await import("module");
+    const { generatePrintPDF } = createRequire(import.meta.url)("./print-pdf/print-pdf-generator.cjs");
     await generatePrintPDF(bookId, pilotPages ? { pilotPages } : {});
   })().catch(err => console.error(`print-pdf [${bookId}]: FATAL — ${err.message}`));
 });
