@@ -98,24 +98,25 @@ function saveDebug(filename, buffer) {
 
 async function fetchBook(bookId) {
   const supabase = getSupabase();
-  // Use 'id' — matches server.js getBook() which uses .eq('id', bookId)
+  // Column names are snake_case — matches server.js getBookLight() / dbRowToBook()
   const { data, error } = await supabase
     .from('books')
-    .select('id, childName, childAge, childGender, generatedBook, coverImage, fullImages')
-    .eq('id', bookId)
-    .single();
+    .select('book_id, child_name, child_age, child_gender, generated_book, cover_image, full_images, language')
+    .eq('book_id', bookId)
+    .maybeSingle();
 
   if (error) throw new Error(`[print-pdf] Supabase fetch failed: ${error.message}`);
   if (!data)  throw new Error(`[print-pdf] Book not found: ${bookId}`);
 
   return {
-    bookId:        data.id,
-    childName:     data.childName     || '',
-    childAge:      data.childAge      || '',
-    childGender:   data.childGender   || '',
-    generatedBook: data.generatedBook || null,
-    coverImage:    data.coverImage    || null,
-    fullImages:    data.fullImages    || [],
+    bookId:        data.book_id,
+    childName:     data.child_name      || '',
+    childAge:      data.child_age       || '',
+    childGender:   data.child_gender    || '',
+    language:      data.language        || 'he',
+    generatedBook: data.generated_book  || null,
+    coverImage:    data.cover_image     || null,
+    fullImages:    data.full_images     || [],
   };
 }
 
