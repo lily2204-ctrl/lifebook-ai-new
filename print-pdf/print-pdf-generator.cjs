@@ -260,7 +260,7 @@ function renderHebrewTextPng(text) {
 
 // ─── Logo loader ──────────────────────────────────────────────────────────────
 
-const LOGO_PATH = path.join(__dirname, '..', 'public', 'assets', 'branding', 'logo-pdf.png');
+const LOGO_PATH = path.join(__dirname, '..', 'public', 'assets', 'branding', 'lifebook-logo-print-cream.png');
 
 /**
  * Load the Lifebook logo WebP and return it as a PNG Buffer via canvas.
@@ -393,15 +393,19 @@ async function buildPDF(book, spreads, outputPath, logo) {
     doc.image(pngBuffer, 0, 0, { width: PAGE_PT, height: PAGE_PT });
   }
 
-  // ── Page 1: "הספר הזה שייך ל___" ──────────────────────────────────────────
-  // ALL text via canvas — no Hebrew directly to pdfkit
-  addFramePage(renderFramePagePng(
-    [{ text: 'הספר הזה שייך ל', fontSize: 10, yFrac: 0.42, bold: false }],
-    [18, PAGE_MM - 18],
-    { yFrac: 0.54 }  // name underline
-  ));
+  // ── PARITY NOTE ─────────────────────────────────────────────────────────────
+  // Hebrew binding: odd pages = RIGHT side. Story spreads must start on an odd page
+  // so that text pages (emitted first per spread) remain odd (right-hand).
+  // Structure: 2 front pages → spreads start at page 3 (odd ✓) → 24 story pages
+  // → 2 end pages = 28 total (divisible by 4 ✓).
+  //
+  // Page 1: הקדשה (odd = right)
+  // Page 2: מעבר מעוצב — parity spacer (even = left, decorative only)
+  // Pages 3–26: 12 spreads (text=odd=right ✓, illustration=even=left ✓)
+  // Page 27: "ספר זה נוצר..." + logo (odd = right)
+  // Page 28: back cover logo (even = left)
 
-  // ── Page 2: Title / dedication page ────────────────────────────────────────
+  // ── Page 1: הקדשה ──────────────────────────────────────────────────────────
   addFramePage(renderFramePagePng(
     [
       { text: title,    fontSize: 12, yFrac: 0.34, bold: true,  color: '#2c1a0e' },
@@ -411,15 +415,20 @@ async function buildPDF(book, spreads, outputPath, logo) {
     [28, PAGE_MM - 28]
   ));
 
+  // ── Page 2: עמוד מעבר מעוצב (parity spacer — keeps spreads starting on odd) ─
+  addFramePage(renderFramePagePng(
+    [{ text: '✦', fontSize: 14, yFrac: 0.50, bold: false, color: '#c8a84b' }],
+    []  // no gold rules — minimal, unobtrusive
+  ));
+
   // ── Pages 3–26: 12 spreads × 2 pages each ─────────────────────────────────
   // Hebrew RTL book (per LIFEBOOK_SPEC.md §3):
   //   Odd pages  = RIGHT side (in Hebrew binding) → TEXT page
   //   Even pages = LEFT side                      → ILLUSTRATION page
-  // So per spread: TEXT page first, then ILLUSTRATION page.
+  // Per spread: TEXT page first (→ odd), then ILLUSTRATION page (→ even).
 
   for (let i = 0; i < spreads.length; i++) {
     const spread    = spreads[i];
-    const storyText = pages[i]?.text || '';
 
     if (!spread.squareBuffer) {
       throw new Error(`[print-pdf] spread ${i}: squareBuffer is null — cannot build page. Stopping.`);
@@ -433,7 +442,6 @@ async function buildPDF(book, spreads, outputPath, logo) {
     if (spread.textOverlayPng) {
       doc.image(spread.textOverlayPng, 0, 0, { width: PAGE_PT, height: PAGE_PT });
     }
-    // NO pdfkit text fallback — spec requires canvas for all Hebrew; if canvas fails, warn only.
 
     // Page A — ILLUSTRATION page (LEFT / even in Hebrew book): left half of the square image
     doc.addPage();
@@ -442,21 +450,21 @@ async function buildPDF(book, spreads, outputPath, logo) {
     // NO page numbers — per spec
   }
 
-  // ── Page 27: End page — mirrors delivery.html back cover style ────────────
-  // Logo + gold rule + dynamic closing line + domain
+  // ── Page 27: "ספר זה נוצר במיוחד עבור [שם]" + לוגו ────────────────────────
+  // Mirrors delivery.html back cover: cream/gold, logo, personal closing line, domain.
+  // "סוף" is conveyed through this page (no separate end page — math requires 2 end pages).
   addFramePage(renderFramePagePng(
     [
-      // "A magical story created just for [childName]" — dynamic, Hebrew
-      { text: `סיפור קסום שנוצר במיוחד עבור ${book.childName}`, fontSize: 7.5, yFrac: 0.62, bold: false, color: '#7a5c3a' },
+      { text: `ספר זה נוצר במיוחד עבור ${book.childName}`, fontSize: 8, yFrac: 0.62, bold: false, color: '#7a5c3a' },
       { text: 'lifebooksil.com', fontSize: 4.5, yFrac: 0.72, bold: false, color: '#a08060' },
     ],
     [18, PAGE_MM - 18],
-    null,   // no name underline
-    logo,   // logo centered at top-third
-    0.34    // logoYFrac
+    null,
+    logo,
+    0.34
   ));
 
-  // ── Page 28: Logo / colophon page — logo + domain only, no brand name text ─
+  // ── Page 28: עמוד אחורי — לוגו + lifebooksil.com בלבד ─────────────────────
   addFramePage(renderFramePagePng(
     [
       { text: 'lifebooksil.com', fontSize: 5, yFrac: 0.62, bold: false, color: '#a08060' },
