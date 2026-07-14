@@ -2580,10 +2580,11 @@ app.post("/api/books/:bookId/print-pdf", async (req, res) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const { bookId } = req.params;
-  res.json({ status: "started", message: "Print PDF generation started — check server logs for progress", bookId });
+  const pilotPages = req.body?.pilotPages ?? null;
+  res.json({ status: "started", message: "Print PDF generation started — check server logs for progress", bookId, pilotPages });
   (async () => {
-    const { generatePrintPDF } = await import("./print-pdf/print-pdf-generator.js");
-    await generatePrintPDF(bookId);
+    const { generatePrintPDF } = require("./print-pdf/print-pdf-generator.js");
+    await generatePrintPDF(bookId, pilotPages ? { pilotPages } : {});
   })().catch(err => console.error(`print-pdf [${bookId}]: FATAL — ${err.message}`));
 });
 
