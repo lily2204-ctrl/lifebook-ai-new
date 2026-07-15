@@ -42,8 +42,8 @@ const PAGE_PT   = PAGE_MM * MM_TO_PT;         // ~641.5pt
 const MARGIN_INNER_MM = BLEED_MM + 10;        // 13.2mm from edge → 10mm safe margin
 const MARGIN_OUTER_MM = BLEED_MM + 6;         // 9.2mm from edge → 6mm safe margin
 
-const DEBUG_DIR  = path.join(__dirname, 'debug');
 const OUTPUT_DIR = path.join(__dirname, 'output');
+// DEBUG_DIR is now per-book: path.join(__dirname, 'debug', bookId) — set in generatePrintPDF
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
@@ -85,10 +85,10 @@ function elapsed(start) {
   return `+${((Date.now() - start) / 1000).toFixed(1)}s`;
 }
 
-/** Write a buffer to debug dir. Returns the file path. */
-function saveDebug(filename, buffer) {
-  fs.mkdirSync(DEBUG_DIR, { recursive: true });
-  const fp = path.join(DEBUG_DIR, filename);
+/** Write a buffer to the per-book debug dir. Returns the file path. */
+function saveDebug(debugDir, filename, buffer) {
+  fs.mkdirSync(debugDir, { recursive: true });
+  const fp = path.join(debugDir, filename);
   fs.writeFileSync(fp, buffer);
   console.log(`[print-pdf] debug saved: ${fp} (${(buffer.length / 1024).toFixed(0)}KB)`);
   return fp;
@@ -212,12 +212,55 @@ async function upscaleImage(imageBuffer, label) {
  * The outpainted image is used as background — this PNG is composited on top.
  * Returns a PNG buffer, or null if canvas is unavailable.
  */
-function renderHebrewTextPng(text) {
+/**
+ * Sample the average luminance of the right half of squareBuffer (the outpainted bg area).
+ * Returns a value 0–255; < 128 = dark background.
+ */
+function sampleBgLuminance(squareBuffer) {
+  try {
+    const { createCanvas, loadImage } = require('canvas');
+    // Work at a small size for speed — 100×100 samples the right half
+    const SAMP = 100;
+    const canvas = createCanvas(SAMP, SAMP);
+    const ctx    = canvas.getContext('2d');
+    const img    = new (require('canvas').Image)();
+    img.src = squareBuffer;
+    // Draw only the right half of the square into our sample canvas
+    ctx.drawImage(img, img.width / 2, 0, img.width / 2, img.height, 0, 0, SAMP, SAMP);
+    const data = ctx.getImageData(0, 0, SAMP, SAMP).data;
+    let total = 0;
+    const pixels = SAMP * SAMP;
+    for (let i = 0; i < data.length; i += 4) {
+      // Relative luminance per ITU-R BT.601
+      total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    }
+    return total / pixels;
+  } catch (e) {
+    // Default to "light background" if sampling fails
+    return 200;
+  }
+}
+
+/**
+ * Render Hebrew story text to a PNG buffer sized for a full print page.
+ * Adapts text color to background brightness and adds a shadow for legibility.
+ * @param {string} text
+ * @param {Buffer} squareBuffer — the outpainted square image used to detect bg brightness
+ */
+function renderHebrewTextPng(text, squareBuffer) {
   try {
     const { createCanvas } = require('canvas');
-    // Full page at 300 DPI: 226.4mm × (300/25.4) ≈ 2673px
-    const PX = Math.round(PAGE_MM / 25.4 * 300);  // ~2673
+    const PX = Math.round(PAGE_MM / 25.4 * 300);  // ~2673px at 300 DPI
     const MARGIN_PX = Math.round(MARGIN_INNER_MM / 25.4 * 300);
+
+    // Detect background brightness → pick text color + shadow
+    const lum = squareBuffer ? sampleBgLuminance(squareBuffer) : 200;
+    const isDark       = lum < 128;
+    const textColor    = isDark ? '#f5f0e0' : '#2c1a0e';   // warm cream on dark, dark brown on light
+    const shadowColor  = isDark ? 'rgba(0,0,0,0.75)'       : 'rgba(255,255,255,0.6)';
+    const shadowBlur   = Math.round(PX * 0.006);           // ~16px at 300DPI
+    const shadowOff    = Math.round(PX * 0.003);           // ~8px
+    console.log(`[print-pdf] text overlay: bg lum=${lum.toFixed(0)} → ${isDark ? 'light text on dark bg' : 'dark text on light bg'}`);
 
     const canvas = createCanvas(PX, PX);
     const ctx    = canvas.getContext('2d');
@@ -227,10 +270,14 @@ function renderHebrewTextPng(text) {
     const LINE_H     = Math.round(FONT_SIZE * 1.7);
     const MAX_W      = PX - MARGIN_PX * 2;
 
-    ctx.font        = `${FONT_SIZE}px Arial Unicode MS, Arial, sans-serif`;
-    ctx.fillStyle   = '#2c1a0e';
-    ctx.textAlign   = 'right';
-    ctx.direction   = 'rtl';
+    ctx.font           = `${FONT_SIZE}px Arial Unicode MS, Arial, sans-serif`;
+    ctx.fillStyle      = textColor;
+    ctx.textAlign      = 'right';
+    ctx.direction      = 'rtl';
+    ctx.shadowColor    = shadowColor;
+    ctx.shadowBlur     = shadowBlur;
+    ctx.shadowOffsetX  = isDark ?  shadowOff : -shadowOff;
+    ctx.shadowOffsetY  = isDark ?  shadowOff : -shadowOff;
 
     // Word-wrap
     const words = text.split(' ');
@@ -253,7 +300,7 @@ function renderHebrewTextPng(text) {
 
     return canvas.toBuffer('image/png');
   } catch (e) {
-    console.warn(`[print-pdf] canvas renderHebrewTextPng failed: ${e.message} — will embed text via pdfkit`);
+    console.warn(`[print-pdf] canvas renderHebrewTextPng failed: ${e.message}`);
     return null;
   }
 }
@@ -295,9 +342,10 @@ async function loadLogoPng() {
  * @param {object|null} nameLine  If set: {yFrac} draws a gold underline (name field)
  * @param {object|null} logo      If set: {buffer, w, h} — logo image, centered at logoYFrac
  * @param {number} logoYFrac      Y center of logo as fraction (default 0.36)
+ * @param {boolean} doubleBorder  If true: draws outer + inner gold rect border (like digital dedication page)
  * @returns Buffer  PNG buffer at 300 DPI
  */
-function renderFramePagePng(textLines, ruleYMms = [], nameLine = null, logo = null, logoYFrac = 0.36) {
+function renderFramePagePng(textLines, ruleYMms = [], nameLine = null, logo = null, logoYFrac = 0.36, doubleBorder = false) {
   const { createCanvas, Image } = require('canvas');
   const PX    = Math.round(PAGE_MM / 25.4 * 300); // ~2673px at 300 DPI
   const mm2px = PX / PAGE_MM;
@@ -308,6 +356,17 @@ function renderFramePagePng(textLines, ruleYMms = [], nameLine = null, logo = nu
   // Cream background
   ctx.fillStyle = '#fdf8f0';
   ctx.fillRect(0, 0, PX, PX);
+
+  // Double gold border frame (like digital dedication page)
+  if (doubleBorder) {
+    const PAD_OUT = 10 * mm2px;
+    const PAD_IN  = 14 * mm2px;
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = 1.2 * mm2px;
+    ctx.strokeRect(PAD_OUT, PAD_OUT, PX - PAD_OUT * 2, PX - PAD_OUT * 2);
+    ctx.lineWidth   = 0.5 * mm2px;
+    ctx.strokeRect(PAD_IN, PAD_IN, PX - PAD_IN * 2, PX - PAD_IN * 2);
+  }
 
   // Gold rules
   const ruleW = 1.4 * mm2px;
@@ -405,21 +464,57 @@ async function buildPDF(book, spreads, outputPath, logo) {
   // Page 27: "ספר זה נוצר..." + logo (odd = right)
   // Page 28: back cover logo (even = left)
 
-  // ── Page 1: הקדשה ──────────────────────────────────────────────────────────
+  // ── Page 1: הקדשה — double gold border + logo at bottom ───────────────────
   addFramePage(renderFramePagePng(
     [
-      { text: title,    fontSize: 12, yFrac: 0.34, bold: true,  color: '#2c1a0e' },
-      { text: subtitle, fontSize:  7, yFrac: 0.44, bold: false, color: '#7a5c3a' },
-      { text: '✦  ✦  ✦', fontSize: 6, yFrac: 0.56, bold: false, color: '#c8a84b' },
+      { text: title,       fontSize: 12, yFrac: 0.36, bold: true,  color: '#2c1a0e' },
+      { text: subtitle,    fontSize:  7, yFrac: 0.46, bold: false, color: '#7a5c3a' },
+      { text: '✦  ✦  ✦',  fontSize:  5, yFrac: 0.56, bold: false, color: '#c8a84b' },
+      { text: 'lifebooksil.com', fontSize: 3.5, yFrac: 0.92, bold: false, color: '#b0905a' },
     ],
-    [28, PAGE_MM - 28]
+    [],          // no horizontal rules — border replaces them
+    null,        // no name underline
+    logo,        // logo centered near bottom
+    0.80,        // logoYFrac — below text block
+    true         // doubleBorder
   ));
 
-  // ── Page 2: עמוד מעבר מעוצב (parity spacer — keeps spreads starting on odd) ─
-  addFramePage(renderFramePagePng(
-    [{ text: '✦', fontSize: 14, yFrac: 0.50, bold: false, color: '#c8a84b' }],
-    []  // no gold rules — minimal, unobtrusive
-  ));
+  // ── Page 2: עמוד מעבר — scattered gold stars, no text ──────────────────────
+  // Drawn procedurally; no text at all. Keeps spreads starting on page 3 (odd = right ✓).
+  addFramePage((() => {
+    const { createCanvas } = require('canvas');
+    const PX    = Math.round(PAGE_MM / 25.4 * 300);
+    const canvas = createCanvas(PX, PX);
+    const ctx    = canvas.getContext('2d');
+    ctx.fillStyle = '#fdf8f0';
+    ctx.fillRect(0, 0, PX, PX);
+
+    // Thin double border
+    const mm2px = PX / PAGE_MM;
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = 1.0 * mm2px;
+    ctx.strokeRect(10 * mm2px, 10 * mm2px, PX - 20 * mm2px, PX - 20 * mm2px);
+    ctx.lineWidth   = 0.4 * mm2px;
+    ctx.strokeRect(14 * mm2px, 14 * mm2px, PX - 28 * mm2px, PX - 28 * mm2px);
+
+    // Scattered gold stars — deterministic positions (seeded pattern, not random)
+    const stars = [
+      [0.15, 0.18, 28], [0.82, 0.14, 20], [0.50, 0.10, 34],
+      [0.25, 0.50, 16], [0.75, 0.46, 22], [0.50, 0.50, 40],
+      [0.12, 0.82, 18], [0.88, 0.80, 24], [0.50, 0.88, 28],
+      [0.35, 0.28, 14], [0.65, 0.32, 12], [0.40, 0.72, 16],
+      [0.60, 0.68, 18], [0.20, 0.65, 10], [0.80, 0.62, 10],
+    ];
+    for (const [xF, yF, sizeMm] of stars) {
+      const fsPx = sizeMm * mm2px;
+      const alpha = sizeMm > 25 ? 0.85 : sizeMm > 15 ? 0.55 : 0.35;
+      ctx.font      = `${fsPx}px Arial Unicode MS, Arial, sans-serif`;
+      ctx.fillStyle = `rgba(200, 168, 75, ${alpha})`;
+      ctx.textAlign = 'center';
+      ctx.fillText('✦', xF * PX, yF * PX);
+    }
+    return canvas.toBuffer('image/png');
+  })());
 
   // ── Pages 3–26: 12 spreads × 2 pages each ─────────────────────────────────
   // Hebrew RTL book (per LIFEBOOK_SPEC.md §3):
@@ -497,8 +592,11 @@ async function generatePrintPDF(bookId, options = {}) {
   console.log(`[print-pdf] ── START ── bookId: ${bookId} pilotPages: ${pilotPages}`);
   console.log(`[print-pdf] Page size: ${PAGE_MM}×${PAGE_MM}mm (22cm + ${BLEED_MM}mm bleed each side)`);
 
-  fs.mkdirSync(DEBUG_DIR,  { recursive: true });
+  // Per-book debug dir — isolates files per book, prevents cross-contamination
+  const debugDir   = path.join(__dirname, 'debug', bookId);
+  fs.mkdirSync(debugDir,   { recursive: true });
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  console.log(`[print-pdf] Debug dir: ${debugDir}`);
 
   const suffix     = pilotPages < 12 ? `-pilot${pilotPages}` : '';
   const outputPath = path.join(OUTPUT_DIR, `book-${bookId}${suffix}-print.pdf`);
@@ -514,7 +612,7 @@ async function generatePrintPDF(bookId, options = {}) {
   for (let i = 0; i < pilotPages; i++) {
     const buf = await toBuffer(book.fullImages[i] || null);
     if (!buf) console.warn(`[print-pdf] STEP 2: page ${i} image missing`);
-    else      saveDebug(`page-${i}-original.jpg`, buf);
+    else      saveDebug(debugDir, `page-${i}-original.jpg`, buf);
     pageBuffers.push(buf);
   }
   console.log(`[print-pdf] STEP 2 done — ${pageBuffers.filter(Boolean).length}/${pilotPages} page images loaded ${elapsed(globalStart)}`);
@@ -526,17 +624,15 @@ async function generatePrintPDF(bookId, options = {}) {
   const squareBuffers = [];
 
   for (let i = 0; i < pilotPages; i++) {
-    const cachedUpscaled   = path.join(DEBUG_DIR, `page-${i}-upscaled.png`);
-    const cachedOutpainted = path.join(DEBUG_DIR, `page-${i}-outpainted.png`);
+    const cachedUpscaled   = path.join(debugDir, `page-${i}-upscaled.png`);
+    const cachedOutpainted = path.join(debugDir, `page-${i}-outpainted.png`);
 
     if (fs.existsSync(cachedUpscaled)) {
-      // Already have final upscaled — skip both outpaint and upscale for this page
       console.log(`[print-pdf] STEP 3: page ${i} → using cached upscaled (no API call)`);
       squareBuffers.push(fs.readFileSync(cachedUpscaled));
       continue;
     }
     if (fs.existsSync(cachedOutpainted)) {
-      // Already outpainted — skip outpaint, will upscale in STEP 4
       console.log(`[print-pdf] STEP 3: page ${i} → using cached outpainted (no outpaint API call)`);
       squareBuffers.push(fs.readFileSync(cachedOutpainted));
       continue;
@@ -547,7 +643,7 @@ async function generatePrintPDF(bookId, options = {}) {
       continue;
     }
     const sq = await outpaintToSquare(openai, pageBuffers[i], `page-${i}`, false);
-    saveDebug(`page-${i}-outpainted.png`, sq);
+    saveDebug(debugDir, `page-${i}-outpainted.png`, sq);
     squareBuffers.push(sq);
     costEstimate += 0.04;
     console.log(`[print-pdf] STEP 3: page ${i} outpainted (+$0.04, total ~$${costEstimate.toFixed(2)}) ${elapsed(globalStart)}`);
@@ -558,7 +654,7 @@ async function generatePrintPDF(bookId, options = {}) {
   const upscaledBuffers = [];
 
   for (let i = 0; i < pilotPages; i++) {
-    const cachedUpscaled = path.join(DEBUG_DIR, `page-${i}-upscaled.png`);
+    const cachedUpscaled = path.join(debugDir, `page-${i}-upscaled.png`);
     if (fs.existsSync(cachedUpscaled)) {
       console.log(`[print-pdf] STEP 4: page ${i} → using cached upscaled (no API call)`);
       upscaledBuffers.push(fs.readFileSync(cachedUpscaled));
@@ -570,7 +666,7 @@ async function generatePrintPDF(bookId, options = {}) {
       continue;
     }
     const up = await upscaleImage(squareBuffers[i], `page-${i}`);
-    saveDebug(`page-${i}-upscaled.png`, up);
+    saveDebug(debugDir, `page-${i}-upscaled.png`, up);
     upscaledBuffers.push(up);
     costEstimate += 0.01;
     console.log(`[print-pdf] STEP 4: page ${i} upscaled (+$0.01, total ~$${costEstimate.toFixed(2)}) ${elapsed(globalStart)}`);
@@ -590,16 +686,14 @@ async function generatePrintPDF(bookId, options = {}) {
     const storyText     = storyPages[i]?.text || '';
     let textOverlayPng  = null;
     if (storyText) {
-      textOverlayPng = renderHebrewTextPng(storyText);
-      if (textOverlayPng) saveDebug(`page-${i}-text-overlay.png`, textOverlayPng);
+      textOverlayPng = renderHebrewTextPng(storyText, squareBuffer);
+      if (textOverlayPng) saveDebug(debugDir, `page-${i}-text-overlay.png`, textOverlayPng);
     }
     spreads.push({ squareBuffer, textOverlayPng });
   }
   console.log(`[print-pdf] STEP 5 done ${elapsed(globalStart)}`);
 
   // ── STEP 6: Build PDF ───────────────────────────────────────────────────────
-  // For pilot: only the processed spreads + front matter + end pages
-  // Full 28-page structure is maintained; pilot just has fewer story spreads.
   const expectedPages = 2 + (pilotPages * 2) + 2; // front×2 + spreads×2 + end×2
   console.log(`[print-pdf] STEP 6: building PDF — ${expectedPages} pages (${pilotPages} spreads)...`);
 
@@ -609,9 +703,9 @@ async function generatePrintPDF(bookId, options = {}) {
   const totalSec = ((Date.now() - globalStart) / 1000).toFixed(1);
   console.log(`[print-pdf] ── DONE ── ${totalSec}s — estimated cost: ~$${costEstimate.toFixed(2)}`);
   console.log(`[print-pdf] Output PDF:  ${outputPath}`);
-  console.log(`[print-pdf] Debug files: ${DEBUG_DIR}`);
+  console.log(`[print-pdf] Debug files: ${debugDir}`);
 
-  return { outputPath, debugDir: DEBUG_DIR, costEstimate, totalSeconds: parseFloat(totalSec), pages: expectedPages };
+  return { outputPath, debugDir, costEstimate, totalSeconds: parseFloat(totalSec), pages: expectedPages };
 }
 
 // ─── Cover file stub — NOT YET IMPLEMENTED ───────────────────────────────────
