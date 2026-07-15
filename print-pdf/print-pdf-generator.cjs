@@ -247,6 +247,24 @@ function sampleBgLuminance(squareBuffer) {
  * @param {string} text
  * @param {Buffer} squareBuffer — the outpainted square image used to detect bg brightness
  */
+/**
+ * Convert any image buffer (PNG/JPEG) to JPEG at q85 via canvas.
+ * This is applied to all story images before PDF embedding to keep file < 80MB.
+ */
+function toJpegBuffer(imgBuffer, quality = 0.85) {
+  try {
+    const { createCanvas, Image } = require('canvas');
+    const img = new Image();
+    img.src = imgBuffer;
+    const canvas = createCanvas(img.width, img.height);
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    return canvas.toBuffer('image/jpeg', { quality });
+  } catch (e) {
+    console.warn(`[print-pdf] toJpegBuffer failed: ${e.message} — using original buffer`);
+    return imgBuffer;
+  }
+}
+
 function renderHebrewTextPng(text, squareBuffer) {
   try {
     const { createCanvas } = require('canvas');
@@ -683,13 +701,16 @@ async function generatePrintPDF(bookId, options = {}) {
       throw new Error(`[print-pdf] STEP 5: spread ${i} has no square image. Cannot continue — outpainting must have failed. Check debug files.`);
     }
 
+    // Convert to JPEG q85 before PDF embedding — keeps file well under 80MB
+    const squareJpeg    = toJpegBuffer(squareBuffer, 0.875);
+
     const storyText     = storyPages[i]?.text || '';
     let textOverlayPng  = null;
     if (storyText) {
       textOverlayPng = renderHebrewTextPng(storyText, squareBuffer);
       if (textOverlayPng) saveDebug(debugDir, `page-${i}-text-overlay.png`, textOverlayPng);
     }
-    spreads.push({ squareBuffer, textOverlayPng });
+    spreads.push({ squareBuffer: squareJpeg, textOverlayPng });
   }
   console.log(`[print-pdf] STEP 5 done ${elapsed(globalStart)}`);
 
