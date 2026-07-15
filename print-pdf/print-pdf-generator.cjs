@@ -729,34 +729,250 @@ async function generatePrintPDF(bookId, options = {}) {
   return { outputPath, debugDir, costEstimate, totalSeconds: parseFloat(totalSec), pages: expectedPages };
 }
 
-// ─── Cover file stub — NOT YET IMPLEMENTED ───────────────────────────────────
-//
-// TODO: generateCoverPDF(bookId, options)
-//
-// Requirements (per LIFEBOOK_SPEC.md §3 and pending Bookpod confirmation):
-//
-//   File format : Single flat page — back + spine + front (left-to-right).
-//   Cover stock : Soft cover, Chromo 300g.
-//   Dimensions  : Width = back(220mm) + spine(TBD) + front(220mm) + bleed(3.2mm × 2 sides)
-//                 Height = 220mm + bleed(3.2mm × 2 sides) = 226.4mm
-//   Spine width : Calculated from page count × paper thickness.
-//                 ⚠️ BLOCKED: awaiting Bookpod confirmation of paper type/weight for
-//                 illustrated children's books before spine width can be computed.
-//
-//   Front cover (rightmost panel):
-//     - Full-bleed illustration from book.coverImage (cover_image from Supabase).
-//     - Dynamic title overlay (book.generatedBook.title) — same Hebrew canvas rendering.
-//     - Child's name (book.childName) — dynamic, never hardcoded.
-//     - Lifebook logo bottom-right.
-//
-//   Back cover (leftmost panel):
-//     - Cream background matching interior (#fdf8f0).
-//     - Gold rules top/bottom.
-//     - Logo centered + "סיפור קסום שנוצר במיוחד עבור [childName]" + lifebooksil.com.
-//
-//   Spine: cream background, vertical title text (Hebrew, top-to-bottom), logo at bottom.
-//
-//   Hebrew binding: front cover is on the RIGHT side of the flat file.
-//   Validate layout against Bookpod preview system before first print run.
+// ─── Cover PDF ────────────────────────────────────────────────────────────────
 
-module.exports = { generatePrintPDF };
+/**
+ * generateCoverPDF(bookId, { spineMM })
+ *
+ * Produces a single flat PDF page: [back | spine | front] (left→right).
+ * Hebrew binding: front (חזית) on the RIGHT, back (גב) on the LEFT.
+ *
+ * Dimensions (spineMM=2.4, bleed=3.2mm each side):
+ *   Width  = 3.2 + 220 + spineMM + 220 + 3.2 = 448.8mm (spineMM=2.4 → 448.8mm)
+ *   Height = 3.2 + 220 + 3.2 = 226.4mm
+ *
+ * No AI calls — uses cover_image already in Supabase Storage.
+ * Output: print-pdf/output/{bookId}-cover.pdf
+ */
+async function generateCoverPDF(bookId, options = {}) {
+  const spineMM    = options.spineMM ?? 2.4;
+  const globalStart = Date.now();
+
+  const COVER_W_MM  = BLEED_MM + 220 + spineMM + 220 + BLEED_MM; // 448.8mm at spineMM=2.4
+  const COVER_H_MM  = PAGE_MM;                                     // 226.4mm
+  const COVER_W_PT  = COVER_W_MM * MM_TO_PT;
+  const COVER_H_PT  = COVER_H_MM * MM_TO_PT;
+
+  // Pixel dimensions at 300 DPI for canvas operations
+  const DPI         = 300;
+  const MM_TO_PX    = DPI / 25.4;
+  const COVER_W_PX  = Math.round(COVER_W_MM * MM_TO_PX);
+  const COVER_H_PX  = Math.round(COVER_H_MM * MM_TO_PX);
+  const BACK_W_PX   = Math.round((BLEED_MM + 220) * MM_TO_PX);
+  const SPINE_W_PX  = Math.round(spineMM * MM_TO_PX);
+  const FRONT_X_PX  = BACK_W_PX + SPINE_W_PX;   // x-offset of front panel
+
+  console.log(`[cover-pdf] ── START ── bookId: ${bookId} spineMM: ${spineMM}`);
+  console.log(`[cover-pdf] Flat size: ${COVER_W_MM.toFixed(1)}×${COVER_H_MM}mm (${COVER_W_PX}×${COVER_H_PX}px at 300DPI)`);
+
+  const debugDir = path.join(__dirname, 'debug', bookId);
+  fs.mkdirSync(debugDir,   { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  // ── Fetch book ──────────────────────────────────────────────────────────────
+  const book      = await fetchBook(bookId);
+  const title     = book.generatedBook?.title    || '';
+  const subtitle  = book.generatedBook?.subtitle || '';
+  console.log(`[cover-pdf] child: ${book.childName}, title: ${title}`);
+
+  // ── Load cover image ────────────────────────────────────────────────────────
+  if (!book.coverImage) throw new Error('[cover-pdf] book has no coverImage in Supabase');
+  const coverBuf = await toBuffer(book.coverImage);
+  if (!coverBuf)  throw new Error('[cover-pdf] failed to load coverImage');
+  saveDebug(debugDir, 'cover-source.jpg', coverBuf);
+  console.log(`[cover-pdf] cover image loaded (${(coverBuf.length / 1024).toFixed(0)}KB)`);
+
+  // ── Load logo ────────────────────────────────────────────────────────────────
+  const logo = await loadLogoPng();
+
+  // ── Build flat canvas ────────────────────────────────────────────────────────
+  const { createCanvas, Image } = require('canvas');
+  const canvas = createCanvas(COVER_W_PX, COVER_H_PX);
+  const ctx    = canvas.getContext('2d');
+
+  // ── FRONT panel (right side) — full-bleed cover image ───────────────────────
+  {
+    const img = new Image();
+    img.src   = coverBuf;
+    // Scale to fill front panel (FRONT_W_PX × COVER_H_PX) with cover, object-fit:cover
+    const FRONT_W_PX = Math.round((220 + BLEED_MM) * MM_TO_PX);
+    const scaleX = FRONT_W_PX / img.width;
+    const scaleY = COVER_H_PX / img.height;
+    const scale  = Math.max(scaleX, scaleY);
+    const dw     = img.width  * scale;
+    const dh     = img.height * scale;
+    const dx     = FRONT_X_PX + (FRONT_W_PX - dw) / 2;
+    const dy     = (COVER_H_PX - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    // Sample luminance from bottom-centre of front panel for text colour
+    const SAMP_X = FRONT_X_PX + FRONT_W_PX * 0.2;
+    const SAMP_Y = COVER_H_PX * 0.65;
+    const SAMP_W = FRONT_W_PX * 0.6;
+    const SAMP_H = COVER_H_PX * 0.28;
+    const sd     = ctx.getImageData(SAMP_X, SAMP_Y, SAMP_W, SAMP_H).data;
+    let lumSum = 0;
+    for (let i = 0; i < sd.length; i += 4)
+      lumSum += 0.299 * sd[i] + 0.587 * sd[i + 1] + 0.114 * sd[i + 2];
+    const lum       = lumSum / (sd.length / 4);
+    const isDark    = lum < 128;
+    const textColor = isDark ? '#f5f0e0' : '#1a0a00';
+    const shadowCol = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.55)';
+    console.log(`[cover-pdf] front lum=${lum.toFixed(0)} → ${isDark ? 'light text' : 'dark text'}`);
+
+    // Title — large, bottom-centre, RTL
+    const titleFsPx  = Math.round(COVER_H_PX * 0.075);
+    const subFsPx    = Math.round(COVER_H_PX * 0.038);
+    const ruleThick  = Math.round(COVER_H_PX * 0.003);
+    const marginPx   = Math.round(BLEED_MM * MM_TO_PX) + Math.round(8 * MM_TO_PX);
+    const textCentreX = FRONT_X_PX + FRONT_W_PX / 2;
+
+    ctx.textAlign   = 'center';
+    ctx.direction   = 'rtl';
+    ctx.shadowColor = shadowCol;
+    ctx.shadowBlur  = Math.round(COVER_H_PX * 0.012);
+
+    if (title) {
+      ctx.font      = `700 ${titleFsPx}px Arial Unicode MS, Arial, sans-serif`;
+      ctx.fillStyle = textColor;
+      const titleY  = COVER_H_PX * 0.80;
+      ctx.fillText(title, textCentreX, titleY);
+
+      // Gold rule below title
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#c8a84b';
+      ctx.lineWidth   = ruleThick;
+      const ruleW = FRONT_W_PX * 0.40;
+      const ruleY = titleY + titleFsPx * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(textCentreX - ruleW / 2, ruleY);
+      ctx.lineTo(textCentreX + ruleW / 2, ruleY);
+      ctx.stroke();
+      ctx.shadowBlur = Math.round(COVER_H_PX * 0.010);
+
+      if (subtitle) {
+        ctx.font      = `400 ${subFsPx}px Arial Unicode MS, Arial, sans-serif`;
+        ctx.fillStyle = isDark ? 'rgba(245,240,224,0.85)' : 'rgba(60,30,10,0.80)';
+        ctx.fillText(subtitle, textCentreX, ruleY + subFsPx * 1.5);
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // ── SPINE panel (middle) — solid colour, no text ─────────────────────────────
+  {
+    // Sample a dark average from the left edge of the cover image for a harmonious spine
+    const img = new Image();
+    img.src   = coverBuf;
+    const sampCanvas = createCanvas(10, 40);
+    const sCtx       = sampCanvas.getContext('2d');
+    sCtx.drawImage(img, 0, Math.floor(img.height * 0.3), 1, Math.floor(img.height * 0.4),
+                   0, 0, 10, 40);
+    const sData = sCtx.getImageData(0, 0, 10, 40).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < sData.length; i += 4) { r += sData[i]; g += sData[i+1]; b += sData[i+2]; n++; }
+    r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+    // Darken 20% for the spine — looks intentional, not accidental
+    r = Math.round(r * 0.80); g = Math.round(g * 0.80); b = Math.round(b * 0.80);
+    const spineLum = 0.299 * r + 0.587 * g + 0.114 * b;
+    // If spine colour is too garish (high saturation, mid-lum), fall back to dark cream
+    const spineColor = spineLum > 30 ? `rgb(${r},${g},${b})` : '#3a2a1a';
+    console.log(`[cover-pdf] spine colour: ${spineColor} (lum=${spineLum.toFixed(0)})`);
+
+    ctx.fillStyle = spineColor;
+    ctx.fillRect(BACK_W_PX, 0, SPINE_W_PX, COVER_H_PX);
+  }
+
+  // ── BACK panel (left side) — cream, double border, logo, text ───────────────
+  {
+    const BACK_TOTAL_PX = BACK_W_PX;
+    ctx.fillStyle = '#fdf8f0';
+    ctx.fillRect(0, 0, BACK_TOTAL_PX, COVER_H_PX);
+
+    const bleedPx = Math.round(BLEED_MM * MM_TO_PX);
+    const mm2px   = MM_TO_PX;
+
+    // Double gold border (inside bleed zone)
+    ctx.strokeStyle = '#c8a84b';
+    ctx.lineWidth   = Math.round(1.2 * mm2px);
+    const b1 = 10 * mm2px;
+    ctx.strokeRect(bleedPx + b1, b1, BACK_TOTAL_PX - bleedPx - b1 * 2, COVER_H_PX - b1 * 2);
+    ctx.lineWidth = Math.round(0.5 * mm2px);
+    const b2 = 14 * mm2px;
+    ctx.strokeRect(bleedPx + b2, b2, BACK_TOTAL_PX - bleedPx - b2 * 2, COVER_H_PX - b2 * 2);
+
+    // Logo — centred, upper third
+    if (logo) {
+      const logoW  = Math.round(BACK_TOTAL_PX * 0.32);
+      const logoH  = Math.round(logo.h * (logoW / logo.w));
+      const logoX  = (BACK_TOTAL_PX - logoW) / 2;
+      const logoY  = COVER_H_PX * 0.26 - logoH / 2;
+      const logoImg = new Image();
+      logoImg.src   = logo.buffer;
+      ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+
+      // Thin gold rule below logo
+      const ruleY = logoY + logoH + 8 * mm2px;
+      ctx.strokeStyle = '#c8a84b';
+      ctx.lineWidth   = Math.round(0.7 * mm2px);
+      ctx.beginPath();
+      ctx.moveTo(BACK_TOTAL_PX * 0.30, ruleY);
+      ctx.lineTo(BACK_TOTAL_PX * 0.70, ruleY);
+      ctx.stroke();
+    }
+
+    // "ספר זה נכתב במיוחד עבור [שם]" — Hebrew canvas text, centred
+    const centreX  = BACK_TOTAL_PX / 2;
+    ctx.textAlign  = 'center';
+    ctx.direction  = 'rtl';
+    ctx.shadowBlur = 0;
+
+    const dedicFsPx = Math.round(COVER_H_PX * 0.042);
+    ctx.font      = `400 ${dedicFsPx}px Arial Unicode MS, Arial, sans-serif`;
+    ctx.fillStyle = '#2c1a0e';
+    ctx.fillText(`ספר זה נכתב במיוחד עבור ${book.childName}`, centreX, COVER_H_PX * 0.50);
+
+    // lifebooksil.com — small, near bottom (top of barcode-free zone)
+    const domainFsPx = Math.round(COVER_H_PX * 0.026);
+    ctx.font      = `400 ${domainFsPx}px Arial Unicode MS, Arial, sans-serif`;
+    ctx.fillStyle = '#a08060';
+    ctx.fillText('lifebooksil.com', centreX, COVER_H_PX * 0.60);
+
+    // Bottom-left quarter left intentionally clear for barcode
+  }
+
+  // ── Save flat canvas as JPEG to debug ───────────────────────────────────────
+  const flatJpeg = canvas.toBuffer('image/jpeg', { quality: 0.90 });
+  saveDebug(debugDir, 'cover-flat.jpg', flatJpeg);
+
+  // ── Build single-page PDF ───────────────────────────────────────────────────
+  const outputPath = path.join(OUTPUT_DIR, `${bookId}-cover.pdf`);
+  const doc = new PDFDocument({
+    size:          [COVER_W_PT, COVER_H_PT],
+    margin:        0,
+    autoFirstPage: true,
+    info: {
+      Title:   `${title} — Cover`,
+      Author:  'Lifebook AI',
+      Creator: 'Lifebook print-pdf-generator cover',
+    },
+  });
+
+  const writeStream = fs.createWriteStream(outputPath);
+  doc.pipe(writeStream);
+  doc.image(flatJpeg, 0, 0, { width: COVER_W_PT, height: COVER_H_PT });
+  doc.end();
+  await new Promise((resolve, reject) => {
+    writeStream.on('finish', resolve);
+    writeStream.on('error',  reject);
+  });
+
+  const fileSizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(1);
+  const totalSec   = ((Date.now() - globalStart) / 1000).toFixed(1);
+  console.log(`[cover-pdf] ── DONE ── ${totalSec}s | ${COVER_W_MM.toFixed(1)}×${COVER_H_MM}mm | ${fileSizeMB}MB`);
+  console.log(`[cover-pdf] Output: ${outputPath}`);
+
+  return { outputPath, widthMM: COVER_W_MM, heightMM: COVER_H_MM, fileSizeMB: parseFloat(fileSizeMB), totalSeconds: parseFloat(totalSec) };
+}
+
+module.exports = { generatePrintPDF, generateCoverPDF };
