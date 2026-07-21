@@ -1,5 +1,17 @@
 # Lifebook AI — Project Context & Status
-*Last updated: June 25, 2026 (session 14 — design unification: Assistant font, logo rename, Hebrew emails, email cleanup)*
+*Last updated: July 14, 2026 (session 15 — reconciled with LIFEBOOK_SPEC.md; print-pdf track added; domain + payment status corrected)*
+
+## 📜 MANDATORY FIRST READ
+**Read `LIFEBOOK_SPEC.md` (repo root) in full before any work.** It is the binding working document: iron rules, product architecture (two creation paths × two delivery formats), the full Bookpod print-PDF spec, and the templates workstream. If this file and LIFEBOOK_SPEC.md ever conflict — LIFEBOOK_SPEC.md wins.
+
+## ⚠️ GOLDEN RULES
+- **Never modify working code without the owner's explicit approval** — and only after presenting all risks.
+- Every new feature: separate Git branch + restore tag. Merge to `main` only with owner approval.
+- Before writing code: report plan (files created/changed, risks, AI-call costs) and WAIT for approval.
+- Anything that costs money (AI calls, print orders) runs as a small cheap pilot first.
+- Always save intermediate artifacts to a debug folder.
+- Customer-facing book generation must finish in minutes — no Batch API, no long-running jobs in the customer path.
+- **Never `git add -A` / `git add .` in this project.** Always stage commits with an explicit file list, so live-flow files, deleted assets, or debug artifacts can never be swept into a commit by accident.
 
 ## ⚠️ DO NOT MODIFY — ALREADY DONE
 - `public/assets/branding/lifebook-logo.webp` — main logo (renamed from "lifebook new logo .webp")
@@ -9,11 +21,10 @@
 - `server.js` two-email system — `sendPaymentConfirmationEmail` + `sendBookReadyEmail` — DO NOT TOUCH
 - `server.js` `updateBookField()` — NO `.select()` — safe for large images — DO NOT CHANGE
 - `server.js` `insertBook()` — NO `.select()` — safe for large photos — DO NOT CHANGE
-- `public/preview.html` — step tracker loading screen, all English, DO NOT REVERT
+- `public/preview.html` — step tracker loading screen — DO NOT REVERT
 - `server.js` `uploadImageToStorage()` — uploads to Supabase Storage bucket "book-images" — DO NOT CHANGE
-- `server.js` LemonSqueezy webhook middleware — `express.raw()` runs BEFORE `express.json()` is explicitly skipped for `/webhooks/` — DO NOT REORDER
+- `server.js` webhook middleware — `express.raw()` runs BEFORE; `express.json()` explicitly skips `/webhooks/` — DO NOT REORDER
 - **Font**: Assistant (Google Fonts, wght 300–800) everywhere. Playfair Display and Lato removed from all HTML/CSS.
-- **Logo**: `public/assets/branding/lifebook-logo.webp` (renamed from "lifebook new logo .webp"). All HTML files updated.
 - **Sender email**: `lifebooks@lifebooksil.com` — used in server.js Resend calls and all public/ HTML files.
 - **Email templates**: `sendPaymentConfirmationEmail` + `sendBookReadyEmail` — both in Hebrew, `dir="rtl"`, Assistant font, logo from `https://lifebooksil.com/assets/branding/lifebook-logo.webp`.
 - **RTL rule**: `dir="rtl"` on `<html>` in email templates only. In HTML pages: `dir="rtl"` on content elements (`<section>`, `<main>`, cards) — NEVER on html/body/header.
@@ -35,25 +46,30 @@ await updateBook(bookId, { generatedBook });
 ---
 
 ## Project
-AI personalized children's storybook. Internal tool — no payment wall. Wizard → photo → crop → AI generates → preview → PDF downloads directly from delivery.html.
+AI personalized children's storybook — a live commercial product. Customer flow: wizard → photo → crop → AI generates in background → preview (2 images + pay button) → Shopify checkout → post-payment unlock → email with book link → digital PDF download.
+
+**Two creation paths** (see LIFEBOOK_SPEC.md §2):
+1. **Wizard** — fully custom book generated from the customer's photo and details.
+2. **Admin templates** — customer orders a template product in the Shopify store and uploads photos via the in-store app; the owner generates the book in the admin.
+
+**Two delivery formats**: digital PDF (existing) and printed book via Bookpod (in development on `feature/print-pdf`). Any book from any path can ship in either format — the print module works at the bookId level. A customer who buys a printed book ALSO receives the same print file as a digital download (identical file, identical dimensions).
 
 ## URLs
-- Live: https://lifebooks.online
+- Live site: https://lifebooksil.com · App subdomain: https://app.lifebooksil.com
 - Railway: https://romantic-patience-production.up.railway.app
-- GitHub: lily2204-ctrl/lifebook-ai (connected to Railway auto-deploy)
+- GitHub: lily2204-ctrl/lifebook-ai-new (connected to Railway auto-deploy)
+- (Legacy domain lifebooks.online — no longer primary; do not use in new code)
 
 ## Stack
-Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image-1 · Resend (email) · Railway
+Node.js/Express · Supabase Pro (DB + Storage) · OpenAI gpt-4o-mini + gpt-image-1 · Resend (email) · Railway · Shopify (checkout + store) · Replicate Real-ESRGAN (print upscaling, print track only)
 
 ---
 
 ## Payment Status — Shopify Active
-- **Shopify** is the active payment provider. Webhook: `orders/paid` at `POST /webhooks/shopify` — verified working.
-- Stripe: completely removed from server.js, package.json, and all HTML
-- LemonSqueezy: webhook still in server.js (`POST /webhooks/lemonsqueezy`) for legacy orders — UI no longer points to it
-- Gumroad: webhook still in server.js (`POST /webhooks/gumroad`) for legacy Gumroad sales — UI no longer points to it
-- checkout.html: uses Shopify checkout button — manual contact block removed
-- preview.html button: goes to checkout.html
+- **Shopify is the active payment provider.** Checkout via cart permalink; webhook `orders/paid` at `POST /webhooks/shopify` — verified working. Post-payment: book unlock + email delivery.
+- Stripe: completely removed from server.js, package.json, and all HTML.
+- LemonSqueezy: webhook still in server.js (`POST /webhooks/lemonsqueezy`) for legacy orders only — UI no longer points to it.
+- Gumroad: webhook still in server.js (`POST /webhooks/gumroad`) for legacy sales only — UI no longer points to it.
 - Contact email everywhere: `lifebooks@lifebooksil.com`
 
 ## Railway Env Vars
@@ -62,23 +78,18 @@ OPENAI_API_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY
-APP_URL=https://lifebooks.online
+APP_URL
 ADMIN_EMAIL=lifebooks@lifebooksil.com
-LEMONSQUEEZY_API_KEY
-LEMONSQUEEZY_WEBHOOK_SECRET
-LEMONSQUEEZY_STORE_ID=347433
-LEMONSQUEEZY_VARIANT_ID
+REPLICATE_API_TOKEN          ← print-pdf track (upscaling)
+LEMONSQUEEZY_API_KEY         ← legacy only
+LEMONSQUEEZY_WEBHOOK_SECRET  ← legacy only
+LEMONSQUEEZY_STORE_ID=347433 ← legacy only
+LEMONSQUEEZY_VARIANT_ID      ← legacy only
 ```
-Note: must be SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_ANON_KEY).
-Note: SUPABASE_SERVICE_ROLE_KEY is required to write to Supabase Storage (anon key has no write permission).
+Note: must be SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_ANON_KEY) — anon key has no Storage write permission.
+Planned: BOOKPOD_API_TOKEN (env var only — never in code or repo).
 
 ---
-
-## User Flow (Internal Tool)
-```
-wizard.html → crop.html → preview.html → [Download PDF button] → delivery.html → PDF download
-```
-checkout.html still exists but is now just a contact page (not part of main flow).
 
 ## generate-full Pipeline
 ```
@@ -88,27 +99,40 @@ STEP 3+4a: Cover + pages 0,1 IN PARALLEL → updateBookField each individually (
 STEP 4b: Remaining pages batches of 5, each saved immediately with updateBookField
 STEP 5: sendBookReadyEmail ONLY if purchaseUnlocked === true
 ```
-Each step logs elapsed time in Railway logs: `+Xs` format.
-Language detection logs: `language=Hebrew` or `language=English` at generation start.
+- Each step logs elapsed time in Railway logs: `+Xs` format.
+- Language detection logs: `language=Hebrew` or `language=English` at generation start.
+- Warm-up: story generation begins on crop page load to reduce perceived wait.
 
----
+## Print PDF Track — branch `feature/print-pdf`
+**Full spec: LIFEBOOK_SPEC.md §3. Zero impact on the digital pipeline — all print code in separate module files.**
+- Supplier: Bookpod (bookpod.co.il), print-on-demand, API + pre-paid credits.
+- Content file: single pages in sequence, trim 22×22 cm, bleed exactly 3.2 mm (page 22.64×22.64), 300DPI, flat file, no page numbers, no digital-viewer elements. 28 pages exactly (divisible by 4). Hebrew binding: first page on the LEFT when opened.
+- Spread = "Option A": illustration page (original image expanded to 1:1 via outpainting — NEVER cropped, never lose heads/details) + text page (background-continuation outpaint under Hebrew RTL text).
+- Upscaling via Replicate Real-ESRGAN before assembly. Images embedded as JPEG q85–90; target file < 80MB.
+- Intermediates saved to `print-pdf/debug/`. Output in `print-pdf/output/`.
+- Cover: SEPARATE flat file (back + spine + front) — NOT implemented yet; waiting on Bookpod paper spec. TODO stub only.
+- Endpoint: `POST /api/books/:id/print-pdf` (admin-token protected, owner-only).
+- Pilot protocol: 2 spreads first → owner approval → full run → Bookpod preview system check → physical proof copy before first sale.
+- Status (14.7): pipeline runs end-to-end (~$0.66/book) but first pilot FAILED the design spec (digital-viewer layout, no outpaint assembly, page numbers, cropped heads, 343MB). Fix per spec before anything else.
 
 ## Hebrew Support
 - Story generation: if childName OR storyIdea contains Hebrew characters → story generated in Hebrew
 - imagePrompts: ALWAYS in English (regardless of story language) for image generation
 - title/subtitle/page text: in Hebrew when Hebrew book
+- Full site i18n system for customer-facing pages (Hebrew primary)
 - PDF Hebrew: rendered via Canvas 2D API (`renderHebrewCanvas()`) → PNG embedded in jsPDF. No TTF font loading. Browser uses native Heebo from Google Fonts in `<head>`. Eliminates all encoding/gibberish issues.
 - PDF filename: Hebrew names stripped gracefully; falls back to `{bookId.substring(0,8)}_lifebook.pdf`
 
-## Page Layout — Viewer + PDF
-All story pages (both viewer in delivery.html/reader.html AND PDF) use a unified split layout:
-- **Left half**: solid colored background + text centered vertically, direction:rtl for Hebrew, Playfair Display font, page number subtle at bottom
+## Page Layout — Viewer + Digital PDF
+All story pages (both viewer in delivery.html/reader.html AND digital PDF) use a unified split layout:
+- **Left half**: solid colored background + text centered vertically, direction:rtl for Hebrew, page number subtle at bottom
 - **Right half**: illustration image, object-fit:cover, full bleed, no padding/margin/white border
 - **Color palette** rotates per page based on child gender:
   - בן (boy): `#E8F4FD, #E8F8F5, #EAF2FF, #FFF8E7, #F0F4FF` — text `#1a5276`
   - בת (girl): `#FDE8F4, #F3E8FF, #FFF0E8, #E8FDF5, #FFFDE8` — text `#7b1a5a`
 - gender detection: `childGender` field, matches boy/male/זכר/בן vs default girl palette
 - Cover + back cover keep existing dark/gold design unchanged
+- (Print PDF layout is DIFFERENT — see Print PDF Track above; never mix the two.)
 
 ---
 
@@ -118,7 +142,7 @@ All images are stored in **Supabase Storage** bucket `book-images`, NOT as base6
 - Bucket: `book-images` (must be PUBLIC — create in Supabase dashboard if not exists)
 - Path structure: `{bookId}/cover.jpg`, `{bookId}/page-0.jpg`, `{bookId}/page-1.jpg` ... `{bookId}/page-11.jpg`
 - User photos: `{bookId}/cropped-photo.jpg`, `{bookId}/original-photo.jpg`
-- DB columns (`cover_image`, `full_images`, `cropped_photo`, `original_photo`) now store **public URLs**, not base64
+- DB columns (`cover_image`, `full_images`, `cropped_photo`, `original_photo`) store **public URLs**, not base64
 - Old books (pre-migration) may still have base64 in those columns — backward compat maintained
 
 ```javascript
@@ -149,8 +173,10 @@ async function uploadImageToStorage(bookId, imageName, base64data) {
 | `/api/books/:id/unlock` | POST | Manual unlock (dev only) |
 | `/api/books/:id/resend-email` | POST | Resend book ready link |
 | `/api/books/:id/update-photo` | POST | Update cropped photo — uploads to Storage |
-| `/webhooks/lemonsqueezy` | POST | Verify sig (raw body HMAC) → unlock book → send emails |
-| `/webhooks/gumroad` | POST | Form-urlencoded; bookId from `referrer` field → unlock → send emails |
+| `/api/books/:id/print-pdf` | POST | Print PDF generation (admin token) — `feature/print-pdf` branch |
+| `/webhooks/shopify` | POST | orders/paid → unlock book → send emails (ACTIVE) |
+| `/webhooks/lemonsqueezy` | POST | Legacy — verify sig (raw body HMAC) → unlock → emails |
+| `/webhooks/gumroad` | POST | Legacy — form-urlencoded; bookId from `referrer` field |
 | `/api/contact` | POST | Contact form |
 
 ---
@@ -161,17 +187,15 @@ async function uploadImageToStorage(bookId, imageName, base64data) {
 - Page prompt must include same rule + "NO captions, labels, speech bubbles"
 - Character prompts end with: "This is the SAME child that must appear identically in every illustration"
 - `buildCharacterPromptCore()` has LOCKED CHILD CHARACTER header + 6-rule CONSISTENCY RULES block
+- **Character consistency is the product's supreme principle — never compromise it.**
 
 ---
 
 ## ⚠️ INFRASTRUCTURE — Requires Manual Action
 These cannot be fixed in code — need dashboard access:
-1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume". Supabase pauses free-tier projects after inactivity.
-2. **Supabase Storage bucket** — must create `book-images` bucket manually:
-   - Go to Supabase dashboard → Storage → New bucket
-   - Name: `book-images`
-   - Set to **Public** (so image URLs work without auth tokens)
-3. **Railway DNS** — if lifebooks.online is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active.
+1. **Supabase paused** — if the DB returns 522/connection timeout, go to supabase.com → project → click "Resume".
+2. **Supabase Storage bucket** — `book-images` bucket must exist and be **Public**.
+3. **Railway DNS** — if lifebooksil.com / app.lifebooksil.com is unreachable, go to Railway → Settings → Domains and verify the custom domain mapping is active.
 
 ## Known Bugs — Open
 *(none currently — all known bugs fixed)*
@@ -180,20 +204,21 @@ These cannot be fixed in code — need dashboard access:
 
 ## File Structure
 ```
-server.js · CLAUDE.md · package.json
+server.js · CLAUDE.md · LIFEBOOK_SPEC.md · package.json
+print-pdf/            ← print track module (feature/print-pdf branch): code, debug/, output/
 public/
   index.html       ← landing page, "12-page storybook"
   wizard.html/js   ← child name, age, gender, story idea, photo upload
   crop.html/js     ← circle crop, zoom, → fires generate-full, → preview.html
-  preview.html     ← step tracker loading screen; "⬇ Download PDF" → delivery.html
-  checkout.html/js ← contact form (email + WhatsApp); NOT in main flow
+  preview.html     ← step tracker loading screen → checkout
+  checkout.html/js ← Shopify checkout
   delivery.html    ← book viewer + PDF download (jsPDF + Heebo for Hebrew)
   reader.html/js   ← full page-flip reader
   open-book.js     ← legacy; if bookId → redirect delivery.html
   contact.html     ← contact form
-  terms.html       ← Refund + Privacy + General Terms (onlinelifebooks@gmail.com)
+  terms.html       ← Refund + Privacy + General Terms
   404.html · accessibility.js · styles.css
-  js/state.js · assets/branding/logo.svg
+  js/state.js · assets/branding/
 ```
 
 ---
@@ -247,12 +272,12 @@ public/
 46. ✅ terms.html created: Refund + Privacy + General Terms — matches design system
 47. ✅ index.html footer: added "Terms & Privacy" link to terms.html
 48. ✅ book-ready email never sent — BUG FIX 1: webhook allDone threshold now allows up to 2 image failures (pages.length - 2, min 1)
-49. ✅ book-ready email never sent — BUG FIX 2: webhook now extracts payload.data.attributes.user_email from LemonSqueezy and saves to customerEmail
+49. ✅ book-ready email never sent — BUG FIX 2: webhook now extracts payer email from webhook payload and saves to customerEmail
 50. ✅ preview.html cover image never shown (mobile Safari): fixed `!coverImage.src` (returns page URL when no src) → `coverImage.getAttribute('src') !== b.coverImage`
 51. ✅ preview.html payBtn never enabled: was requiring hasCover && has2Imgs; fixed to enable on hasCover alone
 52. ✅ delivery.html PDF redesign: professional layout, Layout A (odd) + Layout B (even) + cover + back cover; loadB64 canvas helper for Storage URLs
-53. ✅ Payment flow removed: site is now internal tool — preview.html button "⬇ Download PDF" → delivery.html directly; checkout.html replaced with contact form
-54. ✅ Email changed: books@lifebooks.online → onlinelifebooks@gmail.com everywhere (server.js, checkout.html, terms.html, contact.html)
+53. ✅ Shopify integrated as active payment provider: checkout via cart permalink, orders/paid webhook, post-payment unlock + email
+54. ✅ Email unified: lifebooks@lifebooksil.com everywhere (server.js, checkout.html, terms.html, contact.html)
 55. ✅ Gumroad webhook added: POST /webhooks/gumroad — form-urlencoded, bookId from referrer field, unlocks book + sends emails
 56. ✅ Hebrew PDF fix: delivery.html Heebo font changed from variable font (Heebo[wght].ttf) to static (static/Heebo-Regular.ttf) — jsPDF cannot parse variable fonts, causing Hebrew to render as boxes
 57. ✅ Hebrew detection improved: server.js generate-full now checks childName OR storyIdea for Hebrew characters (previously only childName)
@@ -260,3 +285,4 @@ public/
 59. ✅ Timing logs added: generate-full logs elapsed time at each step (+Xs format) and language=Hebrew/English at start
 60. ✅ preview.html totalPages fallback: was 16 → fixed to 12 (correct page count)
 61. ✅ open-book.js: removed broken /api/order/:orderId call (Stripe legacy, endpoint never existed); now redirects directly to delivery.html; removed unused orderId param handling
+62. ✅ Illustration style selection: DOM class bug caused style to always default to "Soft Storybook" — fixed; 4 style bugs total including character consistency regression
